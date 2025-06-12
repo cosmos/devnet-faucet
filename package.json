@@ -1,0 +1,55 @@
+{
+  "name": "faucet",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Faucet for Cosmos-SDK blockchains",
+  "main": "faucet.js",
+  "scripts": {
+    "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ping-pub/faucet.git"
+  },
+  "keywords": [
+    "Faucet",
+    "Cosmos",
+    "SDK",
+    "blockchain"
+  ],
+  "author": "Ping",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ping-pub/faucet/issues"
+  },
+  "homepage": "https://github.com/ping-pub/faucet#readme",
+  "dependencies": {
+    "@cosmjs/crypto": "^0.31",
+    "@cosmjs/encoding": "0.31.0",
+    "@cosmjs/proto-signing": "^0.31",
+    "@cosmjs/stargate": "^0.31",
+    "@ethersproject/wallet": "^5.7.0",
+    "@hanchon/evmos-ts-wallet": "^0.2.0",
+    "@tharsis/transactions": "^0.2.6",
+    "axios": "^1.6.0",
+    "bech32": "^2.0.0",
+    "ejs": "^3.1.9",
+    "ethers": "^6.8.0",
+    "evmosjs": "0.3.3",
+    "express": "^4.18.2",
+    "level": "^8.0.0",
+    "node-fetch": "^3.3.2",
+    "nodemodule": "^0.3.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
+    "@nomicfoundation/hardhat-ethers": "^3.0.9",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "chai": "^4.5.0",
+    "hardhat": "^2.24.2",
+    "hardhat-gas-reporter": "^1.0.10",
+    "solidity-coverage": "^0.8.16",
+    "typechain": "^8.3.2"
+  }
+}
