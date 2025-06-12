@@ -1,4 +1,3 @@
-
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 // import { ethers } from 'ethers'
@@ -19,144 +18,95 @@ console.log(mnemonic)
 console.log("==================================================================")
 
 export default {
-    port: 8088, // http port 
+    port: 8088, // http port
     db: {
-        path: `${HOME}/history.db` // save request states 
+        path: `${HOME}/history.db` // save request states
     },
     project: {
-        name: "Demo of Side Exchange",
-        logo: "https://side.one/favicon.ico",
-        deployer: `<a href="https://demo.side.exchange">Side Exchange</a>`
+        name: "Cosmos EVM Dual Environment Faucet",
+        logo: "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg",
+        deployer: `<a href="https://cosmos.network">Cosmos Network</a>`
     },
-    blockchains: [
-        {
-            name: "rigi-kent",
-            endpoint: {
-                // make sure that CORS is enabled in rpc section in config.toml
-                // cors_allowed_origins = ["*"]
-                rpc_endpoint: " https://testnet-rpc.side.one",
-            },
-            sender: {
-                mnemonic,
-                option: {
-                    hdPaths: [stringToPath("m/44'/118'/0'/0/0")],
-                    prefix: "side" // human readable address prefix
+    // Single chain with dual environments (Cosmos + EVM)
+    blockchain: {
+        name: "cosmos-evm-chain",
+        type: "DualEnvironment", // New type for dual environment support
+        ids: {
+            chainId: 262144, // EVM chain ID (0x40000)
+            cosmosChainId: 'cosmos_262144-1', // Cosmos chain ID
+        },
+        endpoints: {
+            // Cosmos environment
+            rpc_endpoint: "https://cevm-01-rpc.dev.skip.build",
+            grpc_endpoint: "https://cevm-01-grpc.dev.skip.build",
+            rest_endpoint: "https://cevm-01-lcd.dev.skip.build",
+            // EVM environment
+            evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
+            evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
+        },
+        sender: {
+            mnemonic,
+            // Using eth_secp256k1 derivation path for both environments
+            option: {
+                hdPaths: [stringToPath("m/44'/60'/0'/0/0")], // Ethereum derivation path
+                prefix: "cosmos" // Cosmos address prefix - updated to use cosmos prefix
+            }
+        },
+        tx: {
+            // Multi-token amounts - target balance of 1000 tokens each
+            amounts: [
+                {
+                    denom: "aatom", // Native cosmos denom (registered via erc20 module)
+                    amount: "1000000000", // 1000 tokens (6 decimals)
+                    erc20_contract: "0x0000000000000000000000000000000000000000", // Native token - no contract
+                    decimals: 6,
+                    target_balance: "1000000000" // 1000 tokens target
+                },
+                {
+                    denom: "wbtc", // Wrapped Bitcoin
+                    amount: "100000000000", // 1000 WBTC (8 decimals)
+                    erc20_contract: "0x0312040979E0d6333F537A39b23a5DD6F574dBd8", // Deployed WBTC contract
+                    decimals: 8,
+                    target_balance: "100000000000" // 1000 tokens target
+                },
+                {
+                    denom: "pepe", // Pepe Token
+                    amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
+                    erc20_contract: "0xE43bdb38aF42C9D61a258ED1c0DE28c82f00BA61", // Deployed PEPE contract
+                    decimals: 18,
+                    target_balance: "1000000000000000000000" // 1000 tokens target
+                },
+                {
+                    denom: "usdt", // Tether USD
+                    amount: "1000000000", // 1000 USDT (6 decimals)
+                    erc20_contract: "0x6ba2828b31Dff02B1424B1321B580C7F9D0FbC61", // Deployed USDT contract
+                    decimals: 6,
+                    target_balance: "1000000000" // 1000 tokens target
                 }
-            },
-            tx: {
-                amount: [
-                    {
-                        denom: "ukent",
-                        amount: "1000000000"
-                    },
-                    {
-                        denom: "uatom",
-                        amount: "10000000000"
-                    },
-                ],
-                fee: {
+            ],
+            fee: {
+                // Cosmos fee
+                cosmos: {
                     amount: [
                         {
                             amount: "5000",
-                            denom: "ukent"
+                            denom: "aatom" // Use native token for fees
                         }
                     ],
                     gas: "200000"
                 },
-            },
-            limit: {
-                // how many times each wallet address is allowed in a window(24h)
-                address: 1, 
-                // how many times each ip is allowed in a window(24h),
-                // if you use proxy, double check if the req.ip is return client's ip.
-                ip: 10 
-            }
-        },
-        {
-            type: 'Ethermint',
-            ids: {
-                chainId: 1818,
-                cosmosChainId: 'sidechain_1818-1',
-            },
-            name: "Proxima",
-            endpoint: {
-                // make sure that CORS is enabled in rpc section in config.toml
-                // cors_allowed_origins = ["*"]
-                rpc_endpoint: "https://proxima-rpc.side.exchange",
-                evm_endpoint: "http://13.229.237.39:8545/",
-            },
-            sender: {
-                mnemonic,
-                option: {
-                    hdPaths: [stringToPath("m/44'/60")],
-                    prefix: "prox"
+                // EVM fee (gas settings)
+                evm: {
+                    gasLimit: "100000",
+                    gasPrice: "20000000000" // 20 gwei
                 }
             },
-            tx: {
-                amount: {
-                    denom: "aprox",
-                    amount: "5000000000000000000"
-                },
-                fee: {
-                    amount: [
-                        {
-                            amount: "100000",
-                            denom: "aprox"
-                        }
-                    ],
-                    gas: "10000000000000"
-                },
-            },
-            limit: {
-                // how many times each wallet address is allowed in a window(24h)
-                address: 1, 
-                // how many times each ip is allowed in a window(24h),
-                // if you use proxy, double check if the req.ip is return client's ip.
-                ip: 10 
-            }
         },
-        {
-            type: 'Ethermint',
-            ids: {
-                chainId: 1819,
-                cosmosChainId: 'sidechain_1819-1',
-            },
-            name: "Toliman",
-            endpoint: {
-                // make sure that CORS is enabled in rpc section in config.toml
-                // cors_allowed_origins = ["*"]
-                rpc_endpoint: "https://toliman-rpc.side.exchange",
-                evm_endpoint: "http://52.77.209.10:8545/",
-            },
-            sender: {
-                mnemonic,
-                option: {
-                    hdPaths: [stringToPath("m/44'/60/0'/0/0")],
-                    prefix: "toli"
-                }
-            },
-            tx: {
-                amount: {
-                    denom: "atoli",
-                    amount: "5000000000000000000"
-                },
-                fee: {
-                    amount: [
-                        {
-                            amount: "100000",
-                            denom: "atoli"
-                        }
-                    ],
-                    gas: "10000000000000"
-                },
-            },
-            limit: {
-                // how many times each wallet address is allowed in a window(24h)
-                address: 1, 
-                // how many times each ip is allowed in a window(24h),
-                // if you use proxy, double check if the req.ip is return client's ip.
-                ip: 10 
-            }
-        },
-    ]    
+        limit: {
+            // how many times each wallet address is allowed in a window(24h)
+            address: 1,
+            // how many times each ip is allowed in a window(24h)
+            ip: 10
+        }
+    }
 }

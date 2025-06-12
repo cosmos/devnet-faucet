@@ -1,6 +1,6 @@
 import { Level } from "level";
 
-const WINDOW = 86400 * 1000 // milliseconds in a day
+const WINDOW = 43200 * 1000 // milliseconds in 12 hours (12 * 60 * 60 * 1000)
 // const WINDOW = 20 * 1000 // 20s for test
 
 export class FrequencyChecker {
@@ -25,12 +25,14 @@ export class FrequencyChecker {
     }
 
     async checkIp(ip, chain) {
-        const chainLimit = this.conf.blockchains.find(x => x.name === chain)
+        // For dual environment, use the single blockchain config
+        const chainLimit = this.conf.blockchain
         return chainLimit ? this.check(ip, chainLimit.limit.ip ) : Promise.resolve(false)
     }
 
     async checkAddress(address, chain) {
-        const chainLimit = this.conf.blockchains.find(x => x.name === chain)
+        // For dual environment, use the single blockchain config
+        const chainLimit = this.conf.blockchain
         return chainLimit ? this.check(address, chainLimit.limit.address ) : Promise.resolve(false)
     }
 
