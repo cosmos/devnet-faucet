@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Foundry-Integrated Token Deployment Script for Cosmos EVM
+ * Foundry Based Token Deployment for Cosmos EVM
  *
- * This script uses Foundry's compiled artifacts to deploy actual contracts
- * with comprehensive reporting and logging.
+ * Uses Foundry's compiled artifacts to deploy contracts
+ * Detailed logging and report generation
  */
 
 import { ethers } from 'ethers';

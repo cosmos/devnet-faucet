@@ -1,20 +1,106 @@
 import express from 'express';
-import * as path from 'path'
 import fetch from 'node-fetch';
 
-import { Wallet } from '@ethersproject/wallet'
-import { pathToString } from '@cosmjs/crypto';
-
 import { ethers } from 'ethers'
+import { Wallet, HDNodeWallet, JsonRpcProvider, Contract, parseUnits, keccak256, getBytes } from 'ethers'
 import { bech32 } from 'bech32';
 
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
 import { SigningStargateClient } from "@cosmjs/stargate";
-import { sha256 } from '@cosmjs/crypto';
-import { fromHex, toHex } from '@cosmjs/encoding';
+import { sha256, Secp256k1, Secp256k1Signature, pathToString } from '@cosmjs/crypto';
+import { fromHex, toHex, toBase64, fromBase64 } from '@cosmjs/encoding';
+import { signEthSecp256k1 } from "@hanchon/evmos-signer";
+import { encodeSecp256k1Pubkey } from "@cosmjs/amino";
+
+// Noble crypto imports for proper key derivation
+import { sha256 as nobleSha256 } from '@noble/hashes/sha256';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+import { keccak_256 } from '@noble/hashes/sha3';
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
+import { BIP32Factory } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
 
 import conf from './config.js'
 import { FrequencyChecker } from './checker.js';
+
+// Initialize BIP32 with ECC
+const bip32 = BIP32Factory(ecc);
+
+// Key type enum
+const KeyType = {
+    CANONICAL: 'canonical',
+    ETH_SECP256K1: 'eth_secp256k1',
+    SECP256K1: 'secp256k1'
+};
+
+// Convert bits for Bech32 encoding
+function convertBits(data, fromBits, toBits, pad) {
+    let acc = 0;
+    let bits = 0;
+    const result = [];
+    const maxv = (1 << toBits) - 1;
+    for (const value of data) {
+        acc = (acc << fromBits) | value;
+        bits += fromBits;
+        while (bits >= toBits) {
+            bits -= toBits;
+            result.push((acc >> bits) & maxv);
+        }
+    }
+    if (pad) {
+        if (bits > 0) {
+            result.push((acc << (toBits - bits)) & maxv);
+        }
+    } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
+        throw new Error('Unable to convert bits');
+    }
+    return result;
+}
+
+// Generate private key from mnemonic using BIP44 derivation path
+function getPrivateKeyFromMnemonic(mnemonic, derivationPath) {
+    if (!validateMnemonic(mnemonic)) {
+        throw new Error(`Invalid mnemonic: ${mnemonic}`);
+    }
+
+    const seed = mnemonicToSeedSync(mnemonic);
+    const hdwallet = bip32.fromSeed(seed);
+    const derivedNode = hdwallet.derivePath(derivationPath);
+    const privateKey = derivedNode.privateKey;
+
+    if (!privateKey) {
+        throw new Error('Unable to derive private key from mnemonic and path.');
+    }
+
+    return privateKey;
+}
+
+// Generate addresses from private key using ETH_SECP256K1 method
+function generateEthSecp256k1AddressesFromPrivateKey(privateKeyHex, prefix) {
+    const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
+    if (privateKey.length !== 32) {
+        throw new Error('Private key must be 32 bytes long.');
+    }
+
+    const publicKey = secp256k1.getPublicKey(privateKey, true); // compressed public key
+    const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false).slice(1); // remove 0x04 prefix
+
+    // For ETH_SECP256K1: Skip RIPEMD160 for cosmos address, use keccak hash converted to bech32
+    const keccakHash = keccak_256(publicKeyUncompressed);
+    const addressBytes = keccakHash.slice(-20);
+    const fiveBitArray = convertBits(addressBytes, 8, 5, true);
+    const cosmosAddress = bech32.encode(prefix, fiveBitArray, 256);
+
+    const ethAddress = `0x${Buffer.from(addressBytes).toString('hex')}`;
+
+    return {
+        cosmosAddress,
+        ethAddress,
+        publicKey: Buffer.from(publicKey).toString('hex'),
+        privateKey: Buffer.from(privateKey).toString('hex')
+    };
+}
 
 // Address type detection utilities
 function isHexAddress(address) {
@@ -39,42 +125,199 @@ function detectAddressType(address) {
   return 'unknown';
 }
 
-// Generate Cosmos address from Ethereum address (direct conversion for EVM-compatible chains)
-function ethPublicKeyToCosmosAddress(ethWallet, prefix) {
-  // Get the EVM address (already keccak256 hash of pubkey, first 20 bytes)
-  const evmAddress = ethWallet.address;
+/**
+ * Convert hex address to bech32 address (ETH-compatible - no ripemd160)
+ */
+function hexToBech32(hexAddress, prefix) {
+  // Remove 0x prefix if present
+  const hex = hexAddress.replace('0x', '');
 
-  // Remove the '0x' prefix and convert to bytes
-  const addressBytes = fromHex(evmAddress.slice(2));
+  // Convert hex string to bytes
+  const addressBytes = fromHex(hex);
 
-  // Encode with bech32 directly (no additional hashing needed)
+  // Direct conversion without ripemd160 hashing (ETH-compatible)
   const cosmosAddress = bech32.encode(prefix, bech32.toWords(addressBytes));
 
   return cosmosAddress;
 }
 
-// Create a custom DirectSecp256k1HdWallet that uses ETH-style address derivation
-async function createEthCompatibleCosmosWallet(mnemonic, options) {
-  // Create the standard wallet to get the private key and signing functionality
-  const standardWallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, options);
-  const accounts = await standardWallet.getAccounts();
+/**
+ * Convert bech32 address to hex address
+ */
+function bech32ToHex(bech32Address) {
+  const decoded = bech32.decode(bech32Address);
+  const addressBytes = bech32.fromWords(decoded.words);
+  return '0x' + toHex(addressBytes);
+}
 
-  // Create an Ethereum wallet from the same mnemonic to get the correct address
-  const evmWallet = Wallet.fromMnemonic(mnemonic, pathToString(options.hdPaths[0]));
-  const correctCosmosAddress = ethPublicKeyToCosmosAddress(evmWallet, options.prefix);
+/**
+ * Convert EVM address to Cosmos address using ETH_SECP256K1 derivation
+ * This is for display purposes - the actual derivation should use the proper method
+ */
+function evmToCosmosAddress(evmWallet, prefix) {
+    // Get the private key and derive addresses properly
+    const privateKeyHex = evmWallet.privateKey.slice(2); // Remove 0x prefix
+    const { cosmosAddress } = generateEthSecp256k1AddressesFromPrivateKey(privateKeyHex, prefix);
+    return cosmosAddress;
+}
 
-  // Override the getAccounts method to return the correct address
-  const originalGetAccounts = standardWallet.getAccounts.bind(standardWallet);
-  standardWallet.getAccounts = async () => {
-    const originalAccounts = await originalGetAccounts();
-    return [{
-      ...originalAccounts[0],
-      address: correctCosmosAddress
-    }];
+// Helper function to encode eth_secp256k1 pubkey (similar to Archmage's encodeEthSecp256k1Pubkey)
+function encodeEthSecp256k1Pubkey(pubkey) {
+  return {
+    type: "ethermint/PubKeyEthSecp256k1",
+    value: toBase64(pubkey)
+  };
+}
+
+// Helper function to create the correct pubkey Any for eth_secp256k1 chains
+function makePubkeyAnyForEthSecp256k1(pubkey, chainId) {
+  // For cosmos-evm chains, use the ethermint type
+  const typeUrl = "/ethermint.crypto.v1.ethsecp256k1.PubKey";
+
+  // Create the protobuf structure
+  const pubkeyProto = {
+    key: pubkey
   };
 
-  return standardWallet;
+  return {
+    typeUrl,
+    value: pubkeyProto
+  };
 }
+
+/**
+ * Create ETH-compatible cosmos wallet for eth_secp256k1 chains
+ */
+async function createEthCompatibleCosmosWallet(mnemonic, options) {
+    console.log('\n=== WALLET CREATION DEBUG ===');
+    console.log('Mnemonic:', mnemonic);
+
+    // Derive private key from mnemonic using the specified HD path
+    const derivationPath = pathToString(options.hdPaths[0]);
+    console.log('Derivation path:', derivationPath);
+
+    const privateKeyBytes = getPrivateKeyFromMnemonic(mnemonic, derivationPath);
+    const privateKeyHex = Buffer.from(privateKeyBytes).toString('hex');
+    console.log('Private key (hex):', privateKeyHex);
+
+    // Generate addresses using ETH_SECP256K1 method
+    const { cosmosAddress, ethAddress, publicKey } = generateEthSecp256k1AddressesFromPrivateKey(
+        privateKeyHex,
+        options.prefix
+    );
+
+    console.log('\n--- ETH_SECP256K1 Derivation Results ---');
+    console.log('Cosmos address:', cosmosAddress);
+    console.log('EVM address:', ethAddress);
+    console.log('Public key (compressed hex):', publicKey);
+
+    // Get the compressed public key bytes
+    const publicKeyBytes = Buffer.from(publicKey, 'hex');
+    console.log('Public key length:', publicKeyBytes.length, 'bytes');
+
+    console.log('\n--- Address Derivation Details ---');
+    // Show step-by-step address derivation for ETH_SECP256K1
+    const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
+    const publicKeyCompressed = secp256k1.getPublicKey(privateKey, true);
+    const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false);
+
+    console.log('Uncompressed public key (with 0x04 prefix):', Buffer.from(publicKeyUncompressed).toString('hex'));
+    console.log('Uncompressed public key (without prefix):', Buffer.from(publicKeyUncompressed.slice(1)).toString('hex'));
+
+    const keccakHash = keccak_256(publicKeyUncompressed.slice(1));
+    console.log('Keccak256 hash:', Buffer.from(keccakHash).toString('hex'));
+
+    const addressBytes = keccakHash.slice(-20);
+    console.log('Address bytes (last 20 bytes):', Buffer.from(addressBytes).toString('hex'));
+
+    const fiveBitArray = convertBits(addressBytes, 8, 5, true);
+    console.log('5-bit array for bech32:', fiveBitArray);
+
+    const finalCosmosAddress = bech32.encode(options.prefix, fiveBitArray, 256);
+    console.log('Final cosmos address:', finalCosmosAddress);
+    console.log('Matches generated address:', finalCosmosAddress === cosmosAddress);
+
+    console.log('=== END WALLET DEBUG ===\n');
+
+    // Create a wallet that properly handles eth_secp256k1 signing
+    // We'll use the private key directly for signing instead of relying on DirectSecp256k1Wallet
+    return {
+        async getAccounts() {
+            return [{
+                address: cosmosAddress,  // Use ETH-compatible cosmos address
+                pubkey: publicKeyBytes,  // Use the compressed public key
+                algo: "secp256k1"  // Use standard secp256k1 algorithm
+            }];
+        },
+
+        async signDirect(signerAddress, signDoc) {
+            console.log('\n--- SIGNING DEBUG ---');
+            console.log('Signing for address:', signerAddress);
+            console.log('Public key being used:', Buffer.from(publicKeyBytes).toString('hex'));
+
+            // Create the signature manually using the private key
+            const signBytes = signDoc.bodyBytes;
+            const messageHash = sha256(signBytes);
+
+            // Sign with secp256k1
+            const signature = await Secp256k1.createSignature(messageHash, privateKeyBytes);
+
+            const result = {
+                signed: signDoc,
+                signature: {
+                    pub_key: {
+                        type: "/cosmos.crypto.secp256k1.PubKey",
+                        value: toBase64(publicKeyBytes)
+                    },
+                    signature: toBase64(signature.toFixedLength())
+                }
+            };
+
+            console.log('Signature result:', result);
+            console.log('--- END SIGNING DEBUG ---\n');
+            return result;
+        },
+
+        async signAmino(signerAddress, signDoc) {
+            // For amino signing, we also need to handle it manually
+            const signBytes = Buffer.from(JSON.stringify(signDoc), 'utf8');
+            const messageHash = sha256(signBytes);
+
+            const signature = await Secp256k1.createSignature(messageHash, privateKeyBytes);
+
+            return {
+                signed: signDoc,
+                signature: {
+                    pub_key: encodeSecp256k1Pubkey(publicKeyBytes),
+                    signature: toBase64(signature.toFixedLength())
+                }
+            };
+        }
+    };
+}
+
+/**
+ * Derive addresses from mnemonic (same approach as ../evm)
+ */
+async function deriveAddresses(mnemonic, hdPaths, prefix = "cosmos") {
+  const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, {
+    prefix: prefix,
+    hdPaths: hdPaths
+  });
+
+  const accounts = await wallet.getAccounts();
+  const cosmosAddress = accounts[0].address;
+  const hexAddress = bech32ToHex(cosmosAddress);
+
+  return {
+    wallet,
+    cosmosAddress,
+    hexAddress,
+    publicKey: Buffer.from(accounts[0].pubkey).toString('hex')
+  };
+}
+
+
 
 // load config
 console.log("loaded config: ", conf)
@@ -95,12 +338,10 @@ app.get('/config.json', async (req, res) => {
   // Generate sample addresses for both cosmos and EVM environments
   const chainConf = conf.blockchain
 
-  // EVM address using the same mnemonic with eth derivation path
-  const evmWallet = Wallet.fromMnemonic(chainConf.sender.mnemonic, pathToString(chainConf.sender.option.hdPaths[0]));
-  sample.evm = evmWallet.address
-
-  // Cosmos address derived from Ethereum address (direct conversion for EVM-compatible chains)
-  sample.cosmos = ethPublicKeyToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
+  // Create EVM wallet to get the correct addresses
+  const evmWallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
+  sample.evm = evmWallet.address;
+  sample.cosmos = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
   console.log('Cosmos address:', sample.cosmos, 'EVM address:', sample.evm)
 
@@ -120,11 +361,11 @@ app.get('/balance/:type', async (req, res) => {
     const chainConf = conf.blockchain
 
     if(type === 'evm') {
-      const ethProvider = new ethers.providers.JsonRpcProvider(chainConf.endpoints.evm_endpoint);
-      const wallet = Wallet.fromMnemonic(chainConf.sender.mnemonic, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
+      const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
+      const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
 
       // Get native balance and ERC20 balances
-      const nativeBalance = await wallet.getBalance();
+      const nativeBalance = await ethProvider.getBalance(wallet.address);
       balances.push({
         denom: 'native',
         amount: nativeBalance.toString(),
@@ -134,11 +375,11 @@ app.get('/balance/:type', async (req, res) => {
       // ERC20 token balance checks
       const erc20ABI = ["function balanceOf(address owner) external view returns (uint256)"];
 
-      for(const token of chainConf.tx.amounts) {
-        if(token.erc20_contract !== "0x0000000000000000000000000000000000000000") {
-          try {
-            const tokenContract = new ethers.Contract(token.erc20_contract, erc20ABI, ethProvider);
-            const balance = await tokenContract.balanceOf(wallet.address);
+              for(const token of chainConf.tx.amounts) {
+          if(token.erc20_contract !== "0x0000000000000000000000000000000000000000") {
+            try {
+              const tokenContract = new Contract(token.erc20_contract, erc20ABI, ethProvider);
+              const balance = await tokenContract.balanceOf(wallet.address);
             balances.push({
               denom: token.denom,
               amount: balance.toString(),
@@ -267,8 +508,8 @@ app.listen(conf.port, async () => {
 
   // Display wallet addresses for both environments
   const chainConf = conf.blockchain;
-  const evmWallet = Wallet.fromMnemonic(chainConf.sender.mnemonic, pathToString(chainConf.sender.option.hdPaths[0]));
-  const cosmosAddress = ethPublicKeyToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
+  const evmWallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
+  const cosmosAddress = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
   console.log('Cosmos address:', cosmosAddress, 'EVM address:', evmWallet.address);
 })
@@ -301,7 +542,7 @@ async function checkRecipientBalances(address, addressType) {
       }
     } else if (addressType === 'evm') {
       // Check EVM balances via JSON-RPC
-      const ethProvider = new ethers.providers.JsonRpcProvider(chainConf.endpoints.evm_endpoint);
+      const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
 
       for (const token of chainConf.tx.amounts) {
         if (token.erc20_contract === "0x0000000000000000000000000000000000000000") {
@@ -316,7 +557,7 @@ async function checkRecipientBalances(address, addressType) {
         } else {
           // ERC20 token balance
           const erc20ABI = ["function balanceOf(address owner) view returns (uint256)"];
-          const tokenContract = new ethers.Contract(token.erc20_contract, erc20ABI, ethProvider);
+          const tokenContract = new Contract(token.erc20_contract, erc20ABI, ethProvider);
           const balance = await tokenContract.balanceOf(address);
           balances.push({
             denom: token.denom,
@@ -351,11 +592,11 @@ function calculateNeededAmounts(currentBalances, tokenConfigs) {
     const current = currentBalances[i];
     const config = tokenConfigs[i];
 
-    const currentAmount = ethers.BigNumber.from(current.current_amount);
-    const targetAmount = ethers.BigNumber.from(current.target_amount);
+    const currentAmount = BigInt(current.current_amount);
+    const targetAmount = BigInt(current.target_amount);
 
-    if (currentAmount.lt(targetAmount)) {
-      const needed = targetAmount.sub(currentAmount);
+    if (currentAmount < targetAmount) {
+      const needed = targetAmount - currentAmount;
       neededAmounts.push({
         denom: config.denom,
         amount: needed.toString(),
@@ -368,27 +609,101 @@ function calculateNeededAmounts(currentBalances, tokenConfigs) {
   return neededAmounts;
 }
 
-// Send tokens using smart amounts (only what's needed)
+// Send tokens using smart amounts (both cosmos and EVM as needed)
 async function sendSmartFaucetTx(recipient, addressType, neededAmounts) {
-  if (addressType === 'cosmos') {
-    return sendSmartCosmosTx(recipient, neededAmounts);
-  } else if (addressType === 'evm') {
-    return sendSmartEvmTx(recipient, neededAmounts);
+  const results = [];
+
+  // Separate native tokens from ERC20 tokens
+  const nativeTokens = neededAmounts.filter(token =>
+    token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ||
+    token.denom === "uatom"
+  );
+
+  const erc20Tokens = neededAmounts.filter(token =>
+    token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" &&
+    token.denom !== "uatom"
+  );
+
+  console.log('Native tokens to send via Cosmos:', nativeTokens);
+  console.log('ERC20 tokens to send via EVM:', erc20Tokens);
+
+  // Send native tokens via Cosmos (if any)
+  if (nativeTokens.length > 0) {
+    try {
+      console.log('Sending native tokens via Cosmos...');
+      const cosmosResult = await sendSmartCosmosTx(recipient, nativeTokens);
+      results.push({ type: 'cosmos', result: cosmosResult });
+    } catch (error) {
+      console.error('Cosmos send failed:', error);
+      throw new Error(`Cosmos transaction failed: ${error.message}`);
+    }
   }
-  throw new Error(`Unsupported address type: ${addressType}`);
+
+  // Send ERC20 tokens via EVM (if any)
+  if (erc20Tokens.length > 0) {
+    try {
+      console.log('Sending ERC20 tokens via EVM...');
+
+      // For ERC20 tokens, we need to send to the EVM address
+      let evmRecipient;
+      if (addressType === 'cosmos') {
+        // Convert cosmos address to corresponding EVM address
+        // For eth_secp256k1 chains, both addresses are derived from the same keccak256 hash
+        evmRecipient = convertCosmosToEvmAddress(recipient);
+        if (!evmRecipient) {
+          throw new Error('Failed to convert cosmos address to EVM address');
+        }
+        console.log('Converted cosmos address to EVM address:', evmRecipient);
+      } else {
+        evmRecipient = recipient;
+      }
+
+      const evmResult = await sendSmartEvmTx(evmRecipient, erc20Tokens);
+      results.push({ type: 'evm', result: evmResult });
+    } catch (error) {
+      console.error('EVM send failed:', error);
+      throw new Error(`EVM transaction failed: ${error.message}`);
+    }
+  }
+
+  // Combine results
+  if (results.length === 0) {
+    return { code: 0, message: "No tokens needed" };
+  } else if (results.length === 1) {
+    return results[0].result;
+  } else {
+    // Multiple transactions - combine results
+    return {
+      code: 0,
+      message: "Tokens sent via multiple transactions",
+      transactions: results
+    };
+  }
 }
 
-// Smart Cosmos transaction with calculated amounts
+// Smart Cosmos transaction with calculated amounts (only for native tokens)
 async function sendSmartCosmosTx(recipient, neededAmounts) {
   const chainConf = conf.blockchain;
+
+  // Filter to only native tokens (uatom) - ERC20 tokens should be sent via EVM
+  const nativeTokens = neededAmounts.filter(token =>
+    token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ||
+    token.denom === "uatom"
+  );
+
+  if (nativeTokens.length === 0) {
+    console.log("No native tokens to send via Cosmos");
+    return { code: 0, message: "No native tokens needed" };
+  }
+
   const wallet = await createEthCompatibleCosmosWallet(chainConf.sender.mnemonic, chainConf.sender.option);
   const [firstAccount] = await wallet.getAccounts();
 
   const rpcEndpoint = chainConf.endpoints.rpc_endpoint;
   const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet);
 
-  // Prepare amounts from needed tokens
-  const amounts = neededAmounts.map(token => ({
+  // Prepare amounts from needed native tokens only
+  const amounts = nativeTokens.map(token => ({
     denom: token.denom,
     amount: token.amount
   }));
@@ -399,73 +714,69 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
   return client.sendTokens(firstAccount.address, recipient, amounts, fee);
 }
 
-// Smart EVM transaction with calculated amounts using MultiSend
+// Smart EVM transaction with calculated amounts using new MultiSend contract
 async function sendSmartEvmTx(recipient, neededAmounts) {
   try {
     const chainConf = conf.blockchain;
-    const ethProvider = new ethers.providers.JsonRpcProvider(chainConf.endpoints.evm_endpoint);
-    const wallet = Wallet.fromMnemonic(chainConf.sender.mnemonic, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
+    const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
+    const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
 
     console.log("Sending smart EVM tokens to:", recipient, "needed amounts:", neededAmounts);
 
-    // MultiSend contract address
-    const multiSendAddress = "0xa41dd39233852D9fcc4441eB9Aa3901Df5f67EC4";
+    // New MultiSend contract address (properly uses transferFrom)
+    const multiSendAddress = "0x79495ae7976ff948DcC8a78D5e4460738dA50919";
 
     // MultiSend contract ABI
     const multiSendABI = [
       "function multiSend(address recipient, tuple(address token, uint256 amount)[] transfers) external payable",
-      "function owner() external view returns (address)"
+      "function emergencyWithdraw(address token, uint256 amount) external"
     ];
 
-    const multiSendContract = new ethers.Contract(multiSendAddress, multiSendABI, wallet);
+    const multiSendContract = new Contract(multiSendAddress, multiSendABI, wallet);
 
-    // Prepare transfers array for MultiSend
-    const transfers = [];
-    let nativeAmount = ethers.BigNumber.from(0);
+    // Separate native tokens from ERC20 tokens
+    const nativeTokens = neededAmounts.filter(token => token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
+    const erc20Tokens = neededAmounts.filter(token => token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
 
-    for (const token of neededAmounts) {
-      if (token.erc20_contract === "0x0000000000000000000000000000000000000000") {
-        // Native token - add to msg.value
-        nativeAmount = nativeAmount.add(token.amount);
-        transfers.push({
-          token: "0x0000000000000000000000000000000000000000", // Zero address for native
-          amount: token.amount
-        });
-      } else {
-        // ERC20 token
-        transfers.push({
-          token: token.erc20_contract,
-          amount: token.amount
-        });
-      }
-    }
+    // Calculate total native amount
+    const totalNativeAmount = nativeTokens.reduce((sum, token) => sum + BigInt(token.amount), 0n);
 
-    console.log("Smart MultiSend transfers:", transfers);
-    console.log("Native amount:", nativeAmount.toString());
+    // Prepare transfers for MultiSend contract (only ERC20 tokens)
+    const transfers = erc20Tokens.map(token => ({
+      token: token.erc20_contract,
+      amount: token.amount
+    }));
 
-    // Execute multi-token transfer
+    console.log("New MultiSend transfers:", transfers);
+    console.log("Native amount:", totalNativeAmount.toString());
+
+    // Call MultiSend contract
     const tx = await multiSendContract.multiSend(recipient, transfers, {
-      value: nativeAmount,
+      value: totalNativeAmount, // Send native tokens as value
       gasLimit: chainConf.tx.fee.evm.gasLimit,
       gasPrice: chainConf.tx.fee.evm.gasPrice
     });
 
-    console.log("Smart MultiSend transaction hash:", tx.hash);
-
-    // Wait for confirmation
+    console.log(`New MultiSend transaction hash: ${tx.hash}`);
     const receipt = await tx.wait();
+
+    // Add results for all tokens
+    const transferResults = neededAmounts.map(token => ({
+      token: token.erc20_contract,
+      amount: token.amount,
+      denom: token.denom,
+      hash: tx.hash,
+      status: receipt.status,
+      type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
+    }));
 
     return {
       code: 0,
       hash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
-      transfers: transfers.map((transfer, index) => ({
-        token: transfer.token,
-        amount: transfer.amount,
-        denom: neededAmounts[index].denom,
-        contract: transfer.token !== "0x0000000000000000000000000000000000000000" ? transfer.token : "native"
-      }))
+      transfers: transferResults,
+      transactions: [tx.hash]
     };
 
   } catch(e) {
@@ -530,13 +841,28 @@ function toHexString(bytes) {
       '');
 }
 
-// Helper function to convert cosmos address to EVM address if needed
+// Helper function to convert cosmos address to EVM address for eth_secp256k1 chains
 function convertCosmosToEvmAddress(cosmosAddress) {
   try {
-    const decoded = bech32.decode(cosmosAddress);
-    const bytes = bech32.fromWords(decoded.words);
-    return "0x" + toHexString(bytes);
-  } catch {
+    // For eth_secp256k1 chains, both addresses are derived from the same keccak256 hash
+    // So we can convert by decoding the bech32 and re-encoding as hex
+    const decoded = bech32.decode(cosmosAddress, 256);
+    const addressBytes = convertBits(decoded.words, 5, 8, false);
+    return `0x${Buffer.from(addressBytes).toString('hex')}`;
+  } catch (error) {
+    console.error('Error converting Cosmos to EVM address:', error);
+    return null;
+  }
+}
+
+// Helper function to convert EVM address to Cosmos address
+function convertEvmToCosmosAddress(evmAddress) {
+  try {
+    // Use the chain's prefix (from config)
+    const prefix = conf.blockchain.sender.option.prefix;
+    return hexToBech32(evmAddress, prefix);
+  } catch (error) {
+    console.error('Error converting EVM to Cosmos address:', error);
     return null;
   }
 }

@@ -1,16 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Comprehensive Token Deployment Script for Cosmos EVM
+ * Token Deployment Script
  *
- * Features:
- * - Parameterized token configurations
- * - Comprehensive deployment reporting
- * - Transaction tracking with block numbers
- * - Automatic deployment logging
- * - Support for arbitrary token configurations
- * - Ethers v6 compatibility
- * - ERC20 registration integration
+ * - Parameterized token config
+ * - Generates deployed contract report
+ * - Returns txid and block number
+ * - Supports arbitrary token config
+ * - Automatic ERC20 registration
  */
 
 import { ethers } from 'ethers';

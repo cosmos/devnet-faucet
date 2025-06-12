@@ -1,6 +1,6 @@
 # Complete Deployment Walkthrough: Zero to Production
 
-This document captures the complete journey of deploying a Cosmos EVM dual environment faucet, including all the concepts, failures, and solutions encountered during the process.
+This document captures the complete process of building and deploying this faucet, including all the concepts, failures, and solutions encountered throughout.
 
 ## Table of Contents
 
@@ -324,7 +324,7 @@ contract UpgradeMultiSendScript is Script {
 
 ```javascript
 // Address derivation functions
-function ethPublicKeyToCosmosAddress(ethWallet, prefix) {
+function pubkeyToCosmosAddr(ethWallet, prefix) {
   const evmAddress = ethWallet.address;
   const addressBytes = fromHex(evmAddress.slice(2));
   return bech32.encode(prefix, bech32.toWords(addressBytes));
@@ -332,7 +332,7 @@ function ethPublicKeyToCosmosAddress(ethWallet, prefix) {
 
 async function createEthCompatibleCosmosWallet(mnemonic, options) {
   const ethWallet = Wallet.fromMnemonic(mnemonic, "m/44'/60'/0'/0/0");
-  const cosmosAddress = ethPublicKeyToCosmosAddress(ethWallet, options.prefix);
+  const cosmosAddress = pubkeyToCosmosAddr(ethWallet, options.prefix);
 
   return DirectSecp256k1HdWallet.fromMnemonic(mnemonic, {
     prefix: options.prefix,
@@ -400,7 +400,7 @@ async function checkRecipientBalances(address, addressType) {
     // Check native balance
     const nativeBalance = await ethProvider.getBalance(address);
     balances.push({
-      denom: "aatom",
+      denom: "uatom",
       current_amount: nativeBalance.toString(),
       target_amount: chainConf.tx.amounts[0].target_balance,
       erc20_contract: "0x0000000000000000000000000000000000000000"

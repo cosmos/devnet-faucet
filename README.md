@@ -1,4 +1,4 @@
-# Cosmos EVM Dual Environment Faucet
+# Cosmos EVM Faucet
 
 Faucet system for Cosmos EVM networks. Supports both Cosmos and EVM wallets enabling seamless dual-environment token distribution and testing.
 
@@ -73,7 +73,7 @@ Update `config.js` with your network settings:
 ```javascript
 export default {
   project: {
-    name: "Cosmos EVM Dual Environment Faucet",
+    name: "Cosmos EVM Faucet",
     deployer: "Your Organization"
   },
   chains: {
@@ -226,5 +226,4 @@ For issues and questions:
 
 ---
 
-**Cosmos EVM Dual Environment Faucet** - Bridging Cosmos and Ethereum ecosystems with seamless token distribution.
->>>>>>> cosmos-evm
+**Cosmos EVM Faucet** - Bridging Cosmos and Ethereum ecosystems with seamless token distribution.

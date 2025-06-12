@@ -1,6 +1,6 @@
-# Cosmos EVM Faucet Documentation Index
+# Cosmos EVM Faucet
 
-This documentation captures the complete journey of building a production-ready Cosmos EVM dual environment faucet, including all concepts, failures, solutions, and best practices discovered during development.
+This documentation captures the complete journey of building a production-ready Cosmos EVM faucet, including all concepts, failures, solutions, and best practices discovered during development.
 
 ## Documentation Structure
 

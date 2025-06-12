@@ -1,15 +1,13 @@
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
-// import { ethers } from 'ethers'
-import { Wallet, utils } from 'ethers';
+import { Wallet, HDNodeWallet, randomBytes } from 'ethers';
 
 const HOME = ".faucet";
 const mnemonic_path= `${HOME}/mnemonic.txt`
 if (!fs.existsSync(mnemonic_path)) {
     fs.mkdirSync(HOME, { recursive: true })
-    fs.writeFileSync(mnemonic_path, Wallet.fromMnemonic(
-        utils.entropyToMnemonic(utils.randomBytes(32))
-      ).mnemonic.phrase)
+    const randomWallet = HDNodeWallet.fromEntropy(randomBytes(32))
+    fs.writeFileSync(mnemonic_path, randomWallet.mnemonic.phrase)
 }
 
 const mnemonic = fs.readFileSync(mnemonic_path, 'utf8')
@@ -23,7 +21,7 @@ export default {
         path: `${HOME}/history.db` // save request states
     },
     project: {
-        name: "Cosmos EVM Dual Environment Faucet",
+        name: "Cosmos-EVM Devnet Faucet",
         logo: "https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg",
         deployer: `<a href="https://cosmos.network">Cosmos Network</a>`
     },
@@ -56,9 +54,9 @@ export default {
             // Multi-token amounts - target balance of 1000 tokens each
             amounts: [
                 {
-                    denom: "aatom", // Native cosmos denom (registered via erc20 module)
+                    denom: "uatom", // Native cosmos denom (native token like ETH)
                     amount: "1000000000", // 1000 tokens (6 decimals)
-                    erc20_contract: "0x0000000000000000000000000000000000000000", // Native token - no contract
+                    erc20_contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token representation
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 },
@@ -90,7 +88,7 @@ export default {
                     amount: [
                         {
                             amount: "5000",
-                            denom: "aatom" // Use native token for fees
+                            denom: "uatom" // Use native token for fees - changed from uatom to uatom
                         }
                     ],
                     gas: "200000"

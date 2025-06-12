@@ -1,4 +1,4 @@
-# Cosmos EVM Dual Environment Faucet Documentation
+# Cosmos EVM Faucet
 
 A comprehensive smart faucet system that supports both Cosmos and EVM environments on the same blockchain, featuring intelligent token distribution, balance checking, and upgradeable smart contracts.
 
@@ -67,7 +67,7 @@ Both environments use the same private key with different derivation methods:
 const evmWallet = Wallet.fromMnemonic(mnemonic, "m/44'/60'/0'/0/0");
 
 // Cosmos address (derived from EVM address)
-function ethPublicKeyToCosmosAddress(ethWallet, prefix) {
+function pubkeyToCosmosAddr(ethWallet, prefix) {
   const evmAddress = ethWallet.address;
   const addressBytes = fromHex(evmAddress.slice(2));
   return bech32.encode(prefix, bech32.toWords(addressBytes));
@@ -298,7 +298,7 @@ blockchain: {
 tx: {
   amounts: [
     {
-      denom: "aatom",
+      denom: "uatom",
       amount: "1000000000",                                    // 1000 tokens (6 decimals)
       erc20_contract: "0x0000000000000000000000000000000000000000",
       decimals: 6,
