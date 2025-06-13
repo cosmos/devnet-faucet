@@ -5,16 +5,16 @@ import { ethers } from 'ethers'
 import { Wallet, HDNodeWallet, JsonRpcProvider, Contract, parseUnits, keccak256, getBytes } from 'ethers'
 import { bech32 } from 'bech32';
 
-import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, Registry, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
-import { SigningStargateClient, defaultRegistryTypes, GasPrice, accountFromAny } from "@cosmjs/stargate";
-import { sha256, Secp256k1, Secp256k1Signature, pathToString } from '@cosmjs/crypto';
+import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
+import { accountFromAny, SigningStargateClient } from "@cosmjs/stargate";
+import { sha256, pathToString } from '@cosmjs/crypto';
 import { fromHex, toHex, toBase64, fromBase64 } from '@cosmjs/encoding';
-import { TxRaw, SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx.js";
+import { TxRaw, SignDoc, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx.js";
 import { Any } from "cosmjs-types/google/protobuf/any.js";
-import { PubKey } from "cosmjs-types/cosmos/crypto/secp256k1/keys.js";
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx.js";
+// We'll create the protobuf encoding manually to match what the chain expects
+// Note: We'll create the proper ethereum secp256k1 PubKey encoding manually since cosmjs-types doesn't include it
 import Long from "long";
-import { signEthSecp256k1 } from "@hanchon/evmos-signer";
-import { encodeSecp256k1Pubkey } from "@cosmjs/amino";
 
 // Noble crypto imports for proper key derivation
 import { sha256 as nobleSha256 } from '@noble/hashes/sha256';
@@ -31,38 +31,56 @@ import { FrequencyChecker } from './checker.js';
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
 
-// Define the EthSecp256k1 PubKey type for the registry
-const EthSecp256k1PubKey = {
-  encode: (pubkey) => {
-    if (!pubkey.key) {
-      throw new Error("EthSecp256k1PubKey requires a 'key' field");
-    }
-    return Uint8Array.from([10, pubkey.key.length, ...pubkey.key]);
-  },
-  decode: (data) => {
-    if (data.length < 2 || data[0] !== 10) {
-      throw new Error("Invalid EthSecp256k1PubKey encoding");
-    }
-    const keyLength = data[1];
-    const key = data.slice(2, 2 + keyLength);
-    return { key };
-  },
-};
+// Proper protobuf encoding for cosmos.evm.crypto.v1.ethsecp256k1.PubKey
+// Based on the protobuf definition: message PubKey { bytes key = 1; }
+function encodeEthSecp256k1PubKey(publicKeyBytes) {
+  // Field 1, wire type 2 (length-delimited): tag = (1 << 3) | 2 = 10 (0x0A)
+  const keyLength = publicKeyBytes.length;
+  const result = new Uint8Array(1 + 1 + keyLength); // tag + length + key
+  result[0] = 0x0A; // Field 1, wire type 2
+  result[1] = keyLength; // Length of key
+  result.set(publicKeyBytes, 2); // Key bytes
+  return result;
+}
 
-// Create custom registry with EthSecp256k1PubKey support
-const customRegistry = new Registry([
-  ...defaultRegistryTypes,
-  ['/cosmos.evm.crypto.v1.ethsecp256k1.PubKey', EthSecp256k1PubKey],
-  ['/ethermint.crypto.v1.ethsecp256k1.PubKey', EthSecp256k1PubKey],
-]);
+function decodeEthSecp256k1PubKey(data) {
+  if (data.length < 2 || data[0] !== 0x0A) {
+    throw new Error("Invalid EthSecp256k1PubKey encoding - wrong tag");
+  }
+  const keyLength = data[1];
+  if (data.length !== 2 + keyLength) {
+    throw new Error("Invalid EthSecp256k1PubKey encoding - wrong length");
+  }
+  const key = data.slice(2, 2 + keyLength);
+  return { key };
+}
+
+// Create proper ethereum secp256k1 signature for Cosmos SDK
+// Format: r (32 bytes) + s (32 bytes) = 64 bytes total (no recovery ID for Cosmos)
+function createEthSecp256k1Signature(messageHash, privateKeyBytes) {
+  // Use noble secp256k1 to create the signature
+  const signature = secp256k1.sign(messageHash, privateKeyBytes);
+
+  // Use the compact raw bytes format directly from noble
+  // This gives us exactly 64 bytes: r (32) + s (32)
+  const signatureBytes = signature.toCompactRawBytes();
+  
+  console.log('Raw signature from noble (length:', signatureBytes.length, '):', Buffer.from(signatureBytes).toString('hex'));
+  
+  return signatureBytes;
+}
+
+// Note: Old EthSecp256k1PubKey type removed - we now use direct protobuf encoding functions
+
+// Note: Custom registry removed - we now use direct protobuf encoding for complete manual control
 
 // Custom pubkey decoder that handles ethereum secp256k1 keys
 function customDecodePubkey(pubkey) {
   if (pubkey.typeUrl === '/cosmos.evm.crypto.v1.ethsecp256k1.PubKey' ||
       pubkey.typeUrl === '/ethermint.crypto.v1.ethsecp256k1.PubKey') {
-    const decoded = EthSecp256k1PubKey.decode(pubkey.value);
+    const decoded = decodeEthSecp256k1PubKey(pubkey.value);
     return {
-      type: 'secp256k1',
+      type: 'eth_secp256k1',
       value: toBase64(decoded.key),
     };
   }
@@ -211,14 +229,26 @@ function detectAddressType(address) {
  * Convert hex address to bech32 address (ETH-compatible - no ripemd160)
  */
 function hexToBech32(hexAddress, prefix) {
+  console.log("=== hexToBech32 DEBUG ===");
+  console.log("Input hex address:", hexAddress);
+  console.log("Prefix:", prefix);
+
   // Remove 0x prefix if present
   const hex = hexAddress.replace('0x', '');
+  console.log("Hex after removing 0x:", hex);
 
   // Convert hex string to bytes
   const addressBytes = fromHex(hex);
+  console.log("Address bytes:", addressBytes);
+  console.log("Address bytes length:", addressBytes.length);
 
   // Direct conversion without ripemd160 hashing (ETH-compatible)
-  const cosmosAddress = bech32.encode(prefix, bech32.toWords(addressBytes));
+  const words = bech32.toWords(addressBytes);
+  console.log("Bech32 words:", words);
+
+  const cosmosAddress = bech32.encode(prefix, words);
+  console.log("Final cosmos address:", cosmosAddress);
+  console.log("=== END hexToBech32 DEBUG ===");
 
   return cosmosAddress;
 }
@@ -243,29 +273,7 @@ function evmToCosmosAddress(evmWallet, prefix) {
     return cosmosAddress;
 }
 
-// Helper function to encode eth_secp256k1 pubkey (similar to Archmage's encodeEthSecp256k1Pubkey)
-function encodeEthSecp256k1Pubkey(pubkey) {
-  return {
-    type: "ethermint/PubKeyEthSecp256k1",
-    value: toBase64(pubkey)
-  };
-}
-
-// Helper function to create the correct pubkey Any for eth_secp256k1 chains
-function makePubkeyAnyForEthSecp256k1(pubkey, chainId) {
-  // For cosmos-evm chains, use the ethermint type
-  const typeUrl = "/ethermint.crypto.v1.ethsecp256k1.PubKey";
-
-  // Create the protobuf structure
-  const pubkeyProto = {
-    key: pubkey
-  };
-
-  return {
-    typeUrl,
-    value: pubkeyProto
-  };
-}
+// Note: Old helper functions removed - we now use direct protobuf encoding
 
 /**
  * Create ETH-compatible cosmos wallet for eth_secp256k1 chains
@@ -294,7 +302,7 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
     console.log('Public key (compressed hex):', publicKey);
 
     // Get the compressed public key bytes
-    const publicKeyBytes = Buffer.from(publicKey, 'hex');
+    const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes, true); // compressed
     console.log('Public key length:', publicKeyBytes.length, 'bytes');
 
     console.log('\n--- Address Derivation Details ---');
@@ -324,12 +332,19 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
     // Create a wallet that properly handles eth_secp256k1 signing
     // We'll use the private key directly for signing instead of relying on DirectSecp256k1Wallet
     return {
-        async getAccounts() {
+                async getAccounts() {
             return [{
-                address: cosmosAddress,  // Use ETH-compatible cosmos address
-                pubkey: publicKeyBytes,  // Use the compressed public key
-                algo: "secp256k1"  // Use standard secp256k1 algorithm
+                address: cosmosAddress,
+                pubkey: publicKeyBytes,  // Raw bytes - let the registry handle the encoding
+                algo: "eth_secp256k1"
             }];
+        },
+
+        serialize() {
+            return {
+                type: "eth_secp256k1",
+                value: toBase64(privateKeyBytes)
+            };
         },
 
         async signDirect(signerAddress, signDoc) {
@@ -337,8 +352,7 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
             console.log('Signing for address:', signerAddress);
             console.log('Public key being used:', Buffer.from(publicKeyBytes).toString('hex'));
 
-                                    // Create the SignDoc bytes for signing
-            // For Cosmos SDK, we need to sign the serialized SignDoc protobuf
+                                                                        // Create proper ethereum secp256k1 signature for Cosmos SDK
             const signDocForSigning = {
                 bodyBytes: signDoc.bodyBytes,
                 authInfoBytes: signDoc.authInfoBytes,
@@ -357,8 +371,8 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
             const signDocBytes = SignDoc.encode(signDocForSigning).finish();
             const messageHash = sha256(signDocBytes);
 
-            // Sign with secp256k1
-            const signature = await Secp256k1.createSignature(messageHash, privateKeyBytes);
+            // Create signature using our ethereum secp256k1 implementation
+            const signature = createEthSecp256k1Signature(messageHash, privateKeyBytes);
 
             const result = {
                 signed: signDoc,
@@ -367,7 +381,7 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
                         type: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
                         value: toBase64(publicKeyBytes)
                     },
-                    signature: toBase64(signature.toFixedLength())
+                    signature: toBase64(signature)
                 }
             };
 
@@ -377,17 +391,20 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
         },
 
         async signAmino(signerAddress, signDoc) {
-            // For amino signing, we also need to handle it manually
+            // For amino signing, use our ethereum secp256k1 implementation
             const signBytes = Buffer.from(JSON.stringify(signDoc), 'utf8');
             const messageHash = sha256(signBytes);
 
-            const signature = await Secp256k1.createSignature(messageHash, privateKeyBytes);
+            const signature = createEthSecp256k1Signature(messageHash, privateKeyBytes);
 
             return {
                 signed: signDoc,
                 signature: {
-                    pub_key: encodeSecp256k1Pubkey(publicKeyBytes),
-                    signature: toBase64(signature.toFixedLength())
+                    pub_key: {
+                        type: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
+                        value: toBase64(publicKeyBytes)
+                    },
+                    signature: toBase64(signature)
                 }
             };
         }
@@ -499,28 +516,9 @@ app.get('/balance/:type', async (req, res) => {
       }
 
         } else if(type === 'cosmos') {
-      const rpcEndpoint = chainConf.endpoints.rpc_endpoint;
-      const wallet = await createEthCompatibleCosmosWallet(chainConf.sender.mnemonic, chainConf.sender.option);
-      const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet, {
-        registry: customRegistry,
-        gasPrice: GasPrice.fromString('0.025uatom'),
-        accountParser: customAccountParser,
-      });
-      const [firstAccount] = await wallet.getAccounts();
-
-      // Get balances for all configured tokens
-      for(const token of chainConf.tx.amounts) {
-        try {
-          const balance = await client.getBalance(firstAccount.address, token.denom);
-          balances.push(balance);
-        } catch(e) {
-          console.error(`Error getting balance for ${token.denom}:`, e);
-          balances.push({
-            denom: token.denom,
-            amount: "0"
-          });
-        }
-      }
+      // This endpoint is deprecated - cosmos balances are checked via the checkRecipientBalances function
+      // Just return empty for now since the smart faucet handles balance checking properly
+      balances = [];
     }
   } catch(err) {
     console.log(err)
@@ -783,8 +781,44 @@ async function sendSmartFaucetTx(recipient, addressType, neededAmounts) {
   }
 }
 
-// Smart Cosmos transaction with calculated amounts (only for native tokens)
+// Manual Cosmos transaction with complete control over pubkey types and retry logic
 async function sendSmartCosmosTx(recipient, neededAmounts) {
+  return await sendCosmosTransactionWithRetry(recipient, neededAmounts, 3);
+}
+
+// Cosmos transaction with retry logic for sequence number issues
+async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`\n🔄 Cosmos Transaction Attempt ${attempt}/${maxRetries}`);
+      const result = await sendCosmosTransactionWithCosmJS(recipient, neededAmounts);
+      console.log(`✅ Attempt ${attempt} succeeded!`);
+      return result;
+    } catch (error) {
+      console.log(`❌ Attempt ${attempt} failed:`, error.message);
+      
+      // Check if this is a signature/sequence related error that might benefit from retry
+      if (error.message.includes('signature verification failed') || 
+          error.message.includes('account sequence mismatch') ||
+          error.message.includes('unauthorized')) {
+        
+        if (attempt < maxRetries) {
+          console.log(`⏳ Retrying in 2 seconds with fresh account state...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        } else {
+          console.log(`🚫 All ${maxRetries} attempts failed. Final error:`, error.message);
+        }
+      }
+      
+      // Re-throw the error if it's not retryable or we've exhausted retries
+      throw error;
+    }
+  }
+}
+
+// New CosmJS-based transaction function
+async function sendCosmosTransactionWithCosmJS(recipient, neededAmounts) {
   const chainConf = conf.blockchain;
 
   // Filter to only native tokens (uatom) - ERC20 tokens should be sent via EVM
@@ -798,15 +832,197 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
     return { code: 0, message: "No native tokens needed" };
   }
 
+  // Convert EVM address to Cosmos address if needed
+  let cosmosRecipient = recipient;
+  if (isHexAddress(recipient)) {
+    cosmosRecipient = convertEvmToCosmosAddress(recipient);
+    console.log("Converted EVM address to Cosmos address:", recipient, "->", cosmosRecipient);
+
+    if (!cosmosRecipient || cosmosRecipient.length === 0) {
+      throw new Error(`Failed to convert EVM address ${recipient} to cosmos address`);
+    }
+  }
+
+  if (!cosmosRecipient || cosmosRecipient.length === 0) {
+    throw new Error(`Invalid recipient address: ${cosmosRecipient}`);
+  }
+
+  try {
+    // Create wallet using DirectSecp256k1HdWallet for eth_secp256k1 chains
+    const wallet = await DirectSecp256k1HdWallet.fromMnemonic(chainConf.sender.mnemonic, {
+      prefix: chainConf.sender.option.prefix,
+      hdPaths: chainConf.sender.option.hdPaths
+    });
+
+    const [account] = await wallet.getAccounts();
+    console.log("Wallet account:", account.address);
+
+    // Create signing client
+    const client = await SigningStargateClient.connectWithSigner(
+      chainConf.endpoints.rpc_endpoint,
+      wallet,
+      { 
+        chainId: chainConf.ids.cosmosChainId,
+        gasPrice: {
+          denom: chainConf.tx.fee.cosmos.amount[0].denom,
+          amount: (parseFloat(chainConf.tx.fee.cosmos.amount[0].amount) / parseInt(chainConf.tx.fee.cosmos.gas)).toString()
+        }
+      }
+    );
+
+    // Prepare amounts for MsgSend
+    const amounts = nativeTokens.map(token => ({
+      denom: token.denom,
+      amount: token.amount
+    }));
+
+    console.log("Sending cosmos transaction:", {
+      from: account.address,
+      to: cosmosRecipient,
+      amounts: amounts
+    });
+
+    // Send transaction using CosmJS
+    const result = await client.sendTokens(
+      account.address,
+      cosmosRecipient,
+      amounts,
+      {
+        amount: chainConf.tx.fee.cosmos.amount,
+        gas: chainConf.tx.fee.cosmos.gas,
+      }
+    );
+
+    console.log("CosmJS transaction result:", result);
+
+    if (result.code === 0) {
+      return {
+        code: 0,
+        transactionHash: result.transactionHash,
+        height: result.height,
+        gasUsed: result.gasUsed
+      };
+    } else {
+      throw new Error(`Transaction failed with code ${result.code}: ${result.rawLog}`);
+    }
+
+  } catch (error) {
+    console.error("CosmJS transaction error:", error);
+    throw error;
+  }
+}
+
+// Fetch fresh account information with enhanced error handling
+async function fetchFreshAccountInfo(restEndpoint, address) {
+  console.log(`🔄 Fetching fresh account info for: ${address}`);
+  
+  try {
+    const accountUrl = `${restEndpoint}/cosmos/auth/v1beta1/accounts/${address}`;
+    const response = await fetch(accountUrl);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    let account = data.account;
+
+    // Handle EthAccount type
+    if (account.base_account) {
+      account = account.base_account;
+    }
+
+    const accountInfo = {
+      accountNumber: parseInt(account.account_number),
+      sequence: parseInt(account.sequence)
+    };
+    
+    console.log(`✅ Fresh account info - accountNumber: ${accountInfo.accountNumber}, sequence: ${accountInfo.sequence}`);
+    console.log(`📄 Account details:`, JSON.stringify(account, null, 2));
+    
+    return accountInfo;
+  } catch (error) {
+    console.error(`❌ Account fetch failed for ${address}:`, error.message);
+    throw new Error(`Failed to fetch account info: ${error.message}`);
+  }
+}
+
+// Create proper eth_secp256k1 pubkey encoding that matches chain expectations
+function createProperEthSecp256k1PubKey(publicKeyBytes) {
+  // The chain expects the raw 33-byte compressed public key in the protobuf "key" field
+  // Based on chain analysis: the "key" field contains the raw public key bytes
+  // This creates protobuf message: { key: <33-byte-pubkey> }
+  
+  // Manual protobuf encoding for: message PubKey { bytes key = 1; }
+  // Field 1, wire type 2 (length-delimited): tag = (1 << 3) | 2 = 10 (0x0A)
+  const keyLength = publicKeyBytes.length; // 33 bytes
+  const result = new Uint8Array(1 + 1 + keyLength); // tag + length + key
+  result[0] = 0x0A; // Field 1, wire type 2
+  result[1] = keyLength; // Length of key (33)
+  result.set(publicKeyBytes, 2); // Key bytes
+  
+  console.log(`📏 Manual protobuf encoded pubkey length: ${result.length}`);
+  console.log(`🔢 Manual protobuf encoded pubkey (hex): ${Buffer.from(result).toString('hex')}`);
+  console.log(`🎯 Raw pubkey in protobuf (hex): ${Buffer.from(publicKeyBytes).toString('hex')}`);
+  
+  return result;
+}
+
+// Test cosmos.evm pubkey variant (what the chain actually uses)
+async function createPubKeyVariants(publicKeyBytes) {
+  console.log(`🔬 Creating pubkey variants for testing`);
+  
+  // Create proper protobuf encoding
+  const encodedPubkey = createProperEthSecp256k1PubKey(publicKeyBytes);
+  
+  // Only use cosmos.evm variant since that's what the chain expects
+  const cosmosEvmPubkey = Any.fromPartial({
+    typeUrl: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
+    value: encodedPubkey,
+  });
+  
+  console.log(`📋 Using cosmos.evm pubkey variant: ${cosmosEvmPubkey.typeUrl}`);
+  
+  return {
+    cosmosEvm: cosmosEvmPubkey
+  };
+}
+
+// Internal cosmos transaction logic (renamed from sendSmartCosmosTx)
+async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVariant = 'cosmosEvm') {
+  const chainConf = conf.blockchain;
+
+  // Filter to only native tokens (uatom) - ERC20 tokens should be sent via EVM
+  const nativeTokens = neededAmounts.filter(token =>
+    token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ||
+    token.denom === "uatom"
+  );
+
+  if (nativeTokens.length === 0) {
+    console.log("No native tokens to send via Cosmos");
+    return { code: 0, message: "No native tokens needed" };
+  }
+
+  // Convert EVM address to Cosmos address if needed
+  let cosmosRecipient = recipient;
+  if (isHexAddress(recipient)) {
+    cosmosRecipient = convertEvmToCosmosAddress(recipient);
+    console.log("Converted EVM address to Cosmos address:", recipient, "->", cosmosRecipient);
+    console.log("Converted address length:", cosmosRecipient?.length);
+    console.log("Converted address is valid:", cosmosRecipient && cosmosRecipient.length > 0);
+
+    if (!cosmosRecipient || cosmosRecipient.length === 0) {
+      throw new Error(`Failed to convert EVM address ${recipient} to cosmos address`);
+    }
+  }
+
+  if (!cosmosRecipient || cosmosRecipient.length === 0) {
+    throw new Error(`Invalid recipient address: ${cosmosRecipient}`);
+  }
+
+  // Create wallet and get account info
   const wallet = await createEthCompatibleCosmosWallet(chainConf.sender.mnemonic, chainConf.sender.option);
   const [firstAccount] = await wallet.getAccounts();
-
-  const rpcEndpoint = chainConf.endpoints.rpc_endpoint;
-  const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet, {
-    registry: customRegistry,
-    gasPrice: GasPrice.fromString('0.025uatom'),
-    accountParser: customAccountParser,
-  });
 
   // Prepare amounts from needed native tokens only
   const amounts = nativeTokens.map(token => ({
@@ -816,75 +1032,98 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
 
   const fee = chainConf.tx.fee.cosmos;
 
-  console.log("Sending smart cosmos tokens to:", recipient, "amounts:", amounts, "fee:", fee);
+  console.log("Sending manual cosmos transaction to:", cosmosRecipient, "amounts:", amounts, "fee:", fee);
 
-  // Create the MsgSend message manually
-  const msgSend = {
-    typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-    value: {
-      fromAddress: firstAccount.address,
-      toAddress: recipient,
-      amount: amounts
-    }
-  };
+  // 1. Fetch FRESH account info via REST API (always get latest state)
+  const accountInfo = await fetchFreshAccountInfo(chainConf.endpoints.rest_endpoint, firstAccount.address);
 
-  // Get account info for sequence and account number via REST API
-  let accountInfo;
-  try {
-    const accountUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/auth/v1beta1/accounts/${firstAccount.address}`;
-    const response = await fetch(accountUrl);
-    if (response.ok) {
-      const data = await response.json();
-      console.log("Account API response:", JSON.stringify(data, null, 2));
-
-      // Handle both BaseAccount and EthAccount types
-      let account = data.account;
-      if (account.base_account) {
-        // EthAccount type - extract base_account
-        account = account.base_account;
-      }
-
-      accountInfo = {
-        accountNumber: parseInt(account.account_number),
-        sequence: parseInt(account.sequence)
-      };
-      console.log("Account found via REST - accountNumber:", accountInfo.accountNumber, "sequence:", accountInfo.sequence);
-    } else {
-      console.log("Account not found via REST, using default values");
-      accountInfo = { accountNumber: 0, sequence: 0 };
-    }
-  } catch (error) {
-    console.log("Error fetching account info:", error.message);
-    accountInfo = { accountNumber: 0, sequence: 0 };
-  }
-
-  // Create transaction body
-  const txBodyEncodeObject = {
-    typeUrl: "/cosmos.tx.v1beta1.TxBody",
-    value: {
-      messages: [msgSend],
-      memo: "",
-    },
-  };
-  const txBodyBytes = customRegistry.encode(txBodyEncodeObject);
-
-  // Create the correct ethereum secp256k1 pubkey Any
-  const pubkeyAny = Any.fromPartial({
-    typeUrl: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
-    value: PubKey.encode({
-      key: firstAccount.pubkey
-    }).finish(),
+  // 2. Create MsgSend message with proper protobuf encoding
+  const msgSendValue = MsgSend.fromPartial({
+    fromAddress: firstAccount.address,
+    toAddress: cosmosRecipient,
+    amount: amounts
   });
 
-  // Create AuthInfo with the correct pubkey type
+  console.log("=== MsgSend DEBUG ===");
+  console.log("MsgSend message structure:");
+  console.log("- fromAddress:", msgSendValue.fromAddress);
+  console.log("- toAddress:", msgSendValue.toAddress);
+  console.log("- toAddress length:", msgSendValue.toAddress?.length);
+  console.log("- amount:", msgSendValue.amount);
+
+  // Encode the MsgSend as protobuf bytes
+  const msgSendBytes = MsgSend.encode(msgSendValue).finish();
+  console.log("- MsgSend encoded bytes length:", msgSendBytes.length);
+
+  // Create the Any wrapper for the message
+  const msgSendAny = Any.fromPartial({
+    typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+    value: msgSendBytes
+  });
+
+  console.log("- Any wrapper created with typeUrl:", msgSendAny.typeUrl);
+  console.log("=== END MsgSend DEBUG ===");
+
+  // 3. Create TxBody using proper protobuf message structure
+  const txBodyValue = {
+    messages: [msgSendAny], // Use the properly encoded Any message
+    memo: "",
+    timeoutHeight: Long.fromNumber(0),
+    extensionOptions: [],
+    nonCriticalExtensionOptions: []
+  };
+
+  console.log("=== TxBody DEBUG ===");
+  console.log("TxBody structure:");
+  console.log("- messages count:", txBodyValue.messages.length);
+  console.log("- first message typeUrl:", txBodyValue.messages[0].typeUrl);
+  console.log("- first message value length:", txBodyValue.messages[0].value.length);
+  console.log("- memo:", txBodyValue.memo);
+  console.log("=== END TxBody DEBUG ===");
+
+  const txBodyBytes = TxBody.encode(txBodyValue).finish();
+  console.log("TxBody encoded bytes length:", txBodyBytes.length);
+
+  // 4. Get our manually derived keys for consistency
+  const privateKeyBytes = getPrivateKeyFromMnemonic(chainConf.sender.mnemonic, pathToString(chainConf.sender.option.hdPaths[0]));
+  const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes, true); // compressed
+
+  console.log('=== PUBLIC KEY DEBUG ===');
+  console.log('Private key bytes length:', privateKeyBytes.length);
+  console.log('Public key bytes length:', publicKeyBytes.length);
+  console.log('Public key (hex):', Buffer.from(publicKeyBytes).toString('hex'));
+  console.log('First account pubkey (hex):', Buffer.from(firstAccount.pubkey).toString('hex'));
+  console.log('Keys match:', Buffer.from(publicKeyBytes).equals(Buffer.from(firstAccount.pubkey)));
+  console.log('=== END PUBLIC KEY DEBUG ===');
+
+  // Create and test multiple pubkey variants
+  const pubkeyVariants = await createPubKeyVariants(publicKeyBytes);
+  
+  // Use the specified variant
+  const pubkeyAny = pubkeyVariants[pubkeyVariant];
+  
+  console.log(`🎯 Using pubkey variant: ${pubkeyVariant} (${pubkeyAny.typeUrl}) for chain: ${chainConf.ids.cosmosChainId}`);
+  console.log('📏 Encoded pubkey value length:', pubkeyAny.value.length);
+  console.log('🔢 Encoded pubkey value (hex):', Buffer.from(pubkeyAny.value).toString('hex'));
+
+  // 5. Create AuthInfo with the correct pubkey type
   const gasLimit = parseInt(fee.gas);
+  console.log("=== AuthInfo DEBUG ===");
+  console.log("- Gas limit:", gasLimit);
+  console.log("- Fee amount:", fee.amount);
+  console.log("- Sequence:", accountInfo.sequence);
+  console.log("- PubKey Any typeUrl:", pubkeyAny.typeUrl);
+  console.log("- PubKey Any value length:", pubkeyAny.value.length);
+  console.log("=== END AuthInfo DEBUG ===");
+
   const authInfoBytes = makeAuthInfoBytes(
     [{ pubkey: pubkeyAny, sequence: Long.fromNumber(accountInfo.sequence) }],
     fee.amount,
     gasLimit
   );
+  console.log("AuthInfo encoded bytes length:", authInfoBytes.length);
 
-  // Create SignDoc with proper Long type for account number
+  // 6. Create SignDoc
   const signDoc = makeSignDoc(
     txBodyBytes,
     authInfoBytes,
@@ -892,30 +1131,91 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
     Long.fromNumber(accountInfo.accountNumber)
   );
 
-  console.log("SignDoc details:");
+  console.log("SignDoc created:");
   console.log("- Chain ID:", chainConf.ids.cosmosChainId);
   console.log("- Account Number:", accountInfo.accountNumber);
   console.log("- Sequence:", accountInfo.sequence);
-  console.log("- Account Number as Long:", Long.fromNumber(accountInfo.accountNumber));
 
-  // Sign the transaction
-  const { signature } = await wallet.signDirect(firstAccount.address, signDoc);
+    // 7. Create signature manually using our ethereum secp256k1 implementation
+  console.log('Manual signing - Private key length:', privateKeyBytes.length);
+  console.log('Manual signing - Public key length:', publicKeyBytes.length);
+  console.log('Manual signing - Public key being used:', Buffer.from(publicKeyBytes).toString('hex'));
 
-  // Create the signed transaction
+  // Create proper ethereum secp256k1 signature for Cosmos SDK
+  // CRITICAL: Use the SignDoc as-is from makeSignDoc, don't reconstruct it
+  console.log('SignDoc to sign:', {
+      chainId: signDoc.chainId,
+      accountNumber: signDoc.accountNumber.toString(),
+      bodyBytesLength: signDoc.bodyBytes.length,
+      authInfoBytesLength: signDoc.authInfoBytes.length
+  });
+
+  // Encode the SignDoc directly and hash for signing  
+  const signDocBytes = SignDoc.encode(signDoc).finish();
+  const messageHash = sha256(signDocBytes);
+
+  // Create signature using our ethereum secp256k1 implementation
+  console.log("=== SIGNATURE CREATION DEBUG ===");
+  console.log("- SignDoc bytes length:", signDocBytes.length);
+  console.log("- SignDoc bytes (first 32 hex):", Buffer.from(signDocBytes.slice(0, 32)).toString('hex'));
+  console.log("- Message hash (hex):", Buffer.from(messageHash).toString('hex'));
+  console.log("- Message hash length:", messageHash.length);
+  console.log("- Private key length:", privateKeyBytes.length);
+  console.log("- Using public key (hex):", Buffer.from(publicKeyBytes).toString('hex'));
+
+  const signature = createEthSecp256k1Signature(messageHash, privateKeyBytes);
+  console.log("- Signature created, length:", signature.length);
+  console.log("- Signature (hex):", Buffer.from(signature).toString('hex'));
+  
+  // Verify the signature locally
+  try {
+    const isValid = secp256k1.verify(signature, messageHash, publicKeyBytes);
+    console.log("- Local signature verification:", isValid);
+  } catch (e) {
+    console.log("- Local signature verification failed:", e.message);
+  }
+  console.log("=== END SIGNATURE DEBUG ===");
+
+  // 8. Create TxRaw with our direct signature
   const txRaw = TxRaw.fromPartial({
     bodyBytes: signDoc.bodyBytes,
     authInfoBytes: signDoc.authInfoBytes,
-    signatures: [fromBase64(signature.signature)],
+    signatures: [signature], // Our signature is already in bytes
   });
 
   const txBytes = TxRaw.encode(txRaw).finish();
 
-  // Broadcast the transaction
+  // 9. Broadcast manually via REST API
   try {
-    const result = await client.broadcastTx(txBytes);
-    return result;
+    const broadcastUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs`;
+    const broadcastBody = {
+      tx_bytes: toBase64(txBytes),
+      mode: "BROADCAST_MODE_SYNC"
+    };
+
+    console.log("Broadcasting transaction...");
+    const response = await fetch(broadcastUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(broadcastBody)
+    });
+
+    const result = await response.json();
+
+    if (result.tx_response && result.tx_response.code === 0) {
+      console.log("Transaction successful:", result.tx_response.txhash);
+      return {
+        code: 0,
+        transactionHash: result.tx_response.txhash,
+        height: result.tx_response.height,
+        gasUsed: result.tx_response.gas_used
+      };
+    } else {
+      console.error("Transaction failed:", result);
+      throw new Error(`Transaction failed: ${result.tx_response?.raw_log || JSON.stringify(result)}`);
+    }
   } catch (error) {
-    console.error("Manual transaction broadcast failed:", error);
+    console.error("Broadcast failed:", error);
     throw error;
   }
 }
@@ -1066,7 +1366,13 @@ function convertEvmToCosmosAddress(evmAddress) {
   try {
     // Use the chain's prefix (from config)
     const prefix = conf.blockchain.sender.option.prefix;
-    return hexToBech32(evmAddress, prefix);
+    console.log("=== EVM TO COSMOS CONVERSION DEBUG ===");
+    console.log("Input EVM address:", evmAddress);
+    console.log("Chain prefix:", prefix);
+    const result = hexToBech32(evmAddress, prefix);
+    console.log("hexToBech32 result:", result);
+    console.log("=== END CONVERSION DEBUG ===");
+    return result;
   } catch (error) {
     console.error('Error converting EVM to Cosmos address:', error);
     return null;
