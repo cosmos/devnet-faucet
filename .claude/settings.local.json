@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:gist.githubusercontent.com)",
+      "Bash(npm start)",
+      "Bash(node:*)"
+    ],
+    "deny": []
+  }
+}

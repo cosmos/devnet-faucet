@@ -1,7 +1,9 @@
 import { ethers } from 'ethers';
 import { bech32 } from 'bech32';
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
-import { SigningStargateClient } from "@cosmjs/stargate";
+import { DirectSecp256k1HdWallet, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
+import { TxBodyEncodeObject, SigningStargateClient } from "@cosmjs/stargate";
+import { Registry } from "@cosmjs/proto-signing";
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
 import { stringToPath } from '@cosmjs/crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -65,11 +67,9 @@ export class FaucetCore {
         // EVM Provider
         this.evmProvider = new ethers.JsonRpcProvider(this.config.blockchain.endpoints.evm_endpoint);
 
-        // Cosmos Provider
-        this.cosmosClient = await SigningStargateClient.connectWithSigner(
-            this.config.blockchain.endpoints.rpc_endpoint,
-            null // Will be set when wallet is created
-        );
+        // Cosmos Provider - using Evmos libraries for eth_secp256k1 compatibility
+        this.cosmosEndpoint = this.config.blockchain.endpoints.rpc_endpoint;
+        this.restEndpoint = this.config.blockchain.endpoints.rest_endpoint;
 
         this.logger.info('Providers initialized', {
             evm_endpoint: this.config.blockchain.endpoints.evm_endpoint,
@@ -142,11 +142,13 @@ export class FaucetCore {
             cosmos: cosmosWallet
         };
 
-        // Create cosmos client
-        this.cosmosClient = await SigningStargateClient.connectWithSigner(
-            this.config.blockchain.endpoints.rpc_endpoint,
-            cosmosWallet
-        );
+        // Store Evmos-compatible signer data - use the EVM-derived cosmos address
+        this.evmosSigner = {
+            privateKey: evmWallet.privateKey,
+            address: this.wallet.addresses.cosmos, // Use EVM-derived cosmos address, not wallet-derived
+            chainId: this.config.blockchain.ids.cosmosChainId,
+            cosmosChainId: this.config.blockchain.ids.cosmosChainId
+        };
 
         this.logger.info('Unified wallet initialized', {
             name: this.wallet.name,
@@ -224,10 +226,11 @@ export class FaucetCore {
             health.evm_provider = true;
             this.logger.debug('EVM provider healthy', { chainId: network.chainId });
 
-            // Check Cosmos client
-            const height = await this.cosmosClient.getHeight();
-            health.cosmos_client = true;
-            this.logger.debug('Cosmos client healthy', { height });
+            // Check Cosmos endpoint connectivity
+            const accountUrl = `${this.restEndpoint}/cosmos/auth/v1beta1/accounts/${this.evmosSigner.address}`;
+            const accountResponse = await fetch(accountUrl);
+            health.cosmos_client = accountResponse.ok;
+            this.logger.debug('Cosmos endpoint healthy', { status: accountResponse.status });
 
             // Check faucet balance
             const evmBalance = await this.evmProvider.getBalance(this.wallet.addresses.evm);
@@ -389,7 +392,9 @@ export class FaucetCore {
             if (addressInfo.type === 'evm') {
                 // Use bank precompile to check all token balances
                 const bankContract = this.precompiles.get('bank').contract;
-                const bankBalances = await bankContract.balances(addressInfo.evmAddress);
+                // Ensure proper address checksum
+                const checksumAddress = ethers.getAddress(addressInfo.evmAddress);
+                const bankBalances = await bankContract.balances(checksumAddress);
 
                 for (const balance of bankBalances) {
                     const tokenAddress = balance.contractAddress;
@@ -446,47 +451,75 @@ export class FaucetCore {
     }
 
         async sendCosmosTokens(addressInfo, neededAmounts, requestId) {
-        // Use Cosmos SDK multisend for multiple tokens
-        const senderAddress = this.wallet.addresses.cosmos_derived; // Use the derived cosmos address for signing
+        // Simplified approach: Use the existing cosmos wallet but with correct address
+        const senderAddress = this.wallet.addresses.cosmos; // Use EVM-derived cosmos address
+        
+        try {
+            // Create a cosmos client with the cosmos wallet
+            const client = await SigningStargateClient.connectWithSigner(
+                this.cosmosEndpoint,
+                this.wallets.cosmos
+            );
 
-        const messages = [];
-        for (const needed of neededAmounts) {
-            messages.push({
-                typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-                value: {
-                    fromAddress: senderAddress,
-                    toAddress: addressInfo.cosmosAddress,
-                    amount: [{
-                        denom: needed.denom,
-                        amount: needed.amount
-                    }]
+            const transactions = [];
+            
+            // Process each token transfer using the standard SigningStargateClient
+            for (const needed of neededAmounts) {
+                const amount = [{
+                    denom: needed.denom,
+                    amount: needed.amount
+                }];
+                
+                const fee = this.config.blockchain.tx.fee.cosmos;
+                const memo = `Faucet transfer: ${needed.denom}`;
+                
+                this.logger.debug('Sending cosmos transaction', {
+                    from: senderAddress,
+                    to: addressInfo.cosmosAddress,
+                    amount: amount,
+                    fee: fee,
+                    request_id: requestId
+                });
+                
+                const result = await client.sendTokens(
+                    senderAddress,
+                    addressInfo.cosmosAddress,
+                    amount,
+                    fee,
+                    memo
+                );
+                
+                if (result.code === 0) {
+                    transactions.push({
+                        hash: result.transactionHash,
+                        type: 'cosmos',
+                        token: needed.denom
+                    });
+                    
+                    this.logger.info('Cosmos transaction successful', {
+                        request_id: requestId,
+                        tx_hash: result.transactionHash,
+                        height: result.height,
+                        token: needed.denom
+                    });
+                } else {
+                    throw new Error(`Transaction failed: ${result.rawLog || 'Unknown error'}`);
                 }
+            }
+
+            return {
+                success: true,
+                transactions,
+                request_id: requestId
+            };
+            
+        } catch (error) {
+            this.logger.error('Cosmos transaction failed', {
+                request_id: requestId,
+                error: error.message
             });
+            throw error;
         }
-
-        const fee = this.config.blockchain.tx.fee.cosmos;
-        const result = await this.cosmosClient.signAndBroadcast(
-            senderAddress,
-            messages,
-            fee
-        );
-
-        this.logger.info('Cosmos transaction broadcasted', {
-            request_id: requestId,
-            tx_hash: result.transactionHash,
-            height: result.height,
-            gas_used: result.gasUsed
-        });
-
-        return {
-            success: result.code === 0,
-            transactions: [{
-                hash: result.transactionHash,
-                type: 'cosmos',
-                tokens: neededAmounts.map(n => n.denom)
-            }],
-            request_id: requestId
-        };
     }
 
     async sendEvmTokens(addressInfo, neededAmounts, requestId) {

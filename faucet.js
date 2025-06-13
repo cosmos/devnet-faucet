@@ -5,10 +5,14 @@ import { ethers } from 'ethers'
 import { Wallet, HDNodeWallet, JsonRpcProvider, Contract, parseUnits, keccak256, getBytes } from 'ethers'
 import { bech32 } from 'bech32';
 
-import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
-import { SigningStargateClient } from "@cosmjs/stargate";
+import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, Registry, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
+import { SigningStargateClient, defaultRegistryTypes, GasPrice, accountFromAny } from "@cosmjs/stargate";
 import { sha256, Secp256k1, Secp256k1Signature, pathToString } from '@cosmjs/crypto';
 import { fromHex, toHex, toBase64, fromBase64 } from '@cosmjs/encoding';
+import { TxRaw, SignDoc } from "cosmjs-types/cosmos/tx/v1beta1/tx.js";
+import { Any } from "cosmjs-types/google/protobuf/any.js";
+import { PubKey } from "cosmjs-types/cosmos/crypto/secp256k1/keys.js";
+import Long from "long";
 import { signEthSecp256k1 } from "@hanchon/evmos-signer";
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino";
 
@@ -26,6 +30,84 @@ import { FrequencyChecker } from './checker.js';
 
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
+
+// Define the EthSecp256k1 PubKey type for the registry
+const EthSecp256k1PubKey = {
+  encode: (pubkey) => {
+    if (!pubkey.key) {
+      throw new Error("EthSecp256k1PubKey requires a 'key' field");
+    }
+    return Uint8Array.from([10, pubkey.key.length, ...pubkey.key]);
+  },
+  decode: (data) => {
+    if (data.length < 2 || data[0] !== 10) {
+      throw new Error("Invalid EthSecp256k1PubKey encoding");
+    }
+    const keyLength = data[1];
+    const key = data.slice(2, 2 + keyLength);
+    return { key };
+  },
+};
+
+// Create custom registry with EthSecp256k1PubKey support
+const customRegistry = new Registry([
+  ...defaultRegistryTypes,
+  ['/cosmos.evm.crypto.v1.ethsecp256k1.PubKey', EthSecp256k1PubKey],
+  ['/ethermint.crypto.v1.ethsecp256k1.PubKey', EthSecp256k1PubKey],
+]);
+
+// Custom pubkey decoder that handles ethereum secp256k1 keys
+function customDecodePubkey(pubkey) {
+  if (pubkey.typeUrl === '/cosmos.evm.crypto.v1.ethsecp256k1.PubKey' ||
+      pubkey.typeUrl === '/ethermint.crypto.v1.ethsecp256k1.PubKey') {
+    const decoded = EthSecp256k1PubKey.decode(pubkey.value);
+    return {
+      type: 'secp256k1',
+      value: toBase64(decoded.key),
+    };
+  }
+  // Fall back to default decoder for other types
+  return decodePubkey(pubkey);
+}
+
+// Custom account parser that handles ethereum secp256k1 accounts
+function customAccountParser(accountAny) {
+  // Handle ethermint EthAccount types by extracting the base_account
+  if (accountAny.typeUrl === '/ethermint.types.v1.EthAccount') {
+    try {
+      // Decode the EthAccount protobuf to get the base_account
+      const ethAccount = JSON.parse(Buffer.from(accountAny.value).toString());
+      if (ethAccount.base_account) {
+        // Create a BaseAccount Any type
+        const baseAccountAny = {
+          typeUrl: '/cosmos.auth.v1beta1.BaseAccount',
+          value: ethAccount.base_account
+        };
+        return accountFromAny(baseAccountAny);
+      }
+    } catch (error) {
+      console.log('Failed to parse EthAccount, using fallback approach');
+    }
+  }
+
+  // Try the default parser
+  try {
+    return accountFromAny(accountAny);
+  } catch (error) {
+    // If pubkey decoding fails, return a minimal account object
+    if (error.message.includes('Pubkey type_url') && error.message.includes('not recognized')) {
+      console.log('Pubkey decoding failed, creating minimal account');
+      // Return a minimal account without pubkey info
+      return {
+        address: '',
+        accountNumber: 0,
+        sequence: 0,
+        pubkey: null
+      };
+    }
+    throw error;
+  }
+}
 
 // Key type enum
 const KeyType = {
@@ -255,9 +337,25 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
             console.log('Signing for address:', signerAddress);
             console.log('Public key being used:', Buffer.from(publicKeyBytes).toString('hex'));
 
-            // Create the signature manually using the private key
-            const signBytes = signDoc.bodyBytes;
-            const messageHash = sha256(signBytes);
+                                    // Create the SignDoc bytes for signing
+            // For Cosmos SDK, we need to sign the serialized SignDoc protobuf
+            const signDocForSigning = {
+                bodyBytes: signDoc.bodyBytes,
+                authInfoBytes: signDoc.authInfoBytes,
+                chainId: signDoc.chainId,
+                accountNumber: signDoc.accountNumber
+            };
+
+            console.log('SignDoc to sign:', {
+                chainId: signDoc.chainId,
+                accountNumber: signDoc.accountNumber.toString(),
+                bodyBytesLength: signDoc.bodyBytes.length,
+                authInfoBytesLength: signDoc.authInfoBytes.length
+            });
+
+            // Encode the SignDoc and hash for signing
+            const signDocBytes = SignDoc.encode(signDocForSigning).finish();
+            const messageHash = sha256(signDocBytes);
 
             // Sign with secp256k1
             const signature = await Secp256k1.createSignature(messageHash, privateKeyBytes);
@@ -266,7 +364,7 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
                 signed: signDoc,
                 signature: {
                     pub_key: {
-                        type: "/cosmos.crypto.secp256k1.PubKey",
+                        type: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
                         value: toBase64(publicKeyBytes)
                     },
                     signature: toBase64(signature.toFixedLength())
@@ -403,7 +501,11 @@ app.get('/balance/:type', async (req, res) => {
         } else if(type === 'cosmos') {
       const rpcEndpoint = chainConf.endpoints.rpc_endpoint;
       const wallet = await createEthCompatibleCosmosWallet(chainConf.sender.mnemonic, chainConf.sender.option);
-      const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet);
+      const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet, {
+        registry: customRegistry,
+        gasPrice: GasPrice.fromString('0.025uatom'),
+        accountParser: customAccountParser,
+      });
       const [firstAccount] = await wallet.getAccounts();
 
       // Get balances for all configured tokens
@@ -700,7 +802,11 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
   const [firstAccount] = await wallet.getAccounts();
 
   const rpcEndpoint = chainConf.endpoints.rpc_endpoint;
-  const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet);
+  const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, wallet, {
+    registry: customRegistry,
+    gasPrice: GasPrice.fromString('0.025uatom'),
+    accountParser: customAccountParser,
+  });
 
   // Prepare amounts from needed native tokens only
   const amounts = nativeTokens.map(token => ({
@@ -711,7 +817,107 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
   const fee = chainConf.tx.fee.cosmos;
 
   console.log("Sending smart cosmos tokens to:", recipient, "amounts:", amounts, "fee:", fee);
-  return client.sendTokens(firstAccount.address, recipient, amounts, fee);
+
+  // Create the MsgSend message manually
+  const msgSend = {
+    typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+    value: {
+      fromAddress: firstAccount.address,
+      toAddress: recipient,
+      amount: amounts
+    }
+  };
+
+  // Get account info for sequence and account number via REST API
+  let accountInfo;
+  try {
+    const accountUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/auth/v1beta1/accounts/${firstAccount.address}`;
+    const response = await fetch(accountUrl);
+    if (response.ok) {
+      const data = await response.json();
+      console.log("Account API response:", JSON.stringify(data, null, 2));
+
+      // Handle both BaseAccount and EthAccount types
+      let account = data.account;
+      if (account.base_account) {
+        // EthAccount type - extract base_account
+        account = account.base_account;
+      }
+
+      accountInfo = {
+        accountNumber: parseInt(account.account_number),
+        sequence: parseInt(account.sequence)
+      };
+      console.log("Account found via REST - accountNumber:", accountInfo.accountNumber, "sequence:", accountInfo.sequence);
+    } else {
+      console.log("Account not found via REST, using default values");
+      accountInfo = { accountNumber: 0, sequence: 0 };
+    }
+  } catch (error) {
+    console.log("Error fetching account info:", error.message);
+    accountInfo = { accountNumber: 0, sequence: 0 };
+  }
+
+  // Create transaction body
+  const txBodyEncodeObject = {
+    typeUrl: "/cosmos.tx.v1beta1.TxBody",
+    value: {
+      messages: [msgSend],
+      memo: "",
+    },
+  };
+  const txBodyBytes = customRegistry.encode(txBodyEncodeObject);
+
+  // Create the correct ethereum secp256k1 pubkey Any
+  const pubkeyAny = Any.fromPartial({
+    typeUrl: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
+    value: PubKey.encode({
+      key: firstAccount.pubkey
+    }).finish(),
+  });
+
+  // Create AuthInfo with the correct pubkey type
+  const gasLimit = parseInt(fee.gas);
+  const authInfoBytes = makeAuthInfoBytes(
+    [{ pubkey: pubkeyAny, sequence: Long.fromNumber(accountInfo.sequence) }],
+    fee.amount,
+    gasLimit
+  );
+
+  // Create SignDoc with proper Long type for account number
+  const signDoc = makeSignDoc(
+    txBodyBytes,
+    authInfoBytes,
+    chainConf.ids.cosmosChainId,
+    Long.fromNumber(accountInfo.accountNumber)
+  );
+
+  console.log("SignDoc details:");
+  console.log("- Chain ID:", chainConf.ids.cosmosChainId);
+  console.log("- Account Number:", accountInfo.accountNumber);
+  console.log("- Sequence:", accountInfo.sequence);
+  console.log("- Account Number as Long:", Long.fromNumber(accountInfo.accountNumber));
+
+  // Sign the transaction
+  const { signature } = await wallet.signDirect(firstAccount.address, signDoc);
+
+  // Create the signed transaction
+  const txRaw = TxRaw.fromPartial({
+    bodyBytes: signDoc.bodyBytes,
+    authInfoBytes: signDoc.authInfoBytes,
+    signatures: [fromBase64(signature.signature)],
+  });
+
+  const txBytes = TxRaw.encode(txRaw).finish();
+
+  // Broadcast the transaction
+  try {
+    const result = await client.broadcastTx(txBytes);
+    return result;
+  } catch (error) {
+    console.error("Manual transaction broadcast failed:", error);
+    throw error;
+  }
 }
 
 // Smart EVM transaction with calculated amounts using new MultiSend contract
