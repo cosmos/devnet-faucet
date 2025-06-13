@@ -57,12 +57,29 @@ function decodeEthSecp256k1PubKey(data) {
 
 // Create proper ethereum secp256k1 signature for Cosmos SDK
 // Format: r (32 bytes) + s (32 bytes) = 64 bytes total (no recovery ID for Cosmos)
-function createEthSecp256k1Signature(messageHash, privateKeyBytes) {
+// Based on ethsecp256k1.go spec: The Go code does the keccak256 hashing in the Sign function
+function createEthSecp256k1Signature(messageBytes, privateKeyBytes) {
+  console.log('Message bytes length:', messageBytes.length);
+  
+  // From the Go code: 
+  // if len(digestBz) != crypto.DigestLength {
+  //     digestBz = crypto.Keccak256Hash(digestBz).Bytes()
+  // }
+  // crypto.DigestLength is 32, so if our message is not 32 bytes, it gets hashed
+  let digestBz;
+  if (messageBytes.length !== 32) {
+    digestBz = keccak_256(messageBytes);
+    console.log('Message length != 32, applying Keccak256 hash:', Buffer.from(digestBz).toString('hex'));
+  } else {
+    digestBz = messageBytes;
+    console.log('Message length == 32, using as-is:', Buffer.from(digestBz).toString('hex'));
+  }
+  
   // Use noble secp256k1 to create the signature
-  const signature = secp256k1.sign(messageHash, privateKeyBytes);
+  const signature = secp256k1.sign(digestBz, privateKeyBytes);
 
   // Use the compact raw bytes format directly from noble
-  // This gives us exactly 64 bytes: r (32) + s (32)
+  // This gives us exactly 64 bytes: r (32) + s (32) - no recovery ID
   const signatureBytes = signature.toCompactRawBytes();
   
   console.log('Raw signature from noble (length:', signatureBytes.length, '):', Buffer.from(signatureBytes).toString('hex'));
@@ -335,8 +352,8 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
                 async getAccounts() {
             return [{
                 address: cosmosAddress,
-                pubkey: publicKeyBytes,  // Raw bytes - let the registry handle the encoding
-                algo: "eth_secp256k1"
+                pubkey: publicKeyBytes,  // Raw bytes
+                algo: "secp256k1"  // Use standard algo for CosmJS compatibility
             }];
         },
 
@@ -367,12 +384,13 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
                 authInfoBytesLength: signDoc.authInfoBytes.length
             });
 
-            // Encode the SignDoc and hash for signing
+            // Encode the SignDoc - pass raw bytes to signature function
+            // The ethsecp256k1.go will handle Keccak256 hashing internally
             const signDocBytes = SignDoc.encode(signDocForSigning).finish();
-            const messageHash = sha256(signDocBytes);
 
             // Create signature using our ethereum secp256k1 implementation
-            const signature = createEthSecp256k1Signature(messageHash, privateKeyBytes);
+            // Pass the raw SignDoc bytes - createEthSecp256k1Signature will handle Keccak256 hashing
+            const signature = createEthSecp256k1Signature(signDocBytes, privateKeyBytes);
 
             const result = {
                 signed: signDoc,
@@ -393,9 +411,9 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
         async signAmino(signerAddress, signDoc) {
             // For amino signing, use our ethereum secp256k1 implementation
             const signBytes = Buffer.from(JSON.stringify(signDoc), 'utf8');
-            const messageHash = sha256(signBytes);
 
-            const signature = createEthSecp256k1Signature(messageHash, privateKeyBytes);
+            // Pass raw sign bytes - createEthSecp256k1Signature will handle Keccak256 hashing
+            const signature = createEthSecp256k1Signature(signBytes, privateKeyBytes);
 
             return {
                 signed: signDoc,
@@ -709,73 +727,45 @@ function calculateNeededAmounts(currentBalances, tokenConfigs) {
   return neededAmounts;
 }
 
-// Send tokens using smart amounts (both cosmos and EVM as needed)
+// Send tokens using smart amounts based on recipient address type
 async function sendSmartFaucetTx(recipient, addressType, neededAmounts) {
   const results = [];
 
-  // Separate native tokens from ERC20 tokens
-  const nativeTokens = neededAmounts.filter(token =>
-    token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ||
-    token.denom === "uatom"
-  );
+  console.log('Recipient address type:', addressType);
+  console.log('All needed amounts:', neededAmounts);
 
-  const erc20Tokens = neededAmounts.filter(token =>
-    token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" &&
-    token.denom !== "uatom"
-  );
-
-  console.log('Native tokens to send via Cosmos:', nativeTokens);
-  console.log('ERC20 tokens to send via EVM:', erc20Tokens);
-
-  // Send native tokens via Cosmos (if any)
-  if (nativeTokens.length > 0) {
+  // Send ALL tokens based on recipient address type, not token type
+  if (addressType === 'cosmos') {
+    // Send ALL tokens via Cosmos bank sends (including ERC20 tokens that exist on cosmos side)
     try {
-      console.log('Sending native tokens via Cosmos...');
-      const cosmosResult = await sendSmartCosmosTx(recipient, nativeTokens);
+      console.log('Sending ALL tokens via Cosmos (bech32 recipient)...');
+      const cosmosResult = await sendSmartCosmosTx(recipient, neededAmounts);
       results.push({ type: 'cosmos', result: cosmosResult });
     } catch (error) {
       console.error('Cosmos send failed:', error);
       throw new Error(`Cosmos transaction failed: ${error.message}`);
     }
-  }
-
-  // Send ERC20 tokens via EVM (if any)
-  if (erc20Tokens.length > 0) {
+  } else if (addressType === 'evm') {
+    // Send ALL tokens via EVM (including native tokens via wrapped/bridged versions)
     try {
-      console.log('Sending ERC20 tokens via EVM...');
-
-      // For ERC20 tokens, we need to send to the EVM address
-      let evmRecipient;
-      if (addressType === 'cosmos') {
-        // Convert cosmos address to corresponding EVM address
-        // For eth_secp256k1 chains, both addresses are derived from the same keccak256 hash
-        evmRecipient = convertCosmosToEvmAddress(recipient);
-        if (!evmRecipient) {
-          throw new Error('Failed to convert cosmos address to EVM address');
-        }
-        console.log('Converted cosmos address to EVM address:', evmRecipient);
-      } else {
-        evmRecipient = recipient;
-      }
-
-      const evmResult = await sendSmartEvmTx(evmRecipient, erc20Tokens);
+      console.log('Sending ALL tokens via EVM (hex recipient)...');
+      const evmResult = await sendSmartEvmTx(recipient, neededAmounts);
       results.push({ type: 'evm', result: evmResult });
     } catch (error) {
       console.error('EVM send failed:', error);
       throw new Error(`EVM transaction failed: ${error.message}`);
     }
+  } else {
+    throw new Error(`Unsupported address type: ${addressType}`);
   }
 
-  // Combine results
-  if (results.length === 0) {
-    return { code: 0, message: "No tokens needed" };
-  } else if (results.length === 1) {
+  // Return result
+  if (results.length === 1) {
     return results[0].result;
   } else {
-    // Multiple transactions - combine results
     return {
       code: 0,
-      message: "Tokens sent via multiple transactions",
+      message: "No tokens sent",
       transactions: results
     };
   }
@@ -791,7 +781,7 @@ async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetri
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`\n🔄 Cosmos Transaction Attempt ${attempt}/${maxRetries}`);
-      const result = await sendCosmosTransactionWithCosmJS(recipient, neededAmounts);
+      const result = await sendCosmosTransactionInternal(recipient, neededAmounts, 'cosmosEvm');
       console.log(`✅ Attempt ${attempt} succeeded!`);
       return result;
     } catch (error) {
@@ -815,6 +805,30 @@ async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetri
       throw error;
     }
   }
+}
+
+// Create a simple eth_secp256k1 compatible wallet for CosmJS
+async function createSimpleEthSecp256k1Wallet(mnemonic, options) {
+  // Use DirectSecp256k1HdWallet but with eth address derivation
+  const privateKeyBytes = getPrivateKeyFromMnemonic(mnemonic, pathToString(options.hdPaths[0]));
+  const { cosmosAddress } = generateEthSecp256k1AddressesFromPrivateKey(
+    Buffer.from(privateKeyBytes).toString('hex'),
+    options.prefix
+  );
+
+  // Create a DirectSecp256k1Wallet with the derived private key
+  const wallet = await DirectSecp256k1Wallet.fromKey(privateKeyBytes, options.prefix);
+  
+  // Override the getAccounts method to return the correct eth-derived address
+  const originalGetAccounts = wallet.getAccounts.bind(wallet);
+  wallet.getAccounts = async () => {
+    const accounts = await originalGetAccounts();
+    // Replace the address with our eth-derived address
+    accounts[0].address = cosmosAddress;
+    return accounts;
+  };
+
+  return wallet;
 }
 
 // New CosmJS-based transaction function
@@ -848,14 +862,10 @@ async function sendCosmosTransactionWithCosmJS(recipient, neededAmounts) {
   }
 
   try {
-    // Create wallet using DirectSecp256k1HdWallet for eth_secp256k1 chains
-    const wallet = await DirectSecp256k1HdWallet.fromMnemonic(chainConf.sender.mnemonic, {
-      prefix: chainConf.sender.option.prefix,
-      hdPaths: chainConf.sender.option.hdPaths
-    });
-
+    // Create simple eth_secp256k1 compatible wallet
+    const wallet = await createSimpleEthSecp256k1Wallet(chainConf.sender.mnemonic, chainConf.sender.option);
     const [account] = await wallet.getAccounts();
-    console.log("Wallet account:", account.address);
+    console.log("Simple ETH-compatible wallet account:", account.address);
 
     // Create signing client
     const client = await SigningStargateClient.connectWithSigner(
@@ -992,15 +1002,16 @@ async function createPubKeyVariants(publicKeyBytes) {
 async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVariant = 'cosmosEvm') {
   const chainConf = conf.blockchain;
 
-  // Filter to only native tokens (uatom) - ERC20 tokens should be sent via EVM
-  const nativeTokens = neededAmounts.filter(token =>
+  // For now, only send native tokens via Cosmos bank sends
+  // TODO: Handle ERC20 tokens later (they can't be sent via bank send)
+  const tokensToSend = neededAmounts.filter(token =>
     token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ||
     token.denom === "uatom"
   );
 
-  if (nativeTokens.length === 0) {
-    console.log("No native tokens to send via Cosmos");
-    return { code: 0, message: "No native tokens needed" };
+  if (tokensToSend.length === 0) {
+    console.log("No tokens to send via Cosmos");
+    return { code: 0, message: "No tokens needed" };
   }
 
   // Convert EVM address to Cosmos address if needed
@@ -1024,8 +1035,8 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
   const wallet = await createEthCompatibleCosmosWallet(chainConf.sender.mnemonic, chainConf.sender.option);
   const [firstAccount] = await wallet.getAccounts();
 
-  // Prepare amounts from needed native tokens only
-  const amounts = nativeTokens.map(token => ({
+  // Prepare amounts from all needed tokens
+  const amounts = tokensToSend.map(token => ({
     denom: token.denom,
     amount: token.amount
   }));
@@ -1150,27 +1161,28 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
       authInfoBytesLength: signDoc.authInfoBytes.length
   });
 
-  // Encode the SignDoc directly and hash for signing  
+  // Encode the SignDoc and pass raw bytes to signature function
+  // The ethsecp256k1.go will handle Keccak256 hashing internally
   const signDocBytes = SignDoc.encode(signDoc).finish();
-  const messageHash = sha256(signDocBytes);
 
   // Create signature using our ethereum secp256k1 implementation
   console.log("=== SIGNATURE CREATION DEBUG ===");
   console.log("- SignDoc bytes length:", signDocBytes.length);
   console.log("- SignDoc bytes (first 32 hex):", Buffer.from(signDocBytes.slice(0, 32)).toString('hex'));
-  console.log("- Message hash (hex):", Buffer.from(messageHash).toString('hex'));
-  console.log("- Message hash length:", messageHash.length);
   console.log("- Private key length:", privateKeyBytes.length);
   console.log("- Using public key (hex):", Buffer.from(publicKeyBytes).toString('hex'));
 
-  const signature = createEthSecp256k1Signature(messageHash, privateKeyBytes);
+  // Pass raw SignDoc bytes - createEthSecp256k1Signature will handle Keccak256 hashing
+  const signature = createEthSecp256k1Signature(signDocBytes, privateKeyBytes);
   console.log("- Signature created, length:", signature.length);
   console.log("- Signature (hex):", Buffer.from(signature).toString('hex'));
   
-  // Verify the signature locally
+  // Verify the signature locally using the same logic as ethsecp256k1.go
   try {
+    // ethsecp256k1.go does: crypto.VerifySignature(pubKey.Key, crypto.Keccak256Hash(msg).Bytes(), sig)
+    const messageHash = keccak_256(signDocBytes);
     const isValid = secp256k1.verify(signature, messageHash, publicKeyBytes);
-    console.log("- Local signature verification:", isValid);
+    console.log("- Local signature verification (Keccak256):", isValid);
   } catch (e) {
     console.log("- Local signature verification failed:", e.message);
   }
