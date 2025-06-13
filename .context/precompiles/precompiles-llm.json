@@ -1,0 +1,341 @@
+{
+  "evm_precompiles": {
+    "overview": "Solidity interfaces to interact with Cosmos SDK modules, providing seamless integration between Ethereum smart contracts and Cosmos functionality",
+    "precompiles": {
+      "bank": {
+        "address": "0x0000000000000000000000000000000000000804",
+        "purpose": "ERC20-style access to native Cosmos SDK tokens",
+        "interface": "IBank",
+        "methods": {
+          "balances": {
+            "signature": "balances(address account) → Balance[] memory",
+            "description": "Query all native token balances for an account",
+            "gas_cost": 2851,
+            "parameters": {
+              "account": "address - Address to query balances for"
+            },
+            "returns": "Balance[] - Array of token balances with contractAddress and amount"
+          },
+          "totalSupply": {
+            "signature": "totalSupply() → Balance[] memory",
+            "description": "Query total supply of all native tokens",
+            "gas_cost": 2477,
+            "returns": "Balance[] - Array of total supplies for all tokens"
+          },
+          "supplyOf": {
+            "signature": "supplyOf(address erc20Address) → uint256",
+            "description": "Query total supply of specific token by ERC20 contract address",
+            "gas_cost": 2477,
+            "parameters": {
+              "erc20Address": "address - ERC20 contract address of the token"
+            },
+            "returns": "uint256 - Total supply of the specified token"
+          }
+        },
+        "data_structures": {
+          "Balance": {
+            "contractAddress": "address - ERC20 contract address",
+            "amount": "uint256 - Token amount in smallest unit"
+          }
+        },
+        "integration": "Integrates with x/bank and x/erc20 modules for native token operations"
+      },
+      "bech32": {
+        "address": "0x0000000000000000000000000000000000000400",
+        "purpose": "Address format conversion between Ethereum hex and Cosmos bech32",
+        "interface": "Bech32I",
+        "methods": {
+          "hexToBech32": {
+            "signature": "hexToBech32(address addr, string prefix) → string bech32Address",
+            "description": "Convert hex address to bech32 format",
+            "parameters": {
+              "addr": "address - Ethereum hex address",
+              "prefix": "string - Bech32 prefix (e.g., 'cosmos')"
+            },
+            "returns": "string - Bech32 formatted address"
+          },
+          "bech32ToHex": {
+            "signature": "bech32ToHex(string bech32Address) → address addr",
+            "description": "Convert bech32 address to hex format",
+            "parameters": {
+              "bech32Address": "string - Bech32 formatted address"
+            },
+            "returns": "address - Ethereum hex address"
+          }
+        },
+        "usage": "Essential for address format conversion in cross-platform operations"
+      },
+      "staking": {
+        "address": "0x0000000000000000000000000000000000000800",
+        "purpose": "Comprehensive access to Cosmos SDK staking functionality",
+        "interface": "StakingI",
+        "transaction_methods": {
+          "createValidator": {
+            "signature": "createValidator(Description, CommissionRates, uint256 minSelfDelegation, address validatorAddress, string pubkey, uint256 value) → bool",
+            "description": "Creates a new validator with specified parameters",
+            "gas_cost": "~200,000",
+            "parameters": {
+              "description": "Description - Validator description information",
+              "commissionRates": "CommissionRates - Commission rate configuration",
+              "minSelfDelegation": "uint256 - Minimum self-delegation amount",
+              "validatorAddress": "address - Validator operator address",
+              "pubkey": "string - Validator consensus public key (base64)",
+              "value": "uint256 - Initial self-delegation amount"
+            }
+          },
+          "delegate": {
+            "signature": "delegate(address delegatorAddress, string validatorAddress, uint256 amount) → bool",
+            "description": "Delegates tokens to a validator",
+            "gas_cost": "~150,000",
+            "parameters": {
+              "delegatorAddress": "address - Address of delegator (must be msg.sender)",
+              "validatorAddress": "string - Bech32 address of validator",
+              "amount": "uint256 - Amount to delegate"
+            }
+          },
+          "undelegate": {
+            "signature": "undelegate(address delegatorAddress, string validatorAddress, uint256 amount) → int64 completionTime",
+            "description": "Undelegates tokens with 21-day unbonding period",
+            "gas_cost": "~150,000",
+            "returns": "int64 - Unix timestamp when tokens will be available"
+          },
+          "redelegate": {
+            "signature": "redelegate(address delegatorAddress, string validatorSrcAddress, string validatorDstAddress, uint256 amount) → int64 completionTime",
+            "description": "Moves delegation between validators without unbonding",
+            "gas_cost": "~200,000"
+          }
+        },
+        "query_methods": {
+          "delegation": "Query delegation information between delegator and validator",
+          "validator": "Query information about specific validator",
+          "validators": "Query all validators with status filtering and pagination"
+        },
+        "data_structures": {
+          "Description": {
+            "moniker": "string - Validator name",
+            "identity": "string - Identity signature (Keybase)",
+            "website": "string - Website URL",
+            "securityContact": "string - Security contact email",
+            "details": "string - Additional details"
+          },
+          "BondStatus": "enum - Unspecified, Unbonded, Unbonding, Bonded"
+        },
+        "events": ["CreateValidator", "Delegate", "Unbond", "Redelegate", "CancelUnbondingDelegation"]
+      },
+      "distribution": {
+        "address": "0x0000000000000000000000000000000000000801",
+        "purpose": "Access to staking rewards and community pool functionality",
+        "interface": "DistributionI",
+        "transaction_methods": {
+          "claimRewards": {
+            "signature": "claimRewards(address delegatorAddress, uint32 maxRetrieve) → bool",
+            "description": "Claims staking rewards from multiple validators",
+            "gas_cost": "~100,000 + (validators * 50,000)",
+            "parameters": {
+              "delegatorAddress": "address - Delegator address (must be msg.sender)",
+              "maxRetrieve": "uint32 - Maximum validators to claim from"
+            }
+          },
+          "withdrawDelegatorRewards": {
+            "signature": "withdrawDelegatorRewards(address delegatorAddress, string validatorAddress) → Coin[]",
+            "description": "Withdraws rewards from specific validator",
+            "gas_cost": "~80,000"
+          },
+          "setWithdrawAddress": {
+            "signature": "setWithdrawAddress(address delegatorAddress, string withdrawerAddress) → bool",
+            "description": "Sets withdrawal address for rewards",
+            "gas_cost": "~60,000"
+          }
+        },
+        "query_methods": {
+          "delegationRewards": "Query pending rewards for specific delegation",
+          "delegationTotalRewards": "Query total pending rewards across all delegations",
+          "communityPool": "Query current community pool balance"
+        },
+        "use_cases": ["Auto-compounding strategies", "Reward distribution pools", "Validator commission management"]
+      },
+      "erc20": {
+        "address": "Dynamic (per token pair)",
+        "purpose": "Standard ERC20 token functionality for native Cosmos tokens",
+        "interfaces": ["IERC20", "IERC20Metadata", "IERC20MetadataAllowance"],
+        "standard_methods": {
+          "transfer": {
+            "signature": "transfer(address to, uint256 amount) → bool",
+            "description": "Transfers tokens to recipient",
+            "gas_cost": "~21,000"
+          },
+          "approve": {
+            "signature": "approve(address spender, uint256 amount) → bool",
+            "description": "Approves spender to transfer tokens",
+            "gas_cost": "~20,000"
+          },
+          "transferFrom": {
+            "signature": "transferFrom(address from, address to, uint256 amount) → bool",
+            "description": "Transfers tokens using allowance",
+            "gas_cost": "~25,000"
+          },
+          "balanceOf": {
+            "signature": "balanceOf(address account) → uint256",
+            "description": "Returns token balance",
+            "gas_cost": "~2,000"
+          }
+        },
+        "metadata_methods": {
+          "name": "Returns token name",
+          "symbol": "Returns token symbol", 
+          "decimals": "Returns number of decimals (always 18)"
+        },
+        "enhanced_methods": {
+          "increaseAllowance": "Safely increases allowance (prevents front-running)",
+          "decreaseAllowance": "Safely decreases allowance"
+        },
+        "events": ["Transfer", "Approval"]
+      },
+      "government": {
+        "address": "0x0000000000000000000000000000000000000805",
+        "purpose": "On-chain governance participation through proposals and voting",
+        "interface": "IGov",
+        "transaction_methods": {
+          "submitProposal": {
+            "signature": "submitProposal(address proposer, bytes jsonProposal, Coin[] deposit) → uint64 proposalId",
+            "description": "Submits governance proposal",
+            "gas_cost": "~200,000-500,000"
+          },
+          "vote": {
+            "signature": "vote(address voter, uint64 proposalId, VoteOption option, string metadata) → bool",
+            "description": "Votes on governance proposal",
+            "gas_cost": "~100,000"
+          }
+        },
+        "vote_options": ["Unspecified", "Yes", "Abstain", "No", "NoWithVeto"],
+        "query_methods": {
+          "getProposal": "Get proposal details by ID",
+          "getVote": "Get vote information",
+          "getTallyResult": "Get voting results"
+        }
+      },
+      "ics20": {
+        "address": "0x0000000000000000000000000000000000000802",
+        "purpose": "Cross-chain token transfers via IBC",
+        "interface": "ICS20I",
+        "methods": {
+          "transfer": {
+            "signature": "transfer(string sourcePort, string sourceChannel, string denom, uint256 amount, address sender, string receiver, Height timeoutHeight, uint64 timeoutTimestamp, string memo) → uint64 nextSequence",
+            "description": "Initiates cross-chain token transfer",
+            "gas_cost": "~150,000-300,000",
+            "parameters": {
+              "sourcePort": "string - Source port ID",
+              "sourceChannel": "string - Source channel ID", 
+              "denom": "string - Token denomination",
+              "amount": "uint256 - Transfer amount",
+              "sender": "address - Sender address",
+              "receiver": "string - Receiver address on destination chain",
+              "timeoutHeight": "Height - Timeout block height",
+              "timeoutTimestamp": "uint64 - Timeout timestamp",
+              "memo": "string - Transfer memo"
+            }
+          }
+        },
+        "data_structures": {
+          "Height": {
+            "revisionNumber": "uint64 - Chain revision number",
+            "revisionHeight": "uint64 - Block height"
+          }
+        }
+      },
+      "werc20": {
+        "address": "Dynamic (per wrapped token)",
+        "purpose": "Wrapped native token functionality (like WETH)",
+        "interface": "IWERC20",
+        "methods": {
+          "deposit": {
+            "signature": "deposit() payable",
+            "description": "Wraps native tokens into ERC20 format"
+          },
+          "withdraw": {
+            "signature": "withdraw(uint256 wad)",
+            "description": "Unwraps ERC20 tokens back to native"
+          }
+        },
+        "events": ["Deposit", "Withdrawal"],
+        "use_cases": ["DeFi protocol integration", "Liquidity pools", "Trading pairs"]
+      },
+      "slashing": {
+        "address": "0x0000000000000000000000000000000000000806",
+        "purpose": "Validator slashing and jail management",
+        "interface": "ISlashing",
+        "methods": {
+          "unjail": {
+            "signature": "unjail(address validatorAddress) → bool",
+            "description": "Unjails a validator after slashing period"
+          },
+          "getSigningInfo": {
+            "signature": "getSigningInfo(address consAddress) → SigningInfo",
+            "description": "Gets validator signing information"
+          }
+        }
+      },
+      "evidence": {
+        "address": "0x0000000000000000000000000000000000000807",
+        "purpose": "Submit and query evidence of validator misbehavior",
+        "interface": "IEvidence",
+        "methods": {
+          "submitEvidence": {
+            "signature": "submitEvidence(Equivocation evidence) → bool",
+            "description": "Submits evidence of validator misbehavior"
+          }
+        }
+      },
+      "p256": {
+        "address": "0x0000000000000000000000000000000000000100",
+        "purpose": "P-256 elliptic curve cryptographic operations",
+        "description": "Provides cryptographic primitives for P-256 curve operations"
+      },
+      "callbacks": {
+        "purpose": "IBC packet lifecycle callbacks",
+        "interface": "ICallbacks",
+        "methods": {
+          "onPacketAcknowledgement": "Handle IBC packet acknowledgement",
+          "onPacketTimeout": "Handle IBC packet timeout"
+        }
+      }
+    },
+    "common_types": {
+      "Coin": {
+        "denom": "string - Token denomination",
+        "amount": "uint256 - Token amount"
+      },
+      "DecCoin": {
+        "denom": "string - Token denomination", 
+        "amount": "uint256 - Token amount with precision",
+        "precision": "uint8 - Decimal precision"
+      },
+      "PageRequest": {
+        "key": "bytes - Pagination key",
+        "offset": "uint64 - Pagination offset",
+        "limit": "uint64 - Results limit",
+        "countTotal": "bool - Count total results",
+        "reverse": "bool - Reverse order"
+      }
+    },
+    "integration_patterns": {
+      "multi_precompile_workflows": "Combining staking + distribution for auto-compounding, bank + erc20 for balance management",
+      "cross_chain_defi": "Using ICS20 for bridging + staking for yield generation",
+      "governance_automation": "Automated proposal submission and voting via smart contracts",
+      "liquidity_management": "ERC20 compatibility for DEX integration and liquidity pools"
+    },
+    "gas_optimization": {
+      "batch_operations": "Combine multiple operations when possible",
+      "selective_queries": "Use specific queries rather than broad listings",
+      "pagination": "Use reasonable page sizes for large result sets",
+      "caching": "Cache frequently accessed data"
+    },
+    "security_considerations": {
+      "authorization": "Most operations require msg.sender validation",
+      "input_validation": "Validate addresses and amounts",
+      "return_values": "Check all precompile call return values",
+      "gas_limits": "Account for variable costs with delegation/validator counts",
+      "reentrancy": "Use appropriate protection patterns"
+    }
+  }
+}

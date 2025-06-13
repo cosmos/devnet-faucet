@@ -2,15 +2,8 @@ import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 import { Wallet, HDNodeWallet, randomBytes } from 'ethers';
 
-const HOME = ".faucet";
-const mnemonic_path= `${HOME}/mnemonic.txt`
-if (!fs.existsSync(mnemonic_path)) {
-    fs.mkdirSync(HOME, { recursive: true })
-    const randomWallet = HDNodeWallet.fromEntropy(randomBytes(32))
-    fs.writeFileSync(mnemonic_path, randomWallet.mnemonic.phrase)
-}
-
-const mnemonic = fs.readFileSync(mnemonic_path, 'utf8')
+// Use the specific faucet mnemonic
+const mnemonic = "mosquito peanut thought width car cushion salt matter trouble census win tribe leisure truth install basic april direct indicate eyebrow liar afraid street trip"
 console.log("======================== faucet mnemonic =========================")
 console.log(mnemonic)
 console.log("==================================================================")
@@ -18,7 +11,7 @@ console.log("=================================================================="
 export default {
     port: 8088, // http port
     db: {
-        path: `${HOME}/history.db` // save request states
+        path: ".faucet/history.db" // save request states
     },
     project: {
         name: "Cosmos-EVM Devnet Faucet",

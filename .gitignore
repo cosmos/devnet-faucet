@@ -134,12 +134,26 @@ typechain-types/
 /web.js
 /db
 .faucet/
+.faucet/mnemonic.txt
 
 # Development and temporary files
 *.tmp
 *.bak
 *.swp
 *.swo
+test-*.js
+debug-*.js
+check-*.js
+approve-*.js
+
+# Reports with timestamps
+reports/*-*.json
+!reports/latest-*.json
+
+# Log files
+*.log
+logs/
+logs/*.log
 
 # Local deployment reports (keep structure but ignore individual reports)
 deployments/*.json
