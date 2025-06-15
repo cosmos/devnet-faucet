@@ -695,7 +695,7 @@
                             >
                             <span class="input-group-text">WATOM</span>
                           </div>
-                          <div class="form-text">Balance: {{formatBalance(watomBalance, 18)}} WATOM</div>
+                          <div class="form-text">Balance: Check transaction history (WERC20 precompile)</div>
                         </div>
                         <button 
                           class="btn btn-secondary w-100" 
@@ -1022,7 +1022,7 @@
     </div>
 
     <script type="module">
-      import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+      import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js'
       
       createApp({
         data() {
@@ -1079,7 +1079,7 @@
             this.loadFaucetBalances();
             this.loadRecentTransactions();
             this.loadWatomTransactions();
-            this.loadWatomBalances();
+            // loadWatomBalances will be called when EVM wallet connects
           }).catch(error => {
             console.error('Failed to load config:', error);
           });
@@ -1098,6 +1098,18 @@
                 this.loadRequesterBalances();
               } else {
                 this.requesterBalances = [];
+              }
+            },
+            immediate: false
+          },
+          'evmWallet.connected': {
+            handler(connected) {
+              if (connected && this.evmWallet.address) {
+                // Only load WATOM balances if we have a connected address
+                this.loadWatomBalances();
+              } else {
+                this.nativeBalance = '0';
+                this.watomBalance = '0';
               }
             },
             immediate: false
@@ -1149,10 +1161,16 @@
           },
           
           async checkExistingConnections() {
+            // Wait for network config to be loaded
+            if (!this.networkConfig.cosmos?.chainId) {
+              setTimeout(() => this.checkExistingConnections(), 100);
+              return;
+            }
+            
             // Check Keplr connection
             if (window.keplr) {
               try {
-                const chainId = this.networkConfig.cosmos?.chainId || '4321';
+                const chainId = this.networkConfig.cosmos.chainId;
                 await window.keplr.getKey(chainId);
                 const offlineSigner = window.keplr.getOfflineSigner(chainId);
                 const accounts = await offlineSigner.getAccounts();
@@ -1167,11 +1185,12 @@
             }
             
             // Check EVM connection
-            if (window.ethereum) {
+            const provider = this.getEvmProvider();
+            if (provider) {
               try {
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                const accounts = await provider.request({ method: 'eth_accounts' });
                 if (accounts.length > 0) {
-                  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                  const chainId = await provider.request({ method: 'eth_chainId' });
                   this.evmWallet.connected = true;
                   this.evmWallet.address = accounts[0];
                   this.evmWallet.chainId = chainId;
@@ -1374,6 +1393,30 @@
               return window.ethereum;
             }
             return null;
+          },
+          
+          async waitForTransactionReceipt(provider, txHash, maxAttempts = 60) {
+            // Wait for transaction receipt with timeout
+            for (let i = 0; i < maxAttempts; i++) {
+              try {
+                const receipt = await provider.request({
+                  method: 'eth_getTransactionReceipt',
+                  params: [txHash]
+                });
+                
+                if (receipt) {
+                  return receipt;
+                }
+                
+                // Wait 2 seconds before trying again
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              } catch (error) {
+                console.error('Error getting transaction receipt:', error);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            }
+            
+            throw new Error('Transaction receipt not found after timeout');
           },
           
           // Existing Methods
@@ -1644,7 +1687,6 @@
           async loadWatomBalances() {
             // Use global EVM wallet state
             if (!this.evmWallet.connected || !this.evmWallet.address) {
-              console.warn('EVM wallet not connected');
               this.nativeBalance = '0';
               this.watomBalance = '0';
               return;
@@ -1663,20 +1705,28 @@
               });
               this.nativeBalance = parseInt(nativeBalance, 16).toString();
 
-              // Get WATOM balance
-              const watomBalance = await this.getERC20Balance(this.watomContractAddress, userAddress);
-              this.watomBalance = watomBalance;
+              // Note: WERC20 precompile doesn't support standard ERC20 balanceOf
+              // For now, we'll show WATOM balance as 0 and rely on transaction history
+              // In a real implementation, you'd need to track wrapping/unwrapping via events
+              this.watomBalance = '0';
 
             } catch (error) {
               console.error('Error loading WATOM balances:', error);
+              this.nativeBalance = '0';
+              this.watomBalance = '0';
             }
           },
 
           async getERC20Balance(tokenAddress, userAddress) {
-            const balanceOfData = '0x70a08231' + userAddress.slice(2).padStart(64, '0');
             try {
               const provider = this.getEvmProvider();
               if (!provider) return '0';
+              
+              // Properly encode balanceOf(address) function call
+              // Function selector: balanceOf(address) = 0x70a08231
+              // Parameter: address (32 bytes, left-padded)
+              const addressParam = userAddress.slice(2).toLowerCase().padStart(64, '0');
+              const balanceOfData = '0x70a08231' + addressParam;
               
               const result = await provider.request({
                 method: 'eth_call',
@@ -1685,6 +1735,11 @@
                   data: balanceOfData
                 }, 'latest']
               });
+              
+              if (!result || result === '0x') {
+                return '0';
+              }
+              
               return parseInt(result, 16).toString();
             } catch (error) {
               console.error('Error getting ERC20 balance:', error);
@@ -1726,18 +1781,27 @@
                 }]
               });
 
-              this.addWatomTransaction({
-                type: 'wrap',
-                amount: this.wrapAmount,
-                hash: txHash,
-                timestamp: new Date()
-              });
+              // Wait for transaction confirmation
+              alert(`Transaction submitted! Hash: ${txHash}\nWaiting for confirmation...`);
+              
+              const receipt = await this.waitForTransactionReceipt(provider, txHash);
+              
+              if (receipt && receipt.status === '0x1') {
+                this.addWatomTransaction({
+                  type: 'wrap',
+                  amount: this.wrapAmount,
+                  hash: txHash,
+                  timestamp: new Date()
+                });
 
-              const wrappedAmount = this.wrapAmount;
-              this.wrapAmount = '';
-              await this.loadWatomBalances();
+                const wrappedAmount = this.wrapAmount;
+                this.wrapAmount = '';
+                await this.loadWatomBalances();
 
-              alert(`Successfully wrapped ${wrappedAmount} ATOM! Transaction: ${txHash}`);
+                alert(`Successfully wrapped ${wrappedAmount} ATOM! Transaction confirmed: ${txHash}`);
+              } else {
+                throw new Error('Transaction failed or was reverted');
+              }
 
             } catch (error) {
               console.error('Wrap error:', error);
@@ -1782,18 +1846,27 @@
                 }]
               });
 
-              this.addWatomTransaction({
-                type: 'unwrap',
-                amount: this.unwrapAmount,
-                hash: txHash,
-                timestamp: new Date()
-              });
+              // Wait for transaction confirmation
+              alert(`Transaction submitted! Hash: ${txHash}\nWaiting for confirmation...`);
+              
+              const receipt = await this.waitForTransactionReceipt(provider, txHash);
+              
+              if (receipt && receipt.status === '0x1') {
+                this.addWatomTransaction({
+                  type: 'unwrap',
+                  amount: this.unwrapAmount,
+                  hash: txHash,
+                  timestamp: new Date()
+                });
 
-              const unwrappedAmount = this.unwrapAmount;
-              this.unwrapAmount = '';
-              await this.loadWatomBalances();
+                const unwrappedAmount = this.unwrapAmount;
+                this.unwrapAmount = '';
+                await this.loadWatomBalances();
 
-              alert(`Successfully unwrapped ${unwrappedAmount} WATOM! Transaction: ${txHash}`);
+                alert(`Successfully unwrapped ${unwrappedAmount} WATOM! Transaction confirmed: ${txHash}`);
+              } else {
+                throw new Error('Transaction failed or was reverted');
+              }
 
             } catch (error) {
               console.error('Unwrap error:', error);
