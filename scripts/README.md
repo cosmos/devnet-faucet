@@ -185,39 +185,3 @@ WBTC: {
     mintTo: 'custom_address',       // Modify mint destination
 }
 ```
-
-## Error Handling
-
-All scripts include comprehensive error handling and logging:
-
-- **Connection issues**: Automatic network verification
-- **Insufficient balance**: Balance checks before deployment
-- **Compilation errors**: Clear error messages with resolution steps
-- **Transaction failures**: Detailed transaction and gas information
-
-## Future Enhancements
-
-- **Multi-network support**: Easy configuration for additional networks
-- **Batch operations**: Deploy multiple token sets simultaneously
-- **Verification integration**: Automatic contract verification
-- **Governance integration**: Automatic proposal creation for registrations
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"Insufficient balance"**: Fund the deployer address with ETH
-2. **"Chain ID mismatch"**: Verify RPC URL and network configuration
-3. **"Artifact not found"**: Run `forge build` to compile contracts
-4. **"Registration failed"**: Ensure tokens are deployed and accessible
-
-### Debug Mode
-
-Enable detailed logging by setting environment variable:
-```bash
-DEBUG=1 node scripts/deploy-foundry.js deploy
-```
-
----
-
-For more information, see the main project README or contact the development team.
