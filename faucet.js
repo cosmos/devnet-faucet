@@ -1135,30 +1135,35 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
 
     // MultiSend contract address from centralized config
     const multiSendAddress = chainConf.contracts.multiSend;
+    console.log("MultiSend contract address:", multiSendAddress);
 
-    // MultiSend contract ABI
+    // Verify contract exists
+    const contractCode = await ethProvider.getCode(multiSendAddress);
+    console.log("Contract code length:", contractCode.length);
+    if (contractCode === '0x') {
+      throw new Error(`No contract found at MultiSend address: ${multiSendAddress}`);
+    }
+
+    // MultiSend contract ABI - matching the actual contract
     const multiSendABI = [
-      "function multiSend(address recipient, tuple(address token, uint256 amount)[] transfers) external payable",
-      "function emergencyWithdraw(address token, uint256 amount) external"
+      "function multiSend(address payable recipient, (address token, uint256 amount)[] calldata transfers) external payable",
+      "function owner() external view returns (address)",
+      "function getOwnerBalance(address token) external view returns (uint256)",
+      "function getAllowance(address token) external view returns (uint256)"
     ];
 
     const multiSendContract = new Contract(multiSendAddress, multiSendABI, wallet);
 
-    // Separate native tokens from ERC20 tokens
-    const nativeTokens = neededAmounts.filter(token => token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
+    // Separate ERC20 tokens for approval process
     const erc20Tokens = neededAmounts.filter(token => token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
 
-    // Calculate total native amount
-    const totalNativeAmount = nativeTokens.reduce((sum, token) => sum + BigInt(token.amount), 0n);
-
-    // Prepare transfers for MultiSend contract (only ERC20 tokens)
-    const transfers = erc20Tokens.map(token => ({
-      token: token.erc20_contract,
+    // Prepare transfers for MultiSend contract (both native and ERC20)
+    const transfers = neededAmounts.map(token => ({
+      token: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? "0x0000000000000000000000000000000000000000" : token.erc20_contract,
       amount: token.amount
     }));
 
     console.log("New MultiSend transfers:", transfers);
-    console.log("Native amount:", totalNativeAmount.toString());
 
     // First, approve the MultiSend contract to spend each ERC20 token
     const erc20ABI = [
@@ -1184,6 +1189,11 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     }
 
     // Debug logging before transaction
+    // Calculate total native amount for msg.value
+    const totalNativeAmount = neededAmounts
+      .filter(token => token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
+      .reduce((sum, token) => sum + BigInt(token.amount), 0n);
+
     console.log("About to call multiSend with:");
     console.log("- recipient:", recipient);
     console.log("- transfers:", JSON.stringify(transfers, null, 2));
@@ -1192,11 +1202,28 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     console.log("- wallet address:", wallet.address);
 
     // Validate transfers array
-    if (transfers.length === 0 && totalNativeAmount === 0n) {
-      throw new Error("No transfers to process - both ERC20 transfers and native amount are empty");
+    if (transfers.length === 0) {
+      throw new Error("No transfers to process - transfers array is empty");
+    }
+
+    // Debug: Test the transaction encoding first
+    console.log("Testing function encoding...");
+    try {
+      const encodedData = multiSendContract.interface.encodeFunctionData('multiSend', [recipient, transfers]);
+      console.log("Encoded function data:", encodedData);
+      console.log("Encoded data length:", encodedData.length);
+    } catch (encodeError) {
+      console.error("Function encoding failed:", encodeError);
+      throw new Error(`Function encoding failed: ${encodeError.message}`);
     }
 
     // Call MultiSend contract
+    console.log("Calling multiSend with options:", {
+      value: totalNativeAmount.toString(),
+      gasLimit: chainConf.tx.fee.evm.gasLimit,
+      gasPrice: chainConf.tx.fee.evm.gasPrice
+    });
+
     const tx = await multiSendContract.multiSend(recipient, transfers, {
       value: totalNativeAmount, // Send native tokens as value
       gasLimit: chainConf.tx.fee.evm.gasLimit,
@@ -1204,6 +1231,13 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     });
 
     console.log(`New MultiSend transaction hash: ${tx.hash}`);
+    console.log("Transaction object:", {
+      to: tx.to,
+      data: tx.data,
+      value: tx.value?.toString(),
+      gasLimit: tx.gasLimit?.toString(),
+      gasPrice: tx.gasPrice?.toString()
+    });
     
     // Wait for transaction with better error handling
     let receipt;
