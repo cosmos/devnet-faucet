@@ -1157,11 +1157,14 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     // Separate ERC20 tokens for approval process
     const erc20Tokens = neededAmounts.filter(token => token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
 
-    // Prepare transfers for MultiSend contract (both native and ERC20)
-    const transfers = neededAmounts.map(token => ({
-      token: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? "0x0000000000000000000000000000000000000000" : token.erc20_contract,
+    // Prepare transfers for MultiSend contract (ERC20 only for testing)
+    const erc20OnlyAmounts = neededAmounts.filter(token => token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
+    const transfers = erc20OnlyAmounts.map(token => ({
+      token: token.erc20_contract,
       amount: token.amount
     }));
+    
+    console.log("TESTING: Excluding native tokens, sending only ERC20s");
 
     console.log("New MultiSend transfers:", transfers);
 
@@ -1189,10 +1192,8 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     }
 
     // Debug logging before transaction
-    // Calculate total native amount for msg.value
-    const totalNativeAmount = neededAmounts
-      .filter(token => token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
-      .reduce((sum, token) => sum + BigInt(token.amount), 0n);
+    // Calculate total native amount for msg.value (set to 0 for testing)
+    const totalNativeAmount = 0n; // Testing: no native tokens
 
     console.log("About to call multiSend with:");
     console.log("- recipient:", recipient);
@@ -1207,15 +1208,26 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     }
 
     // Debug: Test the transaction encoding first
+    console.log("=== ENCODING DEBUG START ===");
     console.log("Testing function encoding...");
+    console.log("multiSendContract exists:", !!multiSendContract);
+    console.log("multiSendContract.interface exists:", !!multiSendContract.interface);
+    console.log("recipient:", recipient);
+    console.log("transfers:", JSON.stringify(transfers, null, 2));
+    
     try {
       const encodedData = multiSendContract.interface.encodeFunctionData('multiSend', [recipient, transfers]);
-      console.log("Encoded function data:", encodedData);
-      console.log("Encoded data length:", encodedData.length);
+      console.log("✓ Encoded function data:", encodedData);
+      console.log("✓ Encoded data length:", encodedData.length);
+      if (!encodedData || encodedData === '0x') {
+        throw new Error("Encoded data is empty or invalid");
+      }
     } catch (encodeError) {
-      console.error("Function encoding failed:", encodeError);
+      console.error("✗ Function encoding failed:", encodeError.message);
+      console.error("Full error:", encodeError);
       throw new Error(`Function encoding failed: ${encodeError.message}`);
     }
+    console.log("=== ENCODING DEBUG END ===")
 
     // Call MultiSend contract
     console.log("Calling multiSend with options:", {

@@ -15,17 +15,26 @@ import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { bech32 } from 'bech32';
+import config from './config.js';
+import { pathToString } from '@cosmjs/crypto';
 
 const execAsync = promisify(exec);
 
-// Configuration
+// Generate deployer wallet from centralized config
+const deployerWallet = ethers.HDNodeWallet.fromPhrase(
+  config.blockchain.sender.mnemonic,
+  undefined,
+  pathToString(config.blockchain.sender.option.hdPaths[0])
+);
+
+// Configuration using centralized config
 const NETWORK_CONFIG = {
-    rpcUrl: 'https://cevm-01-evmrpc.dev.skip.build',
-    chainId: 262144,
-    privateKey: 'dd138b977ac3248b328b7b65ac30338b1482a17197a175f03fd2df20fb0919c6'
+    rpcUrl: config.blockchain.endpoints.evm_endpoint,
+    chainId: config.blockchain.ids.chainId,
+    privateKey: deployerWallet.privateKey
 };
 
-const FAUCET_ADDRESS = '0x42e6047c5780b103e52265f6483c2d0113aa6b87';
+const FAUCET_ADDRESS = deployerWallet.address;
 
 // Minimal ERC20 ABI for lightweight interactions
 const MIN_ERC20_ABI = [
@@ -223,8 +232,9 @@ class SimpleDeployer {
 
         const deploymentRecord = {
             timestamp: new Date().toISOString(),
-            network: 'cosmos_evm',
+            network: config.blockchain.name,
             chainId: NETWORK_CONFIG.chainId,
+            cosmosChainId: config.blockchain.ids.cosmosChainId,
             faucetAddress: FAUCET_ADDRESS,
             contracts: {}
         };

@@ -1,18 +1,20 @@
 import { ethers } from 'ethers';
 import fs from 'fs';
 import { execSync } from 'child_process';
+import config from '../../config.js';
+import { pathToString } from '@cosmjs/crypto';
 
 const { JsonRpcProvider, HDNodeWallet, ContractFactory } = ethers;
 
 async function deployMultiSend() {
   console.log('Deploying new MultiSend contract...');
 
-  // Setup provider and wallet
-  const provider = new JsonRpcProvider('https://cevm-01-evmrpc.dev.skip.build');
+  // Setup provider and wallet using centralized config
+  const provider = new JsonRpcProvider(config.blockchain.endpoints.evm_endpoint);
   const wallet = HDNodeWallet.fromPhrase(
-    'mosquito peanut thought width car cushion salt matter trouble census win tribe leisure truth install basic april direct indicate eyebrow liar afraid street trip',
+    config.blockchain.sender.mnemonic,
     undefined,
-    "m/44'/60'/0'/0/0"
+    pathToString(config.blockchain.sender.option.hdPaths[0])
   ).connect(provider);
 
   console.log('Deployer address:', wallet.address);
@@ -55,7 +57,8 @@ async function deployMultiSend() {
       address: contractAddress,
       deployer: wallet.address,
       timestamp: new Date().toISOString(),
-      network: 'cosmos-evm-devnet',
+      network: config.blockchain.name,
+      chainId: (await provider.getNetwork()).chainId.toString(),
       transactionHash: contract.deploymentTransaction().hash
     };
 

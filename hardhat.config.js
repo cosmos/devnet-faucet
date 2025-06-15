@@ -1,4 +1,14 @@
 require("@nomicfoundation/hardhat-ethers");
+import config from './config.js';
+import { pathToString } from '@cosmjs/crypto';
+import { ethers } from 'ethers';
+
+// Generate deployer wallet from centralized config
+const deployerWallet = ethers.HDNodeWallet.fromPhrase(
+  config.blockchain.sender.mnemonic,
+  undefined,
+  pathToString(config.blockchain.sender.option.hdPaths[0])
+);
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -14,17 +24,17 @@ module.exports = {
   },
   networks: {
     cosmos_evm: {
-      url: "https://cevm-01-evmrpc.dev.skip.build",
-      chainId: 262144, // 0x40000
+      url: config.blockchain.endpoints.evm_endpoint,
+      chainId: config.blockchain.ids.chainId,
       gasPrice: 20000000000, // 20 gwei
       gas: 8000000,
       accounts: [
-        "dd138b977ac3248b328b7b65ac30338b1482a17197a175f03fd2df20fb0919c6" // Private key for the faucet address
+        deployerWallet.privateKey.slice(2) // Remove 0x prefix for hardhat
       ],
       timeout: 60000
     },
     hardhat: {
-      chainId: 262144
+      chainId: config.blockchain.ids.chainId
     }
   },
   paths: {

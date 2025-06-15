@@ -11,17 +11,26 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import config from '../../config.js';
+import { pathToString } from '@cosmjs/crypto';
 
-// Configuration
+// Generate deployer wallet from centralized config
+const deployerWallet = ethers.HDNodeWallet.fromPhrase(
+  config.blockchain.sender.mnemonic,
+  undefined,
+  pathToString(config.blockchain.sender.option.hdPaths[0])
+);
+
+// Configuration using centralized config
 const CONFIG = {
     NETWORK: {
-        name: 'cosmos_evm',
-        chainId: 262144,
-        rpcUrl: 'https://cevm-01-evmrpc.dev.skip.build',
+        name: config.blockchain.name,
+        chainId: config.blockchain.ids.chainId,
+        rpcUrl: config.blockchain.endpoints.evm_endpoint,
     },
     DEPLOYER: {
-        privateKey: 'dd138b977ac3248b328b7b65ac30338b1482a17197a175f03fd2df20fb0919c6',
-        address: '0x42e6047c5780b103e52265f6483c2d0113aa6b87'
+        privateKey: deployerWallet.privateKey,
+        address: deployerWallet.address
     },
     GAS: {
         gasLimit: 5000000,
@@ -33,36 +42,26 @@ const CONFIG = {
     }
 };
 
-// Token configurations
-const TOKEN_CONFIGS = {
-    WBTC: {
-        contractName: 'WBTC',
-        name: 'Wrapped Bitcoin',
-        symbol: 'WBTC',
-        decimals: 8,
-        initialSupply: '1000000000',
-        mintTo: CONFIG.DEPLOYER.address,
-        description: 'Wrapped Bitcoin token for Cosmos EVM'
-    },
-    PEPE: {
-        contractName: 'PEPE',
-        name: 'Pepe Token',
-        symbol: 'PEPE',
-        decimals: 18,
-        initialSupply: '1000000000',
-        mintTo: CONFIG.DEPLOYER.address,
-        description: 'Pepe meme token for Cosmos EVM'
-    },
-    USDT: {
-        contractName: 'USDT',
-        name: 'Tether USD',
-        symbol: 'USDT',
-        decimals: 6,
-        initialSupply: '1000000000',
-        mintTo: CONFIG.DEPLOYER.address,
-        description: 'USDT stablecoin for Cosmos EVM'
+// Token configurations derived from centralized config
+const TOKEN_CONFIGS = {};
+
+// Generate token configs from centralized configuration
+for (const tokenConfig of config.blockchain.tx.amounts) {
+    if (tokenConfig.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+        const symbol = tokenConfig.denom.toUpperCase();
+        TOKEN_CONFIGS[symbol] = {
+            contractName: symbol,
+            name: symbol === 'WBTC' ? 'Wrapped Bitcoin' : 
+                  symbol === 'PEPE' ? 'Pepe Token' : 
+                  symbol === 'USDT' ? 'Tether USD' : tokenConfig.denom,
+            symbol: symbol,
+            decimals: tokenConfig.decimals,
+            initialSupply: '1000000000',
+            mintTo: CONFIG.DEPLOYER.address,
+            description: `${symbol} token for ${config.blockchain.name}`
+        };
     }
-};
+}
 
 const UTILITY_CONFIGS = {
     MultiSend: {

@@ -1,5 +1,6 @@
 import { ethers } from "hardhat";
 import fs from 'fs';
+import config from '../../config.js';
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -9,7 +10,9 @@ async function main() {
   console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
   console.log("=".repeat(50));
 
-  const faucetAddress = "0x42e6047c5780b103e52265f6483c2d0113aa6b87";
+  // Get faucet address from centralized config (derive from mnemonic)
+  const faucetWallet = ethers.HDNodeWallet.fromPhrase(config.blockchain.sender.mnemonic);
+  const faucetAddress = faucetWallet.address;
   const deployedContracts = {};
 
   try {
@@ -48,7 +51,7 @@ async function main() {
     console.log("\n" + "=".repeat(50));
     console.log(" DEPLOYMENT SUMMARY");
     console.log("=".repeat(50));
-    console.log("Network: Cosmos EVM (Chain ID: 262144)");
+    console.log("Network:", config.blockchain.name, "(Chain ID:", config.blockchain.ids.chainId + ")");
     console.log("Faucet Address:", faucetAddress);
     console.log("\n🪙 Token Contracts:");
     console.log("WBTC (8 decimals):", deployedContracts.WBTC);
@@ -91,8 +94,9 @@ async function main() {
 
     // Save deployment info to file
     const deploymentInfo = {
-      network: "cosmos_evm",
-      chainId: 262144,
+      network: config.blockchain.name,
+      chainId: config.blockchain.ids.chainId,
+      cosmosChainId: config.blockchain.ids.cosmosChainId,
       faucetAddress: faucetAddress,
       timestamp: new Date().toISOString(),
       contracts: deployedContracts,
