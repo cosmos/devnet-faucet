@@ -11,8 +11,6 @@ import { toHex, toBase64, } from '@cosmjs/encoding';
 import { TxRaw, SignDoc, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx.js";
 import { Any } from "cosmjs-types/google/protobuf/any.js";
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx.js";
-// We'll create the protobuf encoding manually to match what the chain expects
-//  Since cosmjs-types doesn't include it, we'll create the proper ethereum secp256k1 PubKey encoding manually s
 import Long from "long";
 
 // Noble crypto imports for key derivation
@@ -609,7 +607,7 @@ app.listen(conf.port, async () => {
   const evmWallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
   const cosmosAddress = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
-  console.log(`💼 Wallet ready - Cosmos: ${cosmosAddress} | EVM: ${evmWallet.address}`);
+  console.log(`Wallet ready - Cosmos: ${cosmosAddress} | EVM: ${evmWallet.address}`);
 })
 
 // Legacy functions removed - replaced by smart faucet functions above
@@ -765,7 +763,7 @@ async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetri
       
       // Wait for transaction to be included in a block and get full details
       if (result.code === 0 && result.transactionHash) {
-        console.log(`✅ Cosmos transaction successful: ${result.transactionHash}`);
+        console.log(`Cosmos transaction successful: ${result.transactionHash}`);
         
         // Wait a moment for the transaction to be processed
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -793,7 +791,7 @@ async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetri
           error.message.includes('unauthorized')) {
 
         if (attempt < maxRetries) {
-          console.log(`⏳ Retrying cosmos tx in 2s (${error.message.split('.')[0]})`);
+          console.log(`Retrying cosmos tx in 2s (${error.message.split('.')[0]})`);
           await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
@@ -1144,9 +1142,9 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
     const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
 
-    console.log("🚀 Sending atomic EVM tokens to:", recipient);
-    console.log("📦 Needed amounts:", neededAmounts);
-    console.log("🔄 Using AtomicMultiSend contract for guaranteed atomicity");
+    console.log("Sending atomic EVM tokens to:", recipient);
+    console.log("Needed amounts:", neededAmounts);
+    console.log("Using AtomicMultiSend contract for guaranteed atomicity");
 
     // Load AtomicMultiSend contract
     const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
@@ -1180,19 +1178,19 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
       }
     }
 
-    console.log("📋 Prepared transfers:", transfers);
-    console.log("💰 Native amount:", nativeAmount.toString());
+    console.log("Prepared transfers:", transfers);
+    console.log("Native amount:", nativeAmount.toString());
 
     // Get current nonce with retry logic for Tendermint reliability
     const nonce = await getNonceWithRetry(wallet);
-    console.log("🔢 Using nonce:", nonce);
+    console.log("Using nonce:", nonce);
 
     // Estimate gas with buffer for Tendermint consensus
     const gasEstimate = await atomicMultiSend.atomicMultiSend.estimateGas(recipient, transfers, { value: nativeAmount });
     const gasLimit = (gasEstimate * 130n) / 100n; // 30% buffer for consensus delays
     
-    console.log("⛽ Gas estimate:", gasEstimate.toString());
-    console.log("⛽ Gas limit (with buffer):", gasLimit.toString());
+    console.log("Gas estimate:", gasEstimate.toString());
+    console.log("Gas limit (with buffer):", gasLimit.toString());
 
     // Submit atomic transaction with proper parameters
     const tx = await atomicMultiSend.atomicMultiSend(recipient, transfers, {
@@ -1202,29 +1200,29 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
       nonce: nonce
     });
 
-    console.log("📤 Atomic transaction submitted:", tx.hash);
-    console.log("⏳ Waiting for confirmation...");
+    console.log("Atomic transaction submitted:", tx.hash);
+    console.log("Waiting for confirmation...");
 
     // Wait for confirmation with timeout
     const receipt = await waitForTransactionWithTimeout(tx, 30000); // 30 second timeout
     
-    console.log("✅ Atomic transaction confirmed!");
-    console.log("📊 Block number:", receipt.blockNumber);
-    console.log("⛽ Gas used:", receipt.gasUsed.toString());
-    console.log("🎯 Status:", receipt.status);
+    console.log("Atomic transaction confirmed!");
+    console.log("Block number:", receipt.blockNumber);
+    console.log("Gas used:", receipt.gasUsed.toString());
+    console.log("Status:", receipt.status);
 
     // Verify all transfers succeeded by checking events
     const events = receipt.logs.filter(log => 
       log.address.toLowerCase() === atomicMultiSendAddress.toLowerCase()
     );
 
-    console.log("📜 Contract events:", events.length);
+    console.log("Contract events:", events.length);
 
     // Send 1 ATOM via cosmos for gas fees (convert hex to bech32)
     let cosmosGasTx = null;
     try {
       const cosmosBech32Address = hexToBech32(recipient, chainConf.sender.option.prefix);
-      console.log("💰 Sending 1 ATOM for gas fees via cosmos to:", cosmosBech32Address);
+      console.log("Sending 1 ATOM for gas fees via cosmos to:", cosmosBech32Address);
       
       const gasAmount = "1000000"; // 1 ATOM (6 decimals: 1000000 uatom)
       const cosmosGasTokens = [{
@@ -1242,10 +1240,9 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
         height: cosmosResult.height,
         gasUsed: cosmosResult.gasUsed
       };
-      console.log("✅ Cosmos gas fee sent:", cosmosResult.transactionHash);
+      console.log("1 ATOM sent:", cosmosResult.transactionHash);
     } catch (cosmosError) {
-      console.warn("⚠️ Failed to send cosmos gas fee (non-critical):", cosmosError.message);
-      // Don't fail the entire transaction for cosmos gas fee failure
+      console.warn("Failed to send additional token for gas fees:", cosmosError.message);
     }
 
     const transferResults = neededAmounts.map(token => ({
@@ -1257,15 +1254,15 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
       type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
     }));
 
-    // Add cosmos gas fee to transfers if successful
-    if (cosmosGasTx) {
+    // Add 1 ATOM for user gas fees    
+     if (cosmosGasTx) {
       transferResults.push({
         token: "native",
         amount: "1000000",
         denom: "uatom",
         hash: cosmosGasTx.hash,
         status: 1,
-        type: 'cosmos_gas'
+        type: 'cosmos_native'
       });
     }
 
@@ -1276,12 +1273,12 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
       gasUsed: receipt.gasUsed.toString(),
       transfers: transferResults,
       transactions: cosmosGasTx ? [tx.hash, cosmosGasTx.hash] : [tx.hash],
-      method: 'atomic_multisend_plus_cosmos_gas',
+      method: 'atomic_multisend_plus_cosmos_native',
       atomicity: 'guaranteed'
     };
 
   } catch(e) {
-    console.error("💥 Atomic EVM transaction error:", e);
+    console.error("Atomic EVM transaction error:", e);
     throw e;
   }
 }
@@ -1291,10 +1288,10 @@ async function getNonceWithRetry(wallet, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       const nonce = await wallet.getNonce();
-      console.log(`🔢 Retrieved nonce ${nonce} on attempt ${i + 1}`);
+      console.log(`Retrieved nonce ${nonce} on attempt ${i + 1}`);
       return nonce;
     } catch (error) {
-      console.log(`⚠️ Nonce retrieval failed (attempt ${i + 1}): ${error.message}`);
+      console.log(`Nonce retrieval failed (attempt ${i + 1}): ${error.message}`);
       if (i === maxRetries - 1) throw error;
       await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
     }
