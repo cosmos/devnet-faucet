@@ -47,15 +47,9 @@ export default {
         },
         tx: {
             // Multi-token amounts - target balance of 1000 tokens each
-            // Temporarily disable native token for testing
             amounts: [
-                // {
-                //     denom: "uatom", // Native cosmos denom (native token like ETH)
-                //     amount: "1000000000", // 1000 tokens (6 decimals)
-                //     erc20_contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token representation
-                //     decimals: 6,
-                //     target_balance: "1000000000" // 1000 tokens target
-                // },
+                // Note: Removed WATOM due to precompile issues
+                // Will send 1 ATOM via cosmos for gas fees separately
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)

@@ -52,6 +52,21 @@ function decodeEthSecp256k1PubKey(data) {
   return { key };
 }
 
+// Convert hex address to bech32 cosmos address
+function hexToBech32(hexAddress, prefix = 'cosmos') {
+  // Remove 0x prefix if present
+  const cleanHex = hexAddress.replace('0x', '');
+  
+  // Convert hex to bytes
+  const bytes = Buffer.from(cleanHex, 'hex');
+  
+  // Convert to bech32
+  const words = bech32.toWords(bytes);
+  const encoded = bech32.encode(prefix, words);
+  
+  return encoded;
+}
+
 // Create proper ethereum secp256k1 signature for Cosmos SDK
 // Format: r (32 bytes) + s (32 bytes) = 64 bytes total (no recovery ID for Cosmos)
 // Based on ethsecp256k1.go spec: The Go code does the keccak256 hashing in the Sign function
@@ -231,34 +246,6 @@ function detectAddressType(address) {
     return 'cosmos';
   }
   return 'unknown';
-}
-
-/**
- * Convert hex address to bech32 address (ETH-compatible - no ripemd160)
- */
-function hexToBech32(hexAddress, prefix) {
-  console.log("=== hexToBech32 DEBUG ===");
-  console.log("Input hex address:", hexAddress);
-  console.log("Prefix:", prefix);
-
-  // Remove 0x prefix if present
-  const hex = hexAddress.replace('0x', '');
-  console.log("Hex after removing 0x:", hex);
-
-  // Convert hex string to bytes
-  const addressBytes = fromHex(hex);
-  console.log("Address bytes:", addressBytes);
-  console.log("Address bytes length:", addressBytes.length);
-
-  // Direct conversion without ripemd160 hashing (ETH-compatible)
-  const words = bech32.toWords(addressBytes);
-  console.log("Bech32 words:", words);
-
-  const cosmosAddress = bech32.encode(prefix, words);
-  console.log("Final cosmos address:", cosmosAddress);
-  console.log("=== END hexToBech32 DEBUG ===");
-
-  return cosmosAddress;
 }
 
 /**
@@ -1207,21 +1194,58 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
 
     console.log("📜 Contract events:", events.length);
 
+    // Send 1 ATOM via cosmos for gas fees (convert hex to bech32)
+    let cosmosGasTx = null;
+    try {
+      const cosmosBech32Address = hexToBech32(recipient, chainConf.sender.option.prefix);
+      console.log("💰 Sending 1 ATOM for gas fees via cosmos to:", cosmosBech32Address);
+      
+      const gasAmount = "1000000"; // 1 ATOM (6 decimals: 1000000 uatom)
+      const cosmosGasTokens = [{
+        denom: "uatom",
+        amount: gasAmount,
+        erc20_contract: "native",
+        decimals: 6,
+        target_balance: gasAmount
+      }];
+      
+      const cosmosResult = await sendCosmosTransactionWithRetry(cosmosBech32Address, cosmosGasTokens, 2);
+      cosmosGasTx = cosmosResult;
+      console.log("✅ Cosmos gas fee sent:", cosmosResult.hash);
+    } catch (cosmosError) {
+      console.warn("⚠️ Failed to send cosmos gas fee (non-critical):", cosmosError.message);
+      // Don't fail the entire transaction for cosmos gas fee failure
+    }
+
+    const transferResults = neededAmounts.map(token => ({
+      token: token.erc20_contract,
+      amount: token.amount,
+      denom: token.denom,
+      hash: tx.hash,
+      status: receipt.status,
+      type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
+    }));
+
+    // Add cosmos gas fee to transfers if successful
+    if (cosmosGasTx) {
+      transferResults.push({
+        token: "native",
+        amount: "1000000",
+        denom: "uatom",
+        hash: cosmosGasTx.hash,
+        status: 1,
+        type: 'cosmos_gas'
+      });
+    }
+
     return {
       code: 0,
       hash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
-      transfers: neededAmounts.map(token => ({
-        token: token.erc20_contract,
-        amount: token.amount,
-        denom: token.denom,
-        hash: tx.hash,
-        status: receipt.status,
-        type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
-      })),
-      transactions: [tx.hash],
-      method: 'atomic_multisend',
+      transfers: transferResults,
+      transactions: cosmosGasTx ? [tx.hash, cosmosGasTx.hash] : [tx.hash],
+      method: 'atomic_multisend_plus_cosmos_gas',
       atomicity: 'guaranteed'
     };
 
