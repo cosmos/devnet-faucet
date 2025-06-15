@@ -287,6 +287,11 @@
             </button>
           </li>
           <li class="nav-item" role="presentation">
+            <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
+              <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
             <button class="nav-link" id="recent-tab" data-bs-toggle="tab" data-bs-target="#recent" type="button" role="tab">
               <i class="fas fa-history me-2"></i>Recent Txs
               <span v-if="recentTransactions.length" class="badge bg-primary ms-1">{{recentTransactions.length}}</span>
@@ -376,6 +381,147 @@
                 </div>
                 <div v-else class="text-center text-muted">
                   <div class="loading-spinner me-2"></div> Loading faucet balances...
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- WATOM Wrap/Unwrap Tab -->
+          <div class="tab-pane fade" id="watom" role="tabpanel">
+            <div class="card">
+              <div class="card-header">
+                <i class="fas fa-exchange-alt me-2"></i>
+                WATOM Wrapping & Unwrapping
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <!-- Wrap ATOM → WATOM -->
+                  <div class="col-md-6">
+                    <div class="card h-100">
+                      <div class="card-header bg-primary text-white">
+                        <i class="fas fa-arrow-right me-2"></i>Wrap ATOM → WATOM
+                      </div>
+                      <div class="card-body">
+                        <p class="text-muted small mb-3">Convert native ATOM tokens into WATOM (wrapped ATOM) ERC20 tokens</p>
+                        <div class="mb-3">
+                          <label class="form-label">Amount to Wrap</label>
+                          <div class="input-group">
+                            <input 
+                              type="number" 
+                              class="form-control" 
+                              v-model="wrapAmount" 
+                              placeholder="0.00"
+                              step="0.000001"
+                              min="0"
+                            >
+                            <span class="input-group-text">ATOM</span>
+                          </div>
+                          <div class="form-text">Balance: {{formatBalance(nativeBalance, 6)}} ATOM</div>
+                        </div>
+                        <button 
+                          class="btn btn-primary w-100" 
+                          @click="wrapAtom"
+                          :disabled="isWrapping || !wrapAmount || parseFloat(wrapAmount) <= 0"
+                        >
+                          <span v-if="isWrapping" class="loading-spinner me-2"></span>
+                          {{isWrapping ? 'Wrapping...' : 'Wrap ATOM'}}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Unwrap WATOM → ATOM -->
+                  <div class="col-md-6">
+                    <div class="card h-100">
+                      <div class="card-header bg-secondary text-white">
+                        <i class="fas fa-arrow-left me-2"></i>Unwrap WATOM → ATOM
+                      </div>
+                      <div class="card-body">
+                        <p class="text-muted small mb-3">Convert WATOM ERC20 tokens back into native ATOM tokens</p>
+                        <div class="mb-3">
+                          <label class="form-label">Amount to Unwrap</label>
+                          <div class="input-group">
+                            <input 
+                              type="number" 
+                              class="form-control" 
+                              v-model="unwrapAmount" 
+                              placeholder="0.00"
+                              step="0.000001"
+                              min="0"
+                            >
+                            <span class="input-group-text">WATOM</span>
+                          </div>
+                          <div class="form-text">Balance: {{formatBalance(watomBalance, 6)}} WATOM</div>
+                        </div>
+                        <button 
+                          class="btn btn-secondary w-100" 
+                          @click="unwrapAtom"
+                          :disabled="isUnwrapping || !unwrapAmount || parseFloat(unwrapAmount) <= 0"
+                        >
+                          <span v-if="isUnwrapping" class="loading-spinner me-2"></span>
+                          {{isUnwrapping ? 'Unwrapping...' : 'Unwrap WATOM'}}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- WATOM Info -->
+                <div class="card mt-4">
+                  <div class="card-header">
+                    <i class="fas fa-info-circle me-2"></i>About WATOM
+                  </div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-8">
+                        <p class="mb-2">
+                          <strong>WATOM</strong> is a wrapped version of the native ATOM token that follows the ERC20 standard.
+                          This allows ATOM to be used in ERC20-compatible contracts and applications.
+                        </p>
+                        <ul class="list-unstyled small text-muted">
+                          <li>• 1 ATOM = 1 WATOM (always)</li>
+                          <li>• Wrapping/unwrapping is permissionless</li>
+                          <li>• Gas fees apply for transactions</li>
+                          <li>• Uses the native WERC20 precompile</li>
+                        </ul>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="text-center">
+                          <div class="mb-2">
+                            <strong>WATOM Contract</strong>
+                          </div>
+                          <div class="text-monospace small" style="word-break: break-all;">
+                            {{watomContractAddress}}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Recent WATOM Transactions -->
+                <div v-if="watomTransactions.length" class="card mt-4">
+                  <div class="card-header">
+                    <i class="fas fa-list me-2"></i>Recent WATOM Transactions
+                  </div>
+                  <div class="card-body">
+                    <div v-for="tx in watomTransactions" :key="tx.hash" class="transaction-item">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <span class="badge" :class="tx.type === 'wrap' ? 'bg-primary' : 'bg-secondary'">
+                            {{tx.type === 'wrap' ? 'Wrap' : 'Unwrap'}}
+                          </span>
+                          <span class="ms-2">{{tx.amount}} {{tx.type === 'wrap' ? 'ATOM → WATOM' : 'WATOM → ATOM'}}</span>
+                        </div>
+                        <div class="text-end">
+                          <div class="small text-muted">{{formatDate(tx.timestamp)}}</div>
+                          <a :href="getExplorerUrl(tx.hash)" target="_blank" class="small">
+                            View <i class="fas fa-external-link-alt"></i>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -528,7 +674,16 @@
             faucetBalances: [],
             recentTransactions: [],
             isLoading: false,
-            selectedTransaction: null
+            selectedTransaction: null,
+            // WATOM related data
+            wrapAmount: '',
+            unwrapAmount: '',
+            nativeBalance: '0',
+            watomBalance: '0',
+            isWrapping: false,
+            isUnwrapping: false,
+            watomTransactions: [],
+            watomContractAddress: '0x0000000000000000000000000000000000000802' // WERC20 precompile address
           }
         },
         created() {
@@ -540,6 +695,8 @@
             }
             this.loadFaucetBalances();
             this.loadRecentTransactions();
+            this.loadWatomTransactions();
+            this.loadWatomBalances();
           }).catch(error => {
             console.error('Failed to load config:', error);
           });
@@ -776,6 +933,184 @@
               hour: '2-digit',
               minute: '2-digit'
             }).format(date);
+          },
+
+          // WATOM wrapping/unwrapping methods
+          async loadWatomBalances() {
+            if (!window.ethereum) {
+              console.warn('MetaMask not detected');
+              return;
+            }
+
+            try {
+              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+              if (!accounts.length) return;
+
+              const userAddress = accounts[0];
+              
+              // Get native balance
+              const nativeBalance = await window.ethereum.request({
+                method: 'eth_getBalance',
+                params: [userAddress, 'latest']
+              });
+              this.nativeBalance = parseInt(nativeBalance, 16).toString();
+
+              // Get WATOM balance
+              const watomBalance = await this.getERC20Balance(this.watomContractAddress, userAddress);
+              this.watomBalance = watomBalance;
+
+            } catch (error) {
+              console.error('Error loading WATOM balances:', error);
+            }
+          },
+
+          async getERC20Balance(tokenAddress, userAddress) {
+            const balanceOfData = '0x70a08231' + userAddress.slice(2).padStart(64, '0');
+            try {
+              const result = await window.ethereum.request({
+                method: 'eth_call',
+                params: [{
+                  to: tokenAddress,
+                  data: balanceOfData
+                }, 'latest']
+              });
+              return parseInt(result, 16).toString();
+            } catch (error) {
+              console.error('Error getting ERC20 balance:', error);
+              return '0';
+            }
+          },
+
+          async wrapAtom() {
+            if (!window.ethereum) {
+              alert('Please install MetaMask to use WATOM wrapping');
+              return;
+            }
+
+            if (!this.wrapAmount || parseFloat(this.wrapAmount) <= 0) {
+              alert('Please enter a valid amount to wrap');
+              return;
+            }
+
+            this.isWrapping = true;
+
+            try {
+              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+              if (!accounts.length) {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const newAccounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (!newAccounts.length) {
+                  throw new Error('Please connect your wallet');
+                }
+              }
+
+              const amountWei = (parseFloat(this.wrapAmount) * 1000000).toString(); // Convert to 6 decimal wei
+
+              // Call deposit function on WERC20 precompile
+              const txHash = await window.ethereum.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                  from: accounts[0],
+                  to: this.watomContractAddress,
+                  value: '0x' + parseInt(amountWei).toString(16),
+                  data: '0xd0e30db0' // deposit() function selector
+                }]
+              });
+
+              this.addWatomTransaction({
+                type: 'wrap',
+                amount: this.wrapAmount,
+                hash: txHash,
+                timestamp: new Date()
+              });
+
+              this.wrapAmount = '';
+              await this.loadWatomBalances();
+
+              alert(`Successfully wrapped ${this.wrapAmount} ATOM! Transaction: ${txHash}`);
+
+            } catch (error) {
+              console.error('Wrap error:', error);
+              alert('Failed to wrap ATOM: ' + error.message);
+            } finally {
+              this.isWrapping = false;
+            }
+          },
+
+          async unwrapAtom() {
+            if (!window.ethereum) {
+              alert('Please install MetaMask to use WATOM unwrapping');
+              return;
+            }
+
+            if (!this.unwrapAmount || parseFloat(this.unwrapAmount) <= 0) {
+              alert('Please enter a valid amount to unwrap');
+              return;
+            }
+
+            this.isUnwrapping = true;
+
+            try {
+              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+              if (!accounts.length) {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const newAccounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (!newAccounts.length) {
+                  throw new Error('Please connect your wallet');
+                }
+              }
+
+              const amountWei = (parseFloat(this.unwrapAmount) * 1000000).toString(); // Convert to 6 decimal wei
+
+              // Call withdraw function on WERC20 precompile
+              const withdrawData = '0x2e1a7d4d' + parseInt(amountWei).toString(16).padStart(64, '0'); // withdraw(uint256)
+
+              const txHash = await window.ethereum.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                  from: accounts[0],
+                  to: this.watomContractAddress,
+                  data: withdrawData
+                }]
+              });
+
+              this.addWatomTransaction({
+                type: 'unwrap',
+                amount: this.unwrapAmount,
+                hash: txHash,
+                timestamp: new Date()
+              });
+
+              this.unwrapAmount = '';
+              await this.loadWatomBalances();
+
+              alert(`Successfully unwrapped ${this.unwrapAmount} WATOM! Transaction: ${txHash}`);
+
+            } catch (error) {
+              console.error('Unwrap error:', error);
+              alert('Failed to unwrap WATOM: ' + error.message);
+            } finally {
+              this.isUnwrapping = false;
+            }
+          },
+
+          addWatomTransaction(tx) {
+            this.watomTransactions.unshift(tx);
+            if (this.watomTransactions.length > 10) {
+              this.watomTransactions = this.watomTransactions.slice(0, 10);
+            }
+            localStorage.setItem('watomTransactions', JSON.stringify(this.watomTransactions));
+          },
+
+          loadWatomTransactions() {
+            const stored = localStorage.getItem('watomTransactions');
+            if (stored) {
+              this.watomTransactions = JSON.parse(stored);
+            }
+          },
+
+          getExplorerUrl(txHash) {
+            return `${this.networkConfig.evm.explorer || 'https://cevm-01-explorer.dev.skip.build'}/tx/${txHash}`;
           }
         }
       }).mount('#app')

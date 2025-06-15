@@ -3,12 +3,9 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "../src/tokens/WBTC.sol";
-import "../src/tokens/PEPE.sol";
-import "../src/tokens/USDT.sol";
 import "../src/AtomicMultiSend.sol";
 
-contract Deploy is Script {
+contract DeployAtomicMultiSend is Script {
     address constant FAUCET_ADDRESS = 0x42e6047c5780B103E52265F6483C2d0113aA6B87;
 
     function run() external {
@@ -16,7 +13,7 @@ contract Deploy is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("==============================================");
-        console.log("COSMOS EVM CONTRACT DEPLOYMENT");
+        console.log("ATOMIC MULTISEND CONTRACT DEPLOYMENT");
         console.log("==============================================");
         console.log("Deployer:", vm.addr(deployerPrivateKey));
         console.log("Faucet Address:", FAUCET_ADDRESS);
@@ -25,32 +22,8 @@ contract Deploy is Script {
         console.log("Timestamp:", block.timestamp);
         console.log("==============================================");
 
-        // Deploy WBTC
-        console.log("\n[1/4] Deploying WBTC Token...");
-        WBTC wbtc = new WBTC(FAUCET_ADDRESS);
-        console.log("WBTC deployed at:", address(wbtc));
-        console.log("WBTC total supply:", wbtc.totalSupply());
-        console.log("WBTC decimals:", wbtc.decimals());
-        console.log("WBTC symbol:", wbtc.symbol());
-
-        // Deploy PEPE
-        console.log("\n[2/4] Deploying PEPE Token...");
-        PEPE pepe = new PEPE(FAUCET_ADDRESS);
-        console.log("PEPE deployed at:", address(pepe));
-        console.log("PEPE total supply:", pepe.totalSupply());
-        console.log("PEPE decimals:", pepe.decimals());
-        console.log("PEPE symbol:", pepe.symbol());
-
-        // Deploy USDT
-        console.log("\n[3/4] Deploying USDT Token...");
-        USDT usdt = new USDT(FAUCET_ADDRESS);
-        console.log("USDT deployed at:", address(usdt));
-        console.log("USDT total supply:", usdt.totalSupply());
-        console.log("USDT decimals:", usdt.decimals());
-        console.log("USDT symbol:", usdt.symbol());
-
         // Deploy AtomicMultiSend
-        console.log("\n[4/4] Deploying AtomicMultiSend Contract...");
+        console.log("\nDeploying AtomicMultiSend Contract...");
         AtomicMultiSend atomicMultiSend = new AtomicMultiSend();
         console.log("AtomicMultiSend deployed at:", address(atomicMultiSend));
         console.log("AtomicMultiSend owner:", atomicMultiSend.owner());
@@ -65,17 +38,9 @@ contract Deploy is Script {
         console.log("\n==============================================");
         console.log("DEPLOYMENT COMPLETE");
         console.log("==============================================");
-        console.log("WBTC Address:", address(wbtc));
-        console.log("PEPE Address:", address(pepe));
-        console.log("USDT Address:", address(usdt));
         console.log("AtomicMultiSend Address:", address(atomicMultiSend));
+        console.log("Owner:", atomicMultiSend.owner());
         console.log("==============================================");
-
-        // Verify balances
-        console.log("\nToken Balance Verification:");
-        console.log("WBTC Balance of Faucet:", wbtc.balanceOf(FAUCET_ADDRESS));
-        console.log("PEPE Balance of Faucet:", pepe.balanceOf(FAUCET_ADDRESS));
-        console.log("USDT Balance of Faucet:", usdt.balanceOf(FAUCET_ADDRESS));
 
         console.log("\nDeployment Summary JSON:");
         console.log("{");
@@ -86,11 +51,17 @@ contract Deploy is Script {
         console.log('  "blockNumber": %s,', block.number);
         console.log('  "timestamp": %s,', block.timestamp);
         console.log('  "contracts": {');
-        console.log('    "WBTC": "%s",', address(wbtc));
-        console.log('    "PEPE": "%s",', address(pepe));
-        console.log('    "USDT": "%s",', address(usdt));
         console.log('    "AtomicMultiSend": "%s"', address(atomicMultiSend));
         console.log('  }');
         console.log('}');
+        
+        console.log("\n==============================================");
+        console.log("NEXT STEPS:");
+        console.log("1. Update config.js with new AtomicMultiSend address:");
+        console.log('   contracts: { atomicMultiSend: "%s" }', address(atomicMultiSend));
+        console.log("2. Fund the contract with tokens");
+        console.log("3. Update faucet.js to use atomicMultiSend function");
+        console.log("4. Test atomic transfers");
+        console.log("==============================================");
     }
 }

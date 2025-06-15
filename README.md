@@ -1,205 +1,210 @@
 # Cosmos EVM Faucet
 
-Faucet system for Cosmos EVM networks. Supports both Cosmos and EVM wallets enabling seamless dual-environment token distribution and testing.
-
-## Overview
-
-Faucet with support for both Cosmos and Ethereum Virtual Machine (EVM) wallets on Cosmos EVM chains.
-Request tokens using either:
-- **Cosmos addresses** (bech32 format): `cosmos1...`
-- **EVM addresses** (hex format): `0x...`
-
-The faucet will determine which type of transaction to use based on the address type given.
+A multi-token faucet for Cosmos EVM networks that supports both Cosmos and EVM address formats, with atomic token distribution and WATOM wrapping functionality.
 
 ## Features
 
-- Full support across both environments
-- Detects and validates wallet addresses
-- Automatic token registration through ERC20 precompile
-- Parameterized token deployment system with detailed reporting
-- Displays network information and endpoints
+- **Multi-Token Distribution**: Supports ERC20 tokens (WBTC, PEPE, USDT) via atomic transfers
+- **Dual Address Support**: Works with both Cosmos (`cosmos1...`) and EVM (`0x...`) addresses  
+- **Atomic Transfers**: All-or-nothing token distribution using custom AtomicMultiSend contract
+- **WATOM Wrapping**: Built-in interface for wrapping/unwrapping native ATOM tokens
+- **Approval-Based**: Uses ERC20 allowances instead of pre-funding contracts
+- **Rate Limiting**: IP and address-based request limits
+- **Transaction History**: Tracks and displays recent transactions
 
-## Network Configuration
+## Architecture
 
-### Cosmos EVM Testnet
-- **Chain ID**: `cosmos_262144-1` (Cosmos) / `262144` (EVM)
-- **RPC Endpoints**:
-  - *Cosmos*: `https://cevm-01-rpc.dev.skip.build`
-  - *EVM*: `https://cevm-01-evmrpc.dev.skip.build`
-- **REST API**: `https://cevm-01-lcd.dev.skip.build`
-- **WebSocket**: `wss://cevm-01-evmws.dev.skip.build`
+### Contracts
+- **AtomicMultiSend**: Custom contract for reliable multi-token distribution
+- **WERC20 Precompile**: Native wrapped ATOM token at `0x0000000000000000000000000000000000000802`
 
-### Faucet Wallet
-- **EVM**: `0x42e6047c5780b103e52265f6483c2d0113aa6b87`
-- **Cosmos**: `cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz`
+### Components
+- **Backend**: Node.js Express server with CosmJS integration
+- **Frontend**: Vue.js 3 SPA with Bootstrap UI
+- **Database**: SQLite for request tracking
 
-## Supported Tokens
+## Prerequisites
 
-The faucet distributes the following test tokens:
-
-| Token | Name | Symbol | Decimals | Initial Supply |
-|-------|------|--------|----------|----------------|
-| WBTC | Wrapped Bitcoin | WBTC | 8 | 1,000,000,000 |
-| PEPE | Pepe Token | PEPE | 18 | 1,000,000,000 |
-| USDT | Tether USD | USDT | 6 | 1,000,000,000 |
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+
+- Node.js v18+
 - Foundry (for contract deployment)
-- Sufficient *ETH* (ATOM) balance for gas fees
+- Access to Cosmos EVM RPC endpoints
 
-### Installation
+## Deployment
 
+### 1. Clean Environment
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd faucet
-
-# Install dependencies
-yarn install
-
-# Start the faucet server
-yarn start
+# Remove any existing compiled artifacts
+rm -rf out cache broadcast deployments/*.json
+forge clean
 ```
 
-The faucet will be available at `http://localhost:3000`
+### 2. Deploy AtomicMultiSend Contract
+```bash
+# Set environment variables
+export PRIVATE_KEY="your_private_key_here"
 
-### Configuration
+# Deploy the contract
+forge script script/DeployAtomicMultiSend.s.sol \
+  --rpc-url https://cevm-01-evmrpc.dev.skip.build \
+  --broadcast \
+  --skip-simulation
+```
 
-Update `config.js` with your network settings:
-
+### 3. Configure Application
+Update `config.js` with the deployed contract address:
 ```javascript
-export default {
-  project: {
-    name: "Cosmos EVM Faucet",
-    deployer: "Your Organization"
-  },
-  chains: {
-    // ... chain configurations
-  }
+contracts: {
+    atomicMultiSend: "0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246"
 }
 ```
 
-## Deployment Scripts
-
-The project includes modernized deployment scripts with comprehensive reporting:
-
-### Deploy Tokens
-
+### 4. Set Token Approvals
 ```bash
-# Preview token configurations
-node scripts/deploy-foundry.js
-
-# Deploy all tokens (requires compiled contracts)
-node scripts/deploy-foundry.js deploy
+# Approve AtomicMultiSend to spend tokens on behalf of faucet wallet
+node scripts/approve-tokens.js
 ```
 
-### Register ERC20 Tokens
-
+### 5. Install Dependencies
 ```bash
-# Check registration status
-node scripts/register-erc20-tokens.js check
-
-# Register all tokens with ERC20 precompile
-node scripts/register-erc20-tokens.js register all
-
-# Register specific token
-node scripts/register-erc20-tokens.js register WBTC
+npm install
 ```
 
-### Deployment Reports
-
-Deployment script generates summary reports in `./deployments/`:
-- `deployment-TIMESTAMP.json` - Full details
-- `latest.json` - Latest deployment details
-- `addresses.json` - Deployed contract addresses for quick reference
-
-## Development
-
-### Project Structure
-
-```
-├── contracts/          # Smart contract source files
-├── scripts/            # Deployment and utility scripts
-├── deployments/        # Deployment reports and artifacts
-├── views/              # Frontend templates
-├── src/                # Foundry contract sources
-├── test/               # Contract tests
-├── config.js           # Faucet configuration
-├── faucet.js           # Main faucet server
-└── README.md           # You're reading it
-```
-
-### Contract Deployment
-
+### 6. Start Faucet
 ```bash
-# Compile contracts
-forge build
-
-# Run tests
-forge test
-
-# Deploy contracts
-node scripts/deploy-foundry.js deploy
+npm start
+# or
+node faucet.js
 ```
 
-### Adding New Tokens
+## Configuration
 
-1. **Update Token Configuration** in `scripts/deploy-foundry.js`:
-   ```javascript
-   MYNEWTOKEN: {
-       name: 'My New Token',
-       symbol: 'MNT',
-       decimals: 18,
-       initialSupply: '1000000000',
-       mintTo: CONFIG.DEPLOYER.address,
-       description: 'Custom token for testing'
-   }
-   ```
+### Network Settings
+```javascript
+blockchain: {
+    endpoints: {
+        rpc_endpoint: "https://cevm-01-rpc.dev.skip.build",
+        grpc_endpoint: "https://cevm-01-grpc.dev.skip.build", 
+        rest_endpoint: "https://cevm-01-lcd.dev.skip.build",
+        evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build"
+    },
+    ids: {
+        chainId: 262144,
+        cosmosChainId: 'cosmos_262144-1'
+    }
+}
+```
 
-2. **Create Contract** in `src/tokens/` directory
+### Token Configuration
+```javascript
+tx: {
+    amounts: [
+        {
+            denom: "wbtc",
+            amount: "100000000000", // 1000 WBTC (8 decimals)
+            erc20_contract: "0xC52cB914767C076919Dc4245D4B005c8865a2f1F",
+            decimals: 8,
+            target_balance: "100000000000"
+        }
+        // ... more tokens
+    ]
+}
+```
 
-3. **Deploy**: `node scripts/deploy-foundry.js deploy`
+## Operation
 
-4. **Register**: `node scripts/register-erc20-tokens.js register MYNEWTOKEN`
+### Faucet Workflow
+1. User enters Cosmos or EVM address
+2. System checks current balances for all configured tokens
+3. Calculates needed amounts to reach target balances
+4. Executes atomic transfer via AtomicMultiSend contract
+5. All transfers succeed or entire transaction reverts
+
+### WATOM Operations
+- **Wrap**: Send native ATOM to WERC20 precompile to receive WATOM ERC20 tokens
+- **Unwrap**: Call withdraw on WERC20 precompile to convert WATOM back to native ATOM
+- **Rate**: 1 ATOM = 1 WATOM (always)
+
+### Rate Limiting
+- 1 request per address per 24 hours
+- 10 requests per IP per 24 hours
+
+## Testing
+
+### Test Token Distribution
+```bash
+# Test with a new address
+curl "http://localhost:8088/send/0x56Ce23593fFFd265f9B002EAe4FeAd5935B00350"
+```
+
+### Verify Balances
+```bash
+# Check token balances were transferred correctly
+node -e "
+// Script to check token balances
+// (implementation details in deployment log)
+"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Contract deployment fails**
+- Ensure PRIVATE_KEY is set correctly
+- Check RPC endpoint is accessible
+- Verify sufficient native token balance for gas
+
+**Token transfers fail**
+- Confirm token approvals are set: `node scripts/approve-tokens.js`
+- Check faucet wallet has sufficient token balances
+- Verify contract address in config.js
+
+**Native token transfers fail**
+- Native token transfers to non-existent addresses will fail
+- Use real wallet addresses for testing
+- Consider disabling native tokens for testing ERC20-only functionality
+
+**Frontend issues**
+- WATOM functionality requires MetaMask
+- Ensure correct network is selected in MetaMask
+- Check browser console for connection errors
+
+### Deployment Log Analysis
+
+**✅ Successful Operations:**
+- Contract compilation and deployment
+- ERC20 token approvals (WBTC, PEPE, USDT)
+- Multi-token atomic transfers
+- Frontend tab integration
+- WATOM wrapping UI implementation
+
+**⚠️ Known Limitations:**
+- Native token transfers require recipient addresses to be real accounts
+- WATOM functionality needs user wallet connection
+- Rate limiting resets every 24 hours
+
+## Security Considerations
+
+- Private keys are loaded from config but not exposed in logs
+- Token approvals use large amounts (1M tokens) for operational efficiency
+- AtomicMultiSend contract uses OpenZeppelin's Ownable and ReentrancyGuard
+- Only faucet wallet can execute atomic transfers
 
 ## API Endpoints
 
-### Faucet Endpoints
-- `GET /` - Faucet web interface
+- `GET /` - Frontend interface
+- `GET /config.json` - Network and token configuration
+- `GET /balance/cosmos` - Cosmos environment balances
+- `GET /balance/evm` - EVM environment balances  
 - `GET /send/:address` - Request tokens for address
-- `GET /balance/cosmos` - Get Cosmos environment balances
-- `GET /balance/evm` - Get EVM environment balances
-- `GET /config.json` - Get faucet configuration
 
-### Address Support
-Both bech32 and hex addresses supported:
-- **Cosmos**: `cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz`
-- **EVM**: `0x42e6047c5780b103e52265f6483c2d0113aa6b87`
+## Contract Addresses
 
-## Token Conversion
-
-After ERC20 registration, tokens can be converted between environments:
-
-```bash
-# Convert ERC20 to Cosmos coin
-cosmos-evmd tx erc20 convert-erc20 <token-address> <amount> \
-  --from <key> --chain-id cosmos_262144-1
-
-# Convert Cosmos coin to ERC20
-cosmos-evmd tx erc20 convert-coin <amount><denom> \
-  --from <key> --chain-id cosmos_262144-1
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+- **AtomicMultiSend**: `0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246`
+- **WERC20 (WATOM)**: `0x0000000000000000000000000000000000000802`
+- **WBTC**: `0xC52cB914767C076919Dc4245D4B005c8865a2f1F`
+- **PEPE**: `0xD0C124828bF8648E8681d1eD3117f20Ab989e7a1`
+- **USDT**: `0xf66bB908fa291EE1Fd78b09937b14700839E7c80`
 
 ## Credits
 
@@ -207,23 +212,6 @@ This faucet was built upon the excellent foundation provided by the **[Ping.pub]
 
 **Original Foundation**: [ping-pub/faucet](https://github.com/ping-pub/faucet)
 
-Special thanks to the Ping.pub team for:
-- The initial faucet server implementation
-- The responsive web interface design
-- The configuration management system
-- The foundational codebase that enabled this Cosmos EVM adaptation
-
 ## License
 
-This project maintains the same MIT license as the original Ping.pub faucet. See the [LICENCE](./LICENCE) file for details.
-
-## Support
-
-For issues and questions:
-- Check the [scripts/README.md](./scripts/README.md) for deployment documentation
-- Review existing deployment reports in `./deployments/`
-- Open an issue for bugs or feature requests
-
----
-
-**Cosmos EVM Faucet** - Bridging Cosmos and Ethereum ecosystems with seamless token distribution.
+MIT

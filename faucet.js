@@ -1124,182 +1124,144 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
   }
 }
 
-// Smart EVM transaction with calculated amounts using new MultiSend contract
+// Atomic EVM transaction using AtomicMultiSend contract
 async function sendSmartEvmTx(recipient, neededAmounts) {
   try {
     const chainConf = conf.blockchain;
     const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
     const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
 
-    console.log("Sending smart EVM tokens to:", recipient, "needed amounts:", neededAmounts);
+    console.log("🚀 Sending atomic EVM tokens to:", recipient);
+    console.log("📦 Needed amounts:", neededAmounts);
+    console.log("🔄 Using AtomicMultiSend contract for guaranteed atomicity");
 
-    // MultiSend contract address from centralized config
-    const multiSendAddress = chainConf.contracts.multiSend;
-    console.log("MultiSend contract address:", multiSendAddress);
-
-    // Verify contract exists
-    const contractCode = await ethProvider.getCode(multiSendAddress);
-    console.log("Contract code length:", contractCode.length);
-    if (contractCode === '0x') {
-      throw new Error(`No contract found at MultiSend address: ${multiSendAddress}`);
+    // Load AtomicMultiSend contract
+    const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
+    if (!atomicMultiSendAddress) {
+      throw new Error("AtomicMultiSend contract address not configured");
     }
 
-    // MultiSend contract ABI - matching the actual contract
-    const multiSendABI = [
-      "function multiSend(address payable recipient, (address token, uint256 amount)[] calldata transfers) external payable",
-      "function owner() external view returns (address)",
-      "function getOwnerBalance(address token) external view returns (uint256)",
-      "function getAllowance(address token) external view returns (uint256)"
-    ];
+    // Load ABI
+    const fs = await import('fs');
+    const atomicMultiSendABI = JSON.parse(fs.readFileSync('./deployments/AtomicMultiSend.abi.json', 'utf8'));
+    const atomicMultiSend = new Contract(atomicMultiSendAddress, atomicMultiSendABI, wallet);
 
-    const multiSendContract = new Contract(multiSendAddress, multiSendABI, wallet);
+    // Prepare transfer array for the contract
+    const transfers = [];
+    let nativeAmount = 0n;
 
-    // Separate ERC20 tokens for approval process
-    const erc20Tokens = neededAmounts.filter(token => token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
-
-    // Prepare transfers for MultiSend contract (ERC20 only for testing)
-    const erc20OnlyAmounts = neededAmounts.filter(token => token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
-    const transfers = erc20OnlyAmounts.map(token => ({
-      token: token.erc20_contract,
-      amount: token.amount
-    }));
-    
-    console.log("TESTING: Excluding native tokens, sending only ERC20s");
-
-    console.log("New MultiSend transfers:", transfers);
-
-    // First, approve the MultiSend contract to spend each ERC20 token
-    const erc20ABI = [
-      "function approve(address spender, uint256 amount) external returns (bool)",
-      "function allowance(address owner, address spender) external view returns (uint256)"
-    ];
-
-    for (const token of erc20Tokens) {
-      console.log(`Checking/setting approval for token ${token.erc20_contract}...`);
-      const tokenContract = new Contract(token.erc20_contract, erc20ABI, wallet);
-
-      // Check current allowance
-      const currentAllowance = await tokenContract.allowance(wallet.address, multiSendAddress);
-      console.log(`Current allowance for ${token.erc20_contract}: ${currentAllowance.toString()}`);
-
-      // If allowance is insufficient, approve the required amount
-      if (currentAllowance < BigInt(token.amount)) {
-        console.log(`Approving ${token.amount} for token ${token.erc20_contract}...`);
-        const approveTx = await tokenContract.approve(multiSendAddress, token.amount);
-        await approveTx.wait();
-        console.log(`Approval successful: ${approveTx.hash}`);
-      }
-    }
-
-    // Debug logging before transaction
-    // Calculate total native amount for msg.value (set to 0 for testing)
-    const totalNativeAmount = 0n; // Testing: no native tokens
-
-    console.log("About to call multiSend with:");
-    console.log("- recipient:", recipient);
-    console.log("- transfers:", JSON.stringify(transfers, null, 2));
-    console.log("- totalNativeAmount:", totalNativeAmount.toString());
-    console.log("- multiSendAddress:", multiSendAddress);
-    console.log("- wallet address:", wallet.address);
-
-    // Validate transfers array
-    if (transfers.length === 0) {
-      throw new Error("No transfers to process - transfers array is empty");
-    }
-
-    // Debug: Test the transaction encoding first
-    console.log("=== ENCODING DEBUG START ===");
-    console.log("Testing function encoding...");
-    console.log("multiSendContract exists:", !!multiSendContract);
-    console.log("multiSendContract.interface exists:", !!multiSendContract.interface);
-    console.log("recipient:", recipient);
-    console.log("transfers:", JSON.stringify(transfers, null, 2));
-    
-    try {
-      const encodedData = multiSendContract.interface.encodeFunctionData('multiSend', [recipient, transfers]);
-      console.log("✓ Encoded function data:", encodedData);
-      console.log("✓ Encoded data length:", encodedData.length);
-      if (!encodedData || encodedData === '0x') {
-        throw new Error("Encoded data is empty or invalid");
-      }
-    } catch (encodeError) {
-      console.error("✗ Function encoding failed:", encodeError.message);
-      console.error("Full error:", encodeError);
-      throw new Error(`Function encoding failed: ${encodeError.message}`);
-    }
-    console.log("=== ENCODING DEBUG END ===")
-
-    // Call MultiSend contract
-    console.log("Calling multiSend with options:", {
-      value: totalNativeAmount.toString(),
-      gasLimit: chainConf.tx.fee.evm.gasLimit,
-      gasPrice: chainConf.tx.fee.evm.gasPrice
-    });
-
-    const tx = await multiSendContract.multiSend(recipient, transfers, {
-      value: totalNativeAmount, // Send native tokens as value
-      gasLimit: chainConf.tx.fee.evm.gasLimit,
-      gasPrice: chainConf.tx.fee.evm.gasPrice
-    });
-
-    console.log(`New MultiSend transaction hash: ${tx.hash}`);
-    console.log("Transaction object:", {
-      to: tx.to,
-      data: tx.data,
-      value: tx.value?.toString(),
-      gasLimit: tx.gasLimit?.toString(),
-      gasPrice: tx.gasPrice?.toString()
-    });
-    
-    // Wait for transaction with better error handling
-    let receipt;
-    try {
-      receipt = await tx.wait();
-      console.log("Transaction successful:", receipt);
-    } catch (error) {
-      console.error("Transaction failed during wait:", error);
-      
-      // Try to get more detailed error information
-      if (error.receipt) {
-        console.log("Failed transaction receipt:", JSON.stringify(error.receipt, null, 2));
-      }
-      
-      // Try to simulate the transaction to get the revert reason
-      try {
-        await multiSendContract.multiSend.staticCall(recipient, transfers, {
-          value: totalNativeAmount,
-          from: wallet.address
+    for (const token of neededAmounts) {
+      if (token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+        // Native token - use address(0) in contract
+        transfers.push({
+          token: "0x0000000000000000000000000000000000000000",
+          amount: token.amount
         });
-      } catch (staticError) {
-        console.log("Static call error (revert reason):", staticError.message);
+        nativeAmount += BigInt(token.amount);
+      } else {
+        // ERC20 token
+        transfers.push({
+          token: token.erc20_contract,
+          amount: token.amount
+        });
       }
-      
-      throw error;
     }
 
-    // Add results for all tokens
-    const transferResults = neededAmounts.map(token => ({
-      token: token.erc20_contract,
-      amount: token.amount,
-      denom: token.denom,
-      hash: tx.hash,
-      status: receipt.status,
-      type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
-    }));
+    console.log("📋 Prepared transfers:", transfers);
+    console.log("💰 Native amount:", nativeAmount.toString());
+
+    // Get current nonce with retry logic for Tendermint reliability
+    const nonce = await getNonceWithRetry(wallet);
+    console.log("🔢 Using nonce:", nonce);
+
+    // Estimate gas with buffer for Tendermint consensus
+    const gasEstimate = await atomicMultiSend.atomicMultiSend.estimateGas(recipient, transfers, { value: nativeAmount });
+    const gasLimit = (gasEstimate * 130n) / 100n; // 30% buffer for consensus delays
+    
+    console.log("⛽ Gas estimate:", gasEstimate.toString());
+    console.log("⛽ Gas limit (with buffer):", gasLimit.toString());
+
+    // Submit atomic transaction with proper parameters
+    const tx = await atomicMultiSend.atomicMultiSend(recipient, transfers, {
+      value: nativeAmount,
+      gasLimit: gasLimit,
+      gasPrice: chainConf.tx.fee.evm.gasPrice,
+      nonce: nonce
+    });
+
+    console.log("📤 Atomic transaction submitted:", tx.hash);
+    console.log("⏳ Waiting for confirmation...");
+
+    // Wait for confirmation with timeout
+    const receipt = await waitForTransactionWithTimeout(tx, 30000); // 30 second timeout
+    
+    console.log("✅ Atomic transaction confirmed!");
+    console.log("📊 Block number:", receipt.blockNumber);
+    console.log("⛽ Gas used:", receipt.gasUsed.toString());
+    console.log("🎯 Status:", receipt.status);
+
+    // Verify all transfers succeeded by checking events
+    const events = receipt.logs.filter(log => 
+      log.address.toLowerCase() === atomicMultiSendAddress.toLowerCase()
+    );
+
+    console.log("📜 Contract events:", events.length);
 
     return {
       code: 0,
       hash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
-      transfers: transferResults,
-      transactions: [tx.hash]
+      transfers: neededAmounts.map(token => ({
+        token: token.erc20_contract,
+        amount: token.amount,
+        denom: token.denom,
+        hash: tx.hash,
+        status: receipt.status,
+        type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
+      })),
+      transactions: [tx.hash],
+      method: 'atomic_multisend',
+      atomicity: 'guaranteed'
     };
 
   } catch(e) {
-    console.error("Smart EVM transaction error:", e);
+    console.error("💥 Atomic EVM transaction error:", e);
     throw e;
   }
+}
+
+// Helper function to get nonce with retry logic for Tendermint reliability
+async function getNonceWithRetry(wallet, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const nonce = await wallet.getNonce();
+      console.log(`🔢 Retrieved nonce ${nonce} on attempt ${i + 1}`);
+      return nonce;
+    } catch (error) {
+      console.log(`⚠️ Nonce retrieval failed (attempt ${i + 1}): ${error.message}`);
+      if (i === maxRetries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+    }
+  }
+}
+
+// Helper function to wait for transaction with timeout for Tendermint reliability
+async function waitForTransactionWithTimeout(tx, timeoutMs = 30000) {
+  return new Promise(async (resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Transaction ${tx.hash} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    try {
+      const receipt = await tx.wait();
+      clearTimeout(timeout);
+      resolve(receipt);
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
 }
 
 // Verify transaction success and format response

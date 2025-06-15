@@ -35,7 +35,7 @@ export default {
         },
         // Contract addresses - centralized for all components
         contracts: {
-            multiSend: "0x472B98eD06134124D98ead237FcE52cd12FfDAa9", // From latest-addresses.json
+            atomicMultiSend: "0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246", // New AtomicMultiSend contract for reliable token distribution
         },
         sender: {
             mnemonic,
@@ -47,14 +47,15 @@ export default {
         },
         tx: {
             // Multi-token amounts - target balance of 1000 tokens each
+            // Temporarily disable native token for testing
             amounts: [
-                {
-                    denom: "uatom", // Native cosmos denom (native token like ETH)
-                    amount: "1000000000", // 1000 tokens (6 decimals)
-                    erc20_contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token representation
-                    decimals: 6,
-                    target_balance: "1000000000" // 1000 tokens target
-                },
+                // {
+                //     denom: "uatom", // Native cosmos denom (native token like ETH)
+                //     amount: "1000000000", // 1000 tokens (6 decimals)
+                //     erc20_contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native token representation
+                //     decimals: 6,
+                //     target_balance: "1000000000" // 1000 tokens target
+                // },
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
