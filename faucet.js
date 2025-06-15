@@ -1,14 +1,13 @@
 import express from 'express';
 import fetch from 'node-fetch';
 
-import { ethers } from 'ethers'
-import { Wallet, HDNodeWallet, JsonRpcProvider, Contract, parseUnits, keccak256, getBytes } from 'ethers'
+import { HDNodeWallet, JsonRpcProvider, Contract, } from 'ethers'
 import { bech32 } from 'bech32';
 
 import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
 import { accountFromAny, SigningStargateClient } from "@cosmjs/stargate";
-import { sha256, pathToString } from '@cosmjs/crypto';
-import { fromHex, toHex, toBase64, fromBase64 } from '@cosmjs/encoding';
+import { pathToString } from '@cosmjs/crypto';
+import { fromHex, toHex, toBase64, } from '@cosmjs/encoding';
 import { TxRaw, SignDoc, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx.js";
 import { Any } from "cosmjs-types/google/protobuf/any.js";
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx.js";
@@ -17,8 +16,6 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx.js";
 import Long from "long";
 
 // Noble crypto imports for proper key derivation
-import { sha256 as nobleSha256 } from '@noble/hashes/sha256';
-import { ripemd160 } from '@noble/hashes/ripemd160';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
@@ -426,12 +423,31 @@ app.get('/config.json', async (req, res) => {
   const project = conf.project
   project.sample = sample
   project.blockchain = chainConf.name
+  
+  // Add network configuration for frontend
+  project.network = {
+    cosmos: {
+      chainId: chainConf.ids.cosmosChainId,
+      rpc: chainConf.endpoints.rpc_endpoint,
+      grpc: chainConf.endpoints.grpc_endpoint,
+      rest: chainConf.endpoints.rest_endpoint
+    },
+    evm: {
+      chainId: chainConf.ids.chainId,
+      chainIdHex: '0x' + chainConf.ids.chainId.toString(16),
+      rpc: chainConf.endpoints.evm_endpoint,
+      websocket: chainConf.endpoints.evm_websocket
+    },
+    contracts: chainConf.contracts
+  }
+  
   project.supportedAddressTypes = ['cosmos', 'evm']
   res.send(project);
 })
 
 app.get('/balance/:type', async (req, res) => {
   const { type } = req.params // 'cosmos' or 'evm'
+  const { address } = req.query // Optional address parameter
 
   let balances = []
 
@@ -440,26 +456,35 @@ app.get('/balance/:type', async (req, res) => {
 
     if(type === 'evm') {
       const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
-      const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
+      
+      // Determine which address to check - query parameter or faucet wallet
+      let targetAddress;
+      if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
+        targetAddress = address;
+      } else {
+        const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
+        targetAddress = wallet.address;
+      }
 
-      // Get native balance and ERC20 balances
-      const nativeBalance = await ethProvider.getBalance(wallet.address);
+      // Get native balance (uatom with 6 decimals displayed as ATOM)
+      const nativeBalance = await ethProvider.getBalance(targetAddress);
       balances.push({
-        denom: 'native',
+        denom: 'ATOM',
         amount: nativeBalance.toString(),
-        type: 'native'
+        type: 'native',
+        decimals: 6
       });
 
       // ERC20 token balance checks
       const erc20ABI = ["function balanceOf(address owner) external view returns (uint256)"];
 
-              for(const token of chainConf.tx.amounts) {
-          if(token.erc20_contract !== "0x0000000000000000000000000000000000000000") {
-            try {
-              const tokenContract = new Contract(token.erc20_contract, erc20ABI, ethProvider);
-              const balance = await tokenContract.balanceOf(wallet.address);
+      for(const token of chainConf.tx.amounts) {
+        if(token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" && token.erc20_contract !== "0x0000000000000000000000000000000000000000") {
+          try {
+            const tokenContract = new Contract(token.erc20_contract, erc20ABI, ethProvider);
+            const balance = await tokenContract.balanceOf(targetAddress);
             balances.push({
-              denom: token.denom,
+              denom: token.denom.toUpperCase(),
               amount: balance.toString(),
               type: 'erc20',
               contract: token.erc20_contract,
@@ -468,7 +493,7 @@ app.get('/balance/:type', async (req, res) => {
           } catch(e) {
             console.error(`Error getting balance for ${token.denom}:`, e);
             balances.push({
-              denom: token.denom,
+              denom: token.denom.toUpperCase(),
               amount: "0",
               type: 'erc20',
               contract: token.erc20_contract,
@@ -478,13 +503,33 @@ app.get('/balance/:type', async (req, res) => {
         }
       }
 
-        } else if(type === 'cosmos') {
-      // This endpoint is deprecated - cosmos balances are checked via the checkRecipientBalances function
-      // Just return empty for now since the smart faucet handles balance checking properly
-      balances = [];
+    } else if(type === 'cosmos') {
+      // Determine which address to check - query parameter or faucet wallet
+      let targetAddress;
+      if (address && address.startsWith('cosmos')) {
+        targetAddress = address;
+      } else {
+        const wallet = await DirectSecp256k1HdWallet.fromMnemonic(chainConf.sender.mnemonic, { prefix: chainConf.sender.option.prefix });
+        const accounts = await wallet.getAccounts();
+        targetAddress = accounts[0].address;
+      }
+
+      // Fetch cosmos balances from REST API
+      const restEndpoint = chainConf.endpoints.rest_endpoint;
+      const response = await fetch(`${restEndpoint}/cosmos/bank/v1beta1/balances/${targetAddress}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        balances = data.balances.map(balance => ({
+          denom: balance.denom === 'uatom' ? 'ATOM' : balance.denom.toUpperCase(),
+          amount: balance.amount,
+          type: 'cosmos',
+          decimals: balance.denom === 'uatom' ? 6 : 0
+        }));
+      }
     }
   } catch(err) {
-    console.log(err)
+    console.error('Balance fetch error:', err);
   }
   res.send({ balances, type });
 })
@@ -906,7 +951,7 @@ function createProperEthSecp256k1PubKey(publicKeyBytes) {
 
 // Test cosmos.evm pubkey variant (what the chain actually uses)
 async function createPubKeyVariants(publicKeyBytes) {
-  console.log(`🔬 Creating pubkey variants for testing`);
+  // debug disabled – remove verbose console noise
 
   // Create proper protobuf encoding
   const encodedPubkey = createProperEthSecp256k1PubKey(publicKeyBytes);
@@ -917,7 +962,7 @@ async function createPubKeyVariants(publicKeyBytes) {
     value: encodedPubkey,
   });
 
-          console.log(`[INFO] Using cosmos.evm pubkey variant: ${cosmosEvmPubkey.typeUrl}`);
+  // console.log(`[INFO] Using cosmos.evm pubkey variant: ${cosmosEvmPubkey.typeUrl}`); // muted
 
   return {
     cosmosEvm: cosmosEvmPubkey
@@ -1088,8 +1133,8 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
 
     console.log("Sending smart EVM tokens to:", recipient, "needed amounts:", neededAmounts);
 
-    // New MultiSend contract address (properly uses transferFrom)
-    const multiSendAddress = "0x337816fC82409Cf7b1181ffaD127f878EE6D9bB7";
+    // MultiSend contract address from centralized config
+    const multiSendAddress = chainConf.contracts.multiSend;
 
     // MultiSend contract ABI
     const multiSendABI = [
@@ -1138,6 +1183,19 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
       }
     }
 
+    // Debug logging before transaction
+    console.log("About to call multiSend with:");
+    console.log("- recipient:", recipient);
+    console.log("- transfers:", JSON.stringify(transfers, null, 2));
+    console.log("- totalNativeAmount:", totalNativeAmount.toString());
+    console.log("- multiSendAddress:", multiSendAddress);
+    console.log("- wallet address:", wallet.address);
+
+    // Validate transfers array
+    if (transfers.length === 0 && totalNativeAmount === 0n) {
+      throw new Error("No transfers to process - both ERC20 transfers and native amount are empty");
+    }
+
     // Call MultiSend contract
     const tx = await multiSendContract.multiSend(recipient, transfers, {
       value: totalNativeAmount, // Send native tokens as value
@@ -1146,7 +1204,32 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     });
 
     console.log(`New MultiSend transaction hash: ${tx.hash}`);
-    const receipt = await tx.wait();
+    
+    // Wait for transaction with better error handling
+    let receipt;
+    try {
+      receipt = await tx.wait();
+      console.log("Transaction successful:", receipt);
+    } catch (error) {
+      console.error("Transaction failed during wait:", error);
+      
+      // Try to get more detailed error information
+      if (error.receipt) {
+        console.log("Failed transaction receipt:", JSON.stringify(error.receipt, null, 2));
+      }
+      
+      // Try to simulate the transaction to get the revert reason
+      try {
+        await multiSendContract.multiSend.staticCall(recipient, transfers, {
+          value: totalNativeAmount,
+          from: wallet.address
+        });
+      } catch (staticError) {
+        console.log("Static call error (revert reason):", staticError.message);
+      }
+      
+      throw error;
+    }
 
     // Add results for all tokens
     const transferResults = neededAmounts.map(token => ({
@@ -1179,13 +1262,29 @@ async function verifyTransaction(txResult, addressType) {
     if (addressType === 'cosmos') {
       // Cosmos transaction verification
       if (txResult.code === 0) {
-        return {
-          code: 0,
-          message: "Tokens sent successfully!",
-          transaction_hash: txResult.transactionHash,
-          block_height: txResult.height,
-          gas_used: txResult.gasUsed
-        };
+        // fetch full tx details from REST endpoint for UI display
+        try {
+          const rest = conf.blockchain.endpoints.rest_endpoint;
+          const detailResp = await fetch(`${rest}/cosmos/tx/v1beta1/txs/${txResult.transactionHash}`);
+          const detailJson = await detailResp.json();
+          return {
+            code: 0,
+            message: "Tokens sent successfully!",
+            transaction_hash: txResult.transactionHash,
+            block_height: txResult.height,
+            gas_used: txResult.gasUsed,
+            tx_response: detailJson.tx_response || null
+          };
+        } catch (_) {
+          // if REST lookup fails, fall back to minimal info
+          return {
+            code: 0,
+            message: "Tokens sent successfully!",
+            transaction_hash: txResult.transactionHash,
+            block_height: txResult.height,
+            gas_used: txResult.gasUsed
+          };
+        }
       } else {
         return {
           code: txResult.code,

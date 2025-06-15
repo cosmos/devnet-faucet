@@ -33,6 +33,10 @@ export default {
             evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
             evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
         },
+        // Contract addresses - centralized for all components
+        contracts: {
+            multiSend: "0x472B98eD06134124D98ead237FcE52cd12FfDAa9", // From latest-addresses.json
+        },
         sender: {
             mnemonic,
             // Using eth_secp256k1 derivation path for both environments
@@ -54,21 +58,21 @@ export default {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0x5747251a4066e8e129873f2e2f016fC5f84555BA", // Deployed WBTC contract
+                    erc20_contract: "0xC52cB914767C076919Dc4245D4B005c8865a2f1F", // Deployed WBTC contract
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xF423d7aC78c83350cd4F0B5850A1446B68e4bC2a", // Deployed PEPE contract
+                    erc20_contract: "0xD0C124828bF8648E8681d1eD3117f20Ab989e7a1", // Deployed PEPE contract
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0x0Ebc057c812D86400515e509E131619Ae3AC2dc3", // Deployed USDT contract
+                    erc20_contract: "0xf66bB908fa291EE1Fd78b09937b14700839E7c80", // Deployed USDT contract
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }

@@ -6,7 +6,8 @@
   "main": "faucet.js",
   "scripts": {
     "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "hardhat test",
+    "deploy": "node deploy-and-test.js"
   },
   "repository": {
     "type": "git",
@@ -29,34 +30,25 @@
     "@cosmjs/encoding": "0.31.0",
     "@cosmjs/proto-signing": "^0.31",
     "@cosmjs/stargate": "^0.31",
-    "@ethersproject/wallet": "^5.7.0",
-    "@hanchon/evmos-signer": "^1.0.0",
-    "@hanchon/evmos-ts-wallet": "^0.2.0",
     "@noble/curves": "^1.9.2",
     "@noble/hashes": "^1.8.0",
-    "@tharsis/transactions": "^0.2.6",
-    "axios": "^1.6.0",
     "bech32": "^2.0.0",
     "bip32": "^5.0.0-rc.0",
     "bip39": "^3.1.0",
+    "cors": "^2.8.5",
+    "cosmjs-types": "0.9.0",
     "ejs": "^3.1.9",
     "ethers": "^6.8.0",
-    "evmosjs": "0.3.3",
     "express": "^4.18.2",
-    "level": "^8.0.0",
+    "express-rate-limit": "^6.7.0",
+    "long": "^5.2.3",
     "node-fetch": "^3.3.2",
-    "nodemodule": "^0.3.0",
-    "solc": "^0.8.30",
     "tiny-secp256k1": "^2.2.3"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.9",
     "@nomicfoundation/hardhat-ethers": "^3.0.9",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "chai": "^4.5.0",
     "hardhat": "^2.24.2",
-    "hardhat-gas-reporter": "^1.0.10",
-    "solidity-coverage": "^0.8.16",
-    "typechain": "^8.3.2"
+    "hardhat-gas-reporter": "^1.0.10"
   }
 }

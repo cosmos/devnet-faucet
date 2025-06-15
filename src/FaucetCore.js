@@ -1,10 +1,7 @@
 import { ethers } from 'ethers';
 import { bech32 } from 'bech32';
-import { DirectSecp256k1HdWallet, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
-import { TxBodyEncodeObject, SigningStargateClient } from "@cosmjs/stargate";
-import { Registry } from "@cosmjs/proto-signing";
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx";
-import { stringToPath } from '@cosmjs/crypto';
+import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+import { SigningStargateClient } from "@cosmjs/stargate";
 import fs from 'fs/promises';
 import path from 'path';
 import fetch from 'node-fetch';
@@ -31,7 +28,7 @@ export class FaucetCore {
 
         // Token configurations
         this.tokens = new Map();
-        this.precompiles = new Map();
+        this.precompiles = new Map();dep
 
         // Initialize system
         this.initialize();
@@ -453,7 +450,7 @@ export class FaucetCore {
         async sendCosmosTokens(addressInfo, neededAmounts, requestId) {
         // Simplified approach: Use the existing cosmos wallet but with correct address
         const senderAddress = this.wallet.addresses.cosmos; // Use EVM-derived cosmos address
-        
+
         try {
             // Create a cosmos client with the cosmos wallet
             const client = await SigningStargateClient.connectWithSigner(
@@ -462,17 +459,17 @@ export class FaucetCore {
             );
 
             const transactions = [];
-            
+
             // Process each token transfer using the standard SigningStargateClient
             for (const needed of neededAmounts) {
                 const amount = [{
                     denom: needed.denom,
                     amount: needed.amount
                 }];
-                
+
                 const fee = this.config.blockchain.tx.fee.cosmos;
                 const memo = `Faucet transfer: ${needed.denom}`;
-                
+
                 this.logger.debug('Sending cosmos transaction', {
                     from: senderAddress,
                     to: addressInfo.cosmosAddress,
@@ -480,7 +477,7 @@ export class FaucetCore {
                     fee: fee,
                     request_id: requestId
                 });
-                
+
                 const result = await client.sendTokens(
                     senderAddress,
                     addressInfo.cosmosAddress,
@@ -488,14 +485,14 @@ export class FaucetCore {
                     fee,
                     memo
                 );
-                
+
                 if (result.code === 0) {
                     transactions.push({
                         hash: result.transactionHash,
                         type: 'cosmos',
                         token: needed.denom
                     });
-                    
+
                     this.logger.info('Cosmos transaction successful', {
                         request_id: requestId,
                         tx_hash: result.transactionHash,
@@ -512,7 +509,7 @@ export class FaucetCore {
                 transactions,
                 request_id: requestId
             };
-            
+
         } catch (error) {
             this.logger.error('Cosmos transaction failed', {
                 request_id: requestId,

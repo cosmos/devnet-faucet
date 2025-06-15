@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Cosmos EVM Faucet - Dual Environment Token Distribution</title>
+    <title>Cosmos EVM Faucet - Token Distribution</title>
     <link rel="icon" href="https://ping.pub/favicon.ico" />
     <meta name="robots" content="index, follow">
     <meta name="description" content="Cosmos EVM Devnet Faucet - Request tokens to either address.">
@@ -14,485 +14,418 @@
         --cosmos-primary: #2e2e54;
         --cosmos-secondary: #5064fb;
         --cosmos-accent: #00d2ff;
-        --cosmos-dark: #1a1a2e;
-        --cosmos-light: #f8f9fa;
         --cosmos-gradient: linear-gradient(135deg, #2e2e54 0%, #5064fb 50%, #00d2ff 100%);
-        --cosmos-gradient-subtle: linear-gradient(135deg, rgba(46, 46, 84, 0.05) 0%, rgba(80, 100, 251, 0.05) 50%, rgba(0, 210, 255, 0.05) 100%);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-primary: #0d1117;
+          --bg-secondary: #161b22;
+          --text-primary: #f0f6fc;
+          --text-secondary: #8b949e;
+          --border-color: #30363d;
+        }
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg-primary: #ffffff;
+          --bg-secondary: #f6f8fa;
+          --text-primary: #24292f;
+          --text-secondary: #656d76;
+          --border-color: #d0d7de;
+        }
       }
 
       body {
-        background: var(--cosmos-gradient-subtle);
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        min-height: 100vh;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
 
-      .hero-section {
-        background: var(--cosmos-gradient);
-        color: white;
-        padding: 4rem 0;
-        margin-bottom: 3rem;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .hero-section::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
-        opacity: 0.3;
-      }
-
-      .hero-content {
-        position: relative;
-        z-index: 1;
-      }
-
-      .logo-container {
-        display: inline-block;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        backdrop-filter: blur(10px);
+      .header {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem 0;
         margin-bottom: 2rem;
       }
 
-      .logo-container img {
-        max-width: 200px;
-        height: auto;
-        filter: brightness(1.1);
+      .container {
+        max-width: 800px;
       }
 
       .card {
-        border: none;
-        border-radius: 20px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(10px);
-        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-secondary);
+        margin-bottom: 2rem;
       }
 
       .card-header {
-        background: var(--cosmos-gradient);
-        color: white;
-        border-radius: 20px 20px 0 0;
-        border: none;
-        padding: 1.5rem;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+        border-radius: 12px 12px 0 0;
+        padding: 1.25rem;
+        font-weight: 600;
       }
 
-      .faucet-input {
-        border-radius: 15px;
-        border: 2px solid var(--cosmos-secondary);
-        padding: 1rem;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
+      .form-control {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        border-radius: 8px;
       }
 
-      .faucet-input:focus {
+      .form-control:focus {
         border-color: var(--cosmos-accent);
-        box-shadow: 0 0 0 0.2rem rgba(0, 210, 255, 0.25);
+        box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.1);
+        background: var(--bg-primary);
+        color: var(--text-primary);
       }
 
-      .btn-faucet {
+      .btn-primary {
         background: var(--cosmos-gradient);
         border: none;
-        border-radius: 15px;
-        padding: 1rem 2rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        transition: all 0.3s ease;
+        border-radius: 8px;
+        font-weight: 500;
       }
 
-      .btn-faucet:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(80, 100, 251, 0.4);
+      .btn-primary:hover {
+        background: var(--cosmos-gradient);
+        transform: translateY(-1px);
       }
 
-      .address-type-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        border-radius: 50px;
-        font-weight: 600;
-        font-size: 0.9rem;
-        margin-top: 1rem;
+      .nav-tabs {
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 2rem;
       }
 
-      .address-type-cosmos {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+      .nav-tabs .nav-link {
+        color: var(--text-secondary);
+        border: none;
+        border-radius: 0;
+        padding: 1rem 1.5rem;
+        font-weight: 500;
+        border-bottom: 2px solid transparent;
       }
 
-      .address-type-evm {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
+      .nav-tabs .nav-link.active {
+        color: var(--cosmos-accent);
+        background: transparent;
+        border-bottom-color: var(--cosmos-accent);
       }
 
-      .balance-card {
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 15px;
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+      }
+
+      @media (max-width: 768px) {
+        .info-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .info-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
         padding: 1.5rem;
-        margin-bottom: 1rem;
-        border-left: 4px solid var(--cosmos-secondary);
       }
 
-      .balance-title {
-        color: var(--cosmos-primary);
-        font-weight: 700;
+      .info-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
         margin-bottom: 1rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
+      }
+
+      .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .info-item:last-child {
+        border-bottom: none;
+      }
+
+      .info-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        min-width: 100px;
+      }
+
+      .info-value {
+        font-family: ui-monospace, 'SF Mono', Monaco, monospace;
+        font-size: 0.8rem;
+        color: var(--text-primary);
+        word-break: break-all;
+        text-align: right;
+        flex: 1;
+        margin-left: 1rem;
+      }
+
+      .alert {
+        border-radius: 8px;
+        border: 1px solid;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .alert-success {
+        background-color: rgba(25, 135, 84, 0.1);
+        border-color: rgba(25, 135, 84, 0.2);
+        color: var(--text-primary);
+      }
+
+      .alert-danger {
+        background-color: rgba(220, 53, 69, 0.1);
+        border-color: rgba(220, 53, 69, 0.2);
+        color: var(--text-primary);
+      }
+
+      .alert-warning {
+        background-color: rgba(255, 193, 7, 0.1);
+        border-color: rgba(255, 193, 7, 0.2);
+        color: var(--text-primary);
+      }
+
+      .loading-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        vertical-align: -0.125em;
+        border: 0.125em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spinner-border 0.75s linear infinite;
+      }
+
+      @keyframes spinner-border {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .balance-item {
-        background: white;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        margin-bottom: 0.5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border: 1px solid rgba(46, 46, 84, 0.1);
-      }
-
-      .config-section {
-        background: var(--cosmos-primary);
-        color: white;
-        padding: 2rem 0;
-        margin-top: 3rem;
-      }
-
-      .config-card {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        backdrop-filter: blur(10px);
-      }
-
-      .config-title {
-        font-weight: 700;
-        margin-bottom: 1rem;
-        color: var(--cosmos-accent);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .config-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 0.75rem 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid var(--border-color);
       }
 
-      .config-item:last-child {
+      .balance-item:last-child {
         border-bottom: none;
       }
 
-      .config-label {
+      .balance-label {
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+      }
+
+      .balance-value {
         font-weight: 600;
-        opacity: 0.8;
-      }
-
-      .config-value {
-        font-family: 'Monaco', 'Menlo', monospace;
-        font-size: 0.9rem;
-        background: rgba(0, 0, 0, 0.2);
-        padding: 0.25rem 0.5rem;
-        border-radius: 5px;
-        word-break: break-all;
-      }
-
-      .alert-custom {
-        border-radius: 15px;
-        border: none;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-      }
-
-      .spinner-custom {
-        width: 1.2rem;
-        height: 1.2rem;
-      }
-
-      .footer-custom {
-        background: var(--cosmos-dark);
-        color: white;
-        padding: 2rem 0;
-        margin-top: 4rem;
-      }
-
-      .footer-custom a {
-        color: var(--cosmos-accent);
-        text-decoration: none;
-      }
-
-      .footer-custom a:hover {
-        color: white;
-      }
-
-      @media (max-width: 768px) {
-        .hero-section {
-          padding: 2rem 0;
-        }
-
-        .logo-container img {
-          max-width: 150px;
-        }
-
-        .config-item {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 0.5rem;
-        }
-
-        .config-value {
-          width: 100%;
-          text-align: left;
-        }
+        color: var(--text-primary);
+        font-family: ui-monospace, 'SF Mono', Monaco, monospace;
       }
     </style>
   </head>
   <body>
     <div id="app">
-      <!-- Hero Section -->
-      <section class="hero-section">
+      <div class="header">
         <div class="container">
-          <div class="hero-content text-center">
-            <div class="logo-container">
-              <img src="https://raw.githubusercontent.com/cosmos/chain-registry/master/cosmoshub/images/atom.svg" alt="Cosmos Logo">
-            </div>
-            <h1 class="display-4 fw-bold mb-3"><%= project.name %></h1>
-            <p class="lead mb-4">
-              Enter your wallet address below to receive a token package for testing<br>
-              Each request will top your wallet balance of the prescribed tokens to a maximum of 1000 each.
-            </p>
-            <div class="alert alert-info alert-custom">
-              <h6><i class="fas fa-info-circle"></i> <strong>Supported Address Types:</strong></h6>
-              <div class="row mt-3">
-                <div class="col-md-6">
-                  <strong><i class="fas fa-atom"></i> Cosmos:</strong> {{sampleAddresses.cosmos}}<br>
-                  <small class="text-muted">(bech32 format)</small>
-                </div>
-                <div class="col-md-6">
-                  <strong><i class="fab fa-ethereum"></i> EVM:</strong> {{sampleAddresses.evm}}<br>
-                  <small class="text-muted">(hex format)</small>
-                </div>
-              </div>
-            </div>
-          </div>
+          <h1 class="h3 mb-0"><%= project.name %></h1>
         </div>
-      </section>
+      </div>
 
-      <main class="container">
-        <!-- Faucet Interface -->
-        <div class="row justify-content-center">
-          <div class="col-lg-8">
+      <div class="container">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="faucet-tab" data-bs-toggle="tab" data-bs-target="#faucet" type="button" role="tab">
+              <i class="fas fa-faucet me-2"></i>Token Faucet
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="network-tab" data-bs-toggle="tab" data-bs-target="#network" type="button" role="tab">
+              <i class="fas fa-network-wired me-2"></i>Network Info
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- Faucet Tab -->
+          <div class="tab-pane fade show active" id="faucet" role="tabpanel">
+            <!-- Token Request -->
             <div class="card">
-              <div class="card-header text-center">
-                <h3><i class="fas fa-faucet"></i> Request Tokens</h3>
+              <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-faucet me-2"></i>Request Tokens</h5>
               </div>
-              <div class="card-body p-4">
+              <div class="card-body">
+                <p class="text-muted mb-3">Enter your wallet address to receive test tokens.</p>
+                
                 <div class="input-group mb-3">
                   <input
                     id="address"
-                    class="form-control faucet-input"
-                    :placeholder="placeholder"
+                    class="form-control"
+                    placeholder="Enter Cosmos (cosmos...) or EVM (0x...) address"
                     v-model="address"
-                    name="address"
                   >
                   <button
                     type="button"
-                    class="btn btn-faucet text-white"
-                    @click="requestToken(this)"
-                    :disabled="!isValidAddress"
+                    class="btn btn-primary"
+                    @click="requestToken()"
+                    :disabled="!isValidAddress || isLoading"
                   >
-                    <span>
-                      <span
-                        id="button-loading"
-                        class="spinner-border spinner-custom me-2"
-                        style="display:none"
-                        role="status"
-                        aria-hidden="true"
-                      ></span>
-                    </span>
-                    <i class="fas fa-paper-plane me-2"></i>
-                    Request Tokens
+                    <span v-if="isLoading" class="loading-spinner me-2"></span>
+                    <i v-else class="fas fa-paper-plane me-2"></i>
+                    {{isLoading ? 'Sending...' : 'Request Tokens'}}
                   </button>
                 </div>
 
-                <div v-if="addressType" class="text-center">
-                  <span
-                    class="address-type-badge"
-                    :class="addressType === 'Cosmos' ? 'address-type-cosmos' : 'address-type-evm'"
-                  >
+                <div v-if="addressType && addressType !== 'Invalid'" class="text-center">
+                  <span class="badge bg-primary">
                     <i :class="addressType === 'Cosmos' ? 'fas fa-atom' : 'fab fa-ethereum'"></i>
-                    Detected: {{addressType}} Address
+                    {{addressType}} Address Detected
                   </span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div id="message" v-html="message"></div>
+            <div id="message" v-html="message"></div>
 
-        <!-- Balance Display -->
-        <div class="row mt-4">
-          <div class="col-md-6">
-            <div class="balance-card">
-              <h5 class="balance-title">
-                <i class="fas fa-atoms"></i>
-                Cosmos Environment
-              </h5>
-              <div v-if="cosmosBalances.length">
-                <div v-for="balance in cosmosBalances" class="balance-item">
-                  <span><strong>{{balance.denom}}</strong></span>
-                  <span class="fw-bold">{{formatBalance(balance.amount)}}</span>
+            <!-- Balances -->
+            <div class="info-grid">
+              <!-- Requester Wallet -->
+              <div class="info-card">
+                <h5 class="info-title">
+                  <i class="fas fa-user-circle"></i>
+                  Requester Wallet
+                </h5>
+                <div v-if="requesterBalances && requesterBalances.length">
+                  <div v-for="balance in requesterBalances" :key="balance.denom" class="balance-item">
+                    <span class="balance-label">{{balance.denom}}</span>
+                    <span class="balance-value">{{formatBalance(balance.amount, balance.decimals)}}</span>
+                  </div>
+                </div>
+                <div v-else-if="address && isValidAddress" class="text-center text-muted">
+                  <div class="loading-spinner me-2"></div> Loading balances...
+                </div>
+                <div v-else class="text-center text-muted">
+                  Enter a valid address to view balances
                 </div>
               </div>
-              <div v-else class="text-muted text-center">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
+
+              <!-- Faucet Wallet -->
+              <div class="info-card">
+                <h5 class="info-title">
+                  <i class="fas fa-faucet"></i>
+                  Faucet Wallet
+                </h5>
+                <div v-if="faucetBalances && faucetBalances.length">
+                  <div v-for="balance in faucetBalances" :key="balance.denom + balance.type" class="balance-item">
+                    <span class="balance-label">{{balance.denom}} ({{balance.type}})</span>
+                    <span class="balance-value">{{formatBalance(balance.amount, balance.decimals)}}</span>
+                  </div>
+                </div>
+                <div v-else class="text-center text-muted">
+                  <div class="loading-spinner me-2"></div> Loading faucet balances...
+                </div>
               </div>
             </div>
           </div>
-          <div class="col-md-6">
-            <div class="balance-card">
-              <h5 class="balance-title">
-                <i class="fab fa-ethereum"></i>
-                EVM Environment
-              </h5>
-              <div v-if="evmBalances.length">
-                <div v-for="balance in evmBalances" class="balance-item">
-                  <span><strong>{{balance.denom}}</strong></span>
-                  <span class="fw-bold">{{formatBalance(balance.amount)}}</span>
-                </div>
-              </div>
-              <div v-else class="text-muted text-center">
-                <i class="fas fa-spinner fa-spin"></i> Loading...
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
 
-      <!-- Chain Configuration Section -->
-      <section class="config-section">
-        <div class="container">
-          <div class="text-center mb-4">
-            <h2><i class="fas fa-network-wired"></i> Chain Configuration</h2>
-            <p class="lead">Network endpoints and chain information</p>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="config-card">
-                <h5 class="config-title">
+          <!-- Network Info Tab -->
+          <div class="tab-pane fade" id="network" role="tabpanel">
+            <div class="info-grid">
+              <!-- Cosmos Network -->
+              <div class="info-card">
+                <h5 class="info-title">
                   <i class="fas fa-atom"></i>
                   Cosmos Network
                 </h5>
-                <div class="config-item">
-                  <span class="config-label">Chain ID:</span>
-                  <span class="config-value">cosmos_262144-1</span>
+                <div class="info-item">
+                  <span class="info-label">Chain ID:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.chainId || 'Loading...' }}</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">RPC Endpoint:</span>
-                  <span class="config-value">https://cevm-01-rpc.dev.skip.build</span>
+                <div class="info-item">
+                  <span class="info-label">RPC:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.rpc || 'Loading...' }}</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">gRPC Endpoint:</span>
-                  <span class="config-value">https://cevm-01-grpc.dev.skip.build</span>
+                <div class="info-item">
+                  <span class="info-label">gRPC:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.grpc || 'Loading...' }}</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">REST API:</span>
-                  <span class="config-value">https://cevm-01-lcd.dev.skip.build</span>
+                <div class="info-item">
+                  <span class="info-label">REST:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.rest || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Faucet:</span>
+                  <span class="info-value">{{ sampleAddresses.cosmos }}</span>
                 </div>
               </div>
-            </div>
 
-            <div class="col-md-6">
-              <div class="config-card">
-                <h5 class="config-title">
+              <!-- EVM Network -->
+              <div class="info-card">
+                <h5 class="info-title">
                   <i class="fab fa-ethereum"></i>
                   EVM Network
                 </h5>
-                <div class="config-item">
-                  <span class="config-label">Chain ID:</span>
-                  <span class="config-value">262144 (0x40000)</span>
+                <div class="info-item">
+                  <span class="info-label">Chain ID:</span>
+                  <span class="info-value">{{ networkConfig.evm?.chainId || 'Loading...' }} ({{ networkConfig.evm?.chainIdHex || '0x...' }})</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">RPC Endpoint:</span>
-                  <span class="config-value">https://cevm-01-evmrpc.dev.skip.build</span>
+                <div class="info-item">
+                  <span class="info-label">RPC:</span>
+                  <span class="info-value">{{ networkConfig.evm?.rpc || 'Loading...' }}</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">WebSocket:</span>
-                  <span class="config-value">wss://cevm-01-evmws.dev.skip.build</span>
+                <div class="info-item">
+                  <span class="info-label">WebSocket:</span>
+                  <span class="info-value">{{ networkConfig.evm?.websocket || 'Loading...' }}</span>
                 </div>
-                <div class="config-item">
-                  <span class="config-label">Compatible:</span>
-                  <span class="config-value">Ethereum JSON-RPC</span>
+                <div class="info-item">
+                  <span class="info-label">Compatible:</span>
+                  <span class="info-value">Ethereum JSON-RPC</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Faucet:</span>
+                  <span class="info-value">{{ sampleAddresses.evm }}</span>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="row mt-4">
-            <div class="col-12">
-              <div class="config-card text-center">
-                <h5 class="config-title justify-content-center">
-                  <i class="fas fa-wallet"></i>
-                  Faucet Addresses
-                </h5>
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="config-item">
-                      <span class="config-label">Cosmos Faucet:</span>
-                      <span class="config-value">{{ sampleAddresses.cosmos }}</span>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="config-item">
-                      <span class="config-label">EVM Faucet:</span>
-                      <span class="config-value">{{ sampleAddresses.evm }}</span>
-                    </div>
-                  </div>
-                </div>
+            <!-- Contract Addresses -->
+            <div v-if="networkConfig.contracts && Object.keys(networkConfig.contracts).length" class="info-card mt-3">
+              <h5 class="info-title">
+                <i class="fas fa-file-contract"></i>
+                Contract Addresses
+              </h5>
+              <div class="info-item" v-for="(address, name) in networkConfig.contracts" :key="name">
+                <span class="info-label">{{ name }}:</span>
+                <span class="info-value">{{ address }}</span>
               </div>
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- Footer -->
-      <footer class="footer-custom">
-        <div class="container text-center">
-          <p class="mb-2">
-            <strong>Cosmos EVM</strong><br>
-            Bridging Cosmos and Ethereum ecosystems
-          </p>
-          <p class="mb-3">&copy; 2024 Deployed By <%- project.deployer%></p>
-          <div class="d-flex justify-content-center gap-4">
-            <a href="https://github.com/ping-pub/faucet.git">
-              <i class="fab fa-github"></i> Deploy Your Own
-            </a>
-            <a href="https://cosmos.network">
-              <i class="fas fa-globe"></i> Cosmos Network
-            </a>
-            <a href="https://ethereum.org">
-              <i class="fab fa-ethereum"></i> Ethereum
-            </a>
-          </div>
-        </div>
-      </footer>
+      </div>
     </div>
 
     <script type="module">
       import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+      
       createApp({
         data() {
           return {
@@ -500,21 +433,41 @@
             address: '',
             conf: {},
             sampleAddresses: { cosmos: '', evm: '' },
-            cosmosBalances: [],
-            evmBalances: []
+            networkConfig: { 
+              cosmos: { chainId: '', rpc: '', grpc: '', rest: '' }, 
+              evm: { chainId: '', chainIdHex: '', rpc: '', websocket: '' }, 
+              contracts: {} 
+            },
+            requesterBalances: [],
+            faucetBalances: [],
+            isLoading: false
           }
         },
         created() {
           fetch("/config.json").then(response => response.json()).then(data => {
             this.conf = data
             this.sampleAddresses = data.sample || { cosmos: '', evm: '' }
-            this.loadBalances();
+            if (data.network) {
+              this.networkConfig = data.network
+            }
+            this.loadFaucetBalances();
+          }).catch(error => {
+            console.error('Failed to load config:', error);
           });
         },
+        watch: {
+          address: {
+            handler(newAddress) {
+              if (newAddress && this.isValidAddress) {
+                this.loadRequesterBalances();
+              } else {
+                this.requesterBalances = [];
+              }
+            },
+            immediate: false
+          }
+        },
         computed: {
-          placeholder() {
-            return 'Enter Cosmos (cosmos...) or EVM (0x...) address'
-          },
           addressType() {
             if (!this.address) return null;
             if (/^0x[a-fA-F0-9]{40}$/.test(this.address)) return 'EVM';
@@ -526,80 +479,122 @@
           }
         },
         methods: {
-          loadBalances() {
-            // Load cosmos balances
-            fetch('/balance/cosmos').then(r => r.json()).then(data => {
-              this.cosmosBalances = data.balances || [];
-            }).catch(e => console.error('Failed to load cosmos balances:', e));
-
-            // Load EVM balances
-            fetch('/balance/evm').then(r => r.json()).then(data => {
-              this.evmBalances = data.balances || [];
-            }).catch(e => console.error('Failed to load evm balances:', e));
+          async loadFaucetBalances() {
+            try {
+              const [cosmosResponse, evmResponse] = await Promise.all([
+                fetch('/balance/cosmos').then(r => r.json()).catch(() => ({ balances: [] })),
+                fetch('/balance/evm').then(r => r.json()).catch(() => ({ balances: [] }))
+              ]);
+              
+              const faucetBalances = [];
+              
+              if (cosmosResponse.balances) {
+                cosmosResponse.balances.forEach(balance => {
+                  faucetBalances.push({
+                    ...balance,
+                    type: 'cosmos'
+                  });
+                });
+              }
+              
+              if (evmResponse.balances) {
+                evmResponse.balances.forEach(balance => {
+                  faucetBalances.push({
+                    ...balance,
+                    type: balance.type === 'native' ? 'evm-native' : 'evm-erc20'
+                  });
+                });
+              }
+              
+              this.faucetBalances = faucetBalances;
+            } catch (e) {
+              console.error('Failed to load faucet balances:', e);
+            }
           },
-          formatBalance(amount) {
+          
+          async loadRequesterBalances() {
+            if (!this.address || !this.isValidAddress) {
+              this.requesterBalances = [];
+              return;
+            }
+            
+            try {
+              if (this.addressType === 'Cosmos') {
+                const response = await fetch(`/balance/cosmos?address=${this.address}`);
+                const data = await response.json();
+                this.requesterBalances = data.balances || [];
+              } else if (this.addressType === 'EVM') {
+                const response = await fetch(`/balance/evm?address=${this.address}`);
+                const data = await response.json();
+                this.requesterBalances = data.balances || [];
+              }
+            } catch (e) {
+              console.error('Failed to load requester balances:', e);
+              this.requesterBalances = [];
+            }
+          },
+          
+          formatBalance(amount, decimals = 0) {
             if (!amount) return '0';
-            // Enhanced formatting with proper decimal handling
-            const num = parseInt(amount);
-            if (num >= 1000000000000000000) {
-              return (num / 1000000000000000000).toFixed(2) + ' (18 decimals)';
-            } else if (num >= 1000000) {
-              return (num / 1000000).toFixed(2) + ' (6 decimals)';
+            const num = BigInt(amount);
+            if (decimals > 0) {
+              const divisor = BigInt(10 ** decimals);
+              const whole = num / divisor;
+              const fraction = num % divisor;
+              if (fraction === 0n) {
+                return whole.toString();
+              } else {
+                const fractionStr = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+                return `${whole.toString()}.${fractionStr}`;
+              }
             }
             return num.toLocaleString();
           },
-          requestToken(obj) {
-            if (this.isValidAddress) {
-              // button state
-              obj.disabled = true
-              document.getElementById("button-loading").style.display = 'inline-block';
-
-              fetch(`/send/${this.address}`).then(response => response.json()).then(data => {
-                  // button state
-                  obj.disabled = false
-                  document.getElementById("button-loading").style.display = 'none';
-
-                  // Reload balances after transaction
-                  this.loadBalances();
-
-                  // show result
-                  const isSuccess = data.result && (data.result.code === 0 || data.result.transactions);
-                  this.message = `
-                  <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-custom alert-dismissible show fade mt-4" role="alert">
-                      <h5 class="alert-heading">
-                        <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'}"></i>
-                        ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
-                      </h5>
-                      <hr>
-                      <p><strong>Address Type:</strong> <span class="${this.addressType === 'Cosmos' ? 'text-primary' : 'text-info'}">${this.addressType}</span></p>
-                      <details class="mt-3">
-                        <summary class="btn btn-outline-secondary btn-sm">View Transaction Details</summary>
-                        <pre class="mt-2 p-3 bg-light rounded"><code>${JSON.stringify(data, null, 2)}</code></pre>
-                      </details>
-                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                  </div>
-                  `
-              }).catch(err => {
-                obj.disabled = false
-                document.getElementById("button-loading").style.display = 'none';
-                this.message = `
-                <div class="alert alert-danger alert-custom">
-                  <h5 class="alert-heading">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Network Error
-                  </h5>
-                  <p>${err.message}</p>
+          
+          async requestToken() {
+            if (!this.isValidAddress) {
+              this.message = `
+                <div class="alert alert-warning">
+                  <h6><i class="fas fa-exclamation-circle me-2"></i>Invalid Address</h6>
+                  <p class="mb-0">Please enter a valid Cosmos (cosmos...) or EVM (0x...) address</p>
                 </div>`
-              });
-            } else {
-                this.message = `
-                <div class="alert alert-warning alert-custom">
-                  <h5 class="alert-heading">
-                    <i class="fas fa-exclamation-circle"></i>
-                    Invalid Address
-                  </h5>
-                  <p>Please enter a valid Cosmos (cosmos...) or EVM (0x...) address</p>
+              return;
+            }
+
+            this.isLoading = true;
+            
+            try {
+              const response = await fetch(`/send/${this.address}`);
+              const data = await response.json();
+              
+              await Promise.all([
+                this.loadFaucetBalances(),
+                this.loadRequesterBalances()
+              ]);
+
+              const isSuccess = data.result && (data.result.code === 0 || data.result.transactions);
+              this.message = `
+                <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert">
+                    <h6 class="alert-heading">
+                      <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                      ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
+                    </h6>
+                    <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
+                    <details class="mt-3">
+                      <summary class="btn btn-outline-secondary btn-sm">View Transaction Details</summary>
+                      <pre class="mt-2 p-3 rounded" style="background: var(--bg-primary); border: 1px solid var(--border-color); font-size: 0.8rem; overflow-x: auto;"><code>${JSON.stringify(data, null, 2)}</code></pre>
+                    </details>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              `
+            } catch (err) {
+              this.message = `
+                <div class="alert alert-danger">
+                  <h6><i class="fas fa-exclamation-triangle me-2"></i>Network Error</h6>
+                  <p class="mb-0">${err.message}</p>
                 </div>`
+            } finally {
+              this.isLoading = false;
             }
           }
         }

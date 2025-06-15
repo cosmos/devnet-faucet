@@ -14,6 +14,7 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { bech32 } from 'bech32';
 
 const execAsync = promisify(exec);
 
@@ -26,12 +27,34 @@ const NETWORK_CONFIG = {
 
 const FAUCET_ADDRESS = '0x42e6047c5780b103e52265f6483c2d0113aa6b87';
 
+// Minimal ERC20 ABI for lightweight interactions
+const MIN_ERC20_ABI = [
+    'function approve(address spender, uint256 amount) external returns (bool)',
+    'function balanceOf(address account) view returns (uint256)',
+    'function symbol() view returns (string)',
+    'function decimals() view returns (uint8)'
+];
+
 // Test addresses (different types)
 const TEST_ADDRESSES = [
     '0x1234567890123456789012345678901234567890', // Regular EVM address
     '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd', // Another EVM address
-    '0x0000000000000000000000000000000000000001'  // System address
+    'cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz'  // Cosmos bech32 address
 ];
+
+function toHexAddress(address) {
+    if (address.startsWith('0x')) {
+        return address.toLowerCase();
+    }
+    try {
+        const decoded = bech32.decode(address);
+        const bytes = bech32.fromWords(decoded.words);
+        const hex = '0x' + Buffer.from(bytes).toString('hex');
+        return ethers.getAddress(hex.toLowerCase());
+    } catch (err) {
+        throw new Error(`Unsupported address format: ${address}`);
+    }
+}
 
 class SimpleDeployer {
     constructor() {
@@ -60,9 +83,9 @@ class SimpleDeployer {
     async deployTokens() {
         console.log('\n[DEPLOY] Deploying ERC20 tokens...');
 
-        const tokens = ['WBTC', 'PEPE', 'USDT'];
+        const TOKEN_NAMES = process.env.TOKENS ? process.env.TOKENS.split(',').map((t) => t.trim()) : ['WBTC', 'PEPE', 'USDT'];
 
-        for (const token of tokens) {
+        for (const token of TOKEN_NAMES) {
             const { abi, bytecode } = this.loadArtifact(token);
             const factory = new ethers.ContractFactory(abi, bytecode, this.wallet);
 
@@ -107,10 +130,17 @@ class SimpleDeployer {
                     const owner = await contract.owner();
                     console.log(`[SUCCESS] ${name} verified - Owner: ${owner}`);
                 } else {
-                    const symbol = await contract.symbol();
-                    const balance = await contract.balanceOf(FAUCET_ADDRESS);
                     const decimals = await contract.decimals();
-                    console.log(`[SUCCESS] ${name} verified - Symbol: ${symbol}, Faucet Balance: ${ethers.formatUnits(balance, decimals)}`);
+                    const balance = await contract.balanceOf(FAUCET_ADDRESS);
+
+                    let symbol = '';
+                    try {
+                        symbol = await contract.symbol();
+                    } catch (_) {
+                        symbol = '(n/a)';
+                    }
+
+                    console.log(`[SUCCESS] ${name} verified - Decimals: ${decimals}, Symbol: ${symbol}, Faucet Balance: ${ethers.formatUnits(balance, decimals)}`);
                 }
             } catch (error) {
                 console.error(`[ERROR] ${name} verification failed:`, error.message);
@@ -146,13 +176,14 @@ class SimpleDeployer {
 
         // Test with different address types
         for (let i = 0; i < TEST_ADDRESSES.length; i++) {
-            const testAddress = TEST_ADDRESSES[i];
-            console.log(`\nTesting transfer to address ${i + 1}: ${testAddress}`);
+            const inputAddress = TEST_ADDRESSES[i];
+            const testAddress = toHexAddress(inputAddress);
+            console.log(`\nTesting transfer to address ${i + 1}: ${inputAddress} (hex: ${testAddress})`);
 
             try {
                 // First approve MultiSend to spend tokens
                 for (const transfer of transfers) {
-                    const tokenContract = new ethers.Contract(transfer.token, this.contracts.WBTC.abi, this.wallet);
+                    const tokenContract = new ethers.Contract(transfer.token, MIN_ERC20_ABI, this.wallet);
                     const approveTx = await tokenContract.approve(this.contracts.MultiSend.address, transfer.amount);
                     await approveTx.wait();
                 }
@@ -166,10 +197,16 @@ class SimpleDeployer {
 
                 // Verify balances
                 for (const transfer of transfers) {
-                    const tokenContract = new ethers.Contract(transfer.token, this.contracts.WBTC.abi, this.provider);
+                    const tokenContract = new ethers.Contract(transfer.token, MIN_ERC20_ABI, this.provider);
                     const balance = await tokenContract.balanceOf(testAddress);
-                    const symbol = await tokenContract.symbol();
                     const decimals = await tokenContract.decimals();
+
+                    let symbol = '';
+                    try {
+                        symbol = await tokenContract.symbol();
+                    } catch (_) {
+                        symbol = '(n/a)';
+                    }
 
                     console.log(`   ${symbol} balance at ${testAddress}: ${ethers.formatUnits(balance, decimals)}`);
                 }
