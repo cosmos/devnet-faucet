@@ -247,6 +247,11 @@
         border-radius: 8px;
         margin-bottom: 1rem;
         background: var(--bg-primary);
+        transition: border-color 0.2s ease;
+      }
+      
+      .transaction-item:hover {
+        border-color: var(--cosmos-accent);
       }
 
       .transaction-item:last-child {
@@ -282,13 +287,13 @@
         <!-- Tabs -->
         <ul class="nav nav-tabs" role="tablist">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="faucet-tab" data-bs-toggle="tab" data-bs-target="#faucet" type="button" role="tab">
-              <i class="fas fa-faucet me-2"></i>Token Faucet
+            <button class="nav-link" id="network-tab" data-bs-toggle="tab" data-bs-target="#network" type="button" role="tab">
+              <i class="fas fa-network-wired me-2"></i>Network Info
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
-              <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
+            <button class="nav-link active" id="faucet-tab" data-bs-toggle="tab" data-bs-target="#faucet" type="button" role="tab">
+              <i class="fas fa-faucet me-2"></i>Token Faucet
             </button>
           </li>
           <li class="nav-item" role="presentation">
@@ -298,13 +303,117 @@
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link" id="network-tab" data-bs-toggle="tab" data-bs-target="#network" type="button" role="tab">
-              <i class="fas fa-network-wired me-2"></i>Network Info
+            <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
+              <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
             </button>
           </li>
         </ul>
 
         <div class="tab-content">
+          <!-- Network Info Tab -->
+          <div class="tab-pane fade" id="network" role="tabpanel">
+            <div class="info-grid">
+              <!-- Cosmos Network -->
+              <div class="info-card">
+                <h5 class="info-title">
+                  <i class="fas fa-atom"></i>
+                  Cosmos Network
+                </h5>
+                <div class="info-item">
+                  <span class="info-label">Chain ID:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.chainId || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">RPC:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.rpc || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">gRPC:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.grpc || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">REST:</span>
+                  <span class="info-value">{{ networkConfig.cosmos?.rest || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Faucet:</span>
+                  <span class="info-value">{{ sampleAddresses.cosmos }}</span>
+                </div>
+              </div>
+
+              <!-- EVM Network -->
+              <div class="info-card">
+                <h5 class="info-title">
+                  <i class="fab fa-ethereum"></i>
+                  EVM Network
+                </h5>
+                <div class="info-item">
+                  <span class="info-label">Chain ID:</span>
+                  <span class="info-value">{{ networkConfig.evm?.chainId || 'Loading...' }} ({{ networkConfig.evm?.chainIdHex || '0x...' }})</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">RPC:</span>
+                  <span class="info-value">{{ networkConfig.evm?.rpc || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">WebSocket:</span>
+                  <span class="info-value">{{ networkConfig.evm?.websocket || 'Loading...' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Compatible:</span>
+                  <span class="info-value">Ethereum JSON-RPC</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Faucet:</span>
+                  <span class="info-value">{{ sampleAddresses.evm }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Contract Addresses -->
+            <div v-if="networkConfig.contracts && Object.keys(networkConfig.contracts).length" class="info-card mt-3">
+              <h5 class="info-title">
+                <i class="fas fa-file-contract"></i>
+                Smart Contracts
+              </h5>
+              
+              <!-- System Contracts -->
+              <div class="mb-3">
+                <h6 class="text-primary mb-2">System Contracts</h6>
+                <div v-if="networkConfig.contracts.atomicMultiSend" class="info-item">
+                  <span class="info-label">AtomicMultiSend:</span>
+                  <span class="info-value">{{ networkConfig.contracts.atomicMultiSend }}</span>
+                </div>
+                <div v-if="networkConfig.contracts.native_token" class="info-item">
+                  <span class="info-label">Native ATOM (ERC20):</span>
+                  <span class="info-value">{{ networkConfig.contracts.native_token }}</span>
+                </div>
+                <div v-if="networkConfig.contracts.werc20_precompile" class="info-item">
+                  <span class="info-label">WERC20 Precompile:</span>
+                  <span class="info-value">{{ networkConfig.contracts.werc20_precompile }}</span>
+                </div>
+              </div>
+              
+              <!-- ERC20 Token Contracts -->
+              <div v-if="networkConfig.contracts.erc20_tokens && Object.keys(networkConfig.contracts.erc20_tokens).length">
+                <h6 class="text-success mb-2">ERC20 Token Contracts</h6>
+                <div class="info-item" v-for="(address, symbol) in networkConfig.contracts.erc20_tokens" :key="symbol">
+                  <span class="info-label">{{ symbol }}:</span>
+                  <span class="info-value">{{ address }}</span>
+                </div>
+              </div>
+              
+              <!-- Other Contracts -->
+              <div v-if="hasOtherContracts">
+                <h6 class="text-info mb-2">Other Contracts</h6>
+                <div class="info-item" v-for="(address, name) in otherContracts" :key="name">
+                  <span class="info-label">{{ name }}:</span>
+                  <span class="info-value">{{ address }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Faucet Tab -->
           <div class="tab-pane fade show active" id="faucet" role="tabpanel">
             <!-- Token Request -->
@@ -314,6 +423,34 @@
               </div>
               <div class="card-body">
                 <p class="text-muted mb-3">Enter your wallet address to receive test tokens.</p>
+                
+                <!-- Token Information -->
+                <div v-if="tokenInfo && tokenInfo.length" class="mb-3">
+                  <h6 class="text-muted mb-2"><i class="fas fa-coins me-2"></i>Available Tokens:</h6>
+                  <div class="row">
+                    <div v-for="token in tokenInfo" :key="token.denom" class="col-md-4 mb-2">
+                      <div class="card card-body p-2 small" :class="getTokenCardClass(token)">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div class="fw-bold">{{token.name}}</div>
+                          <span class="badge" :class="getTokenTypeBadge(token)">{{getTokenType(token)}}</span>
+                        </div>
+                        <div class="text-muted small mt-1" style="font-family: monospace; word-break: break-all;">{{token.contract}}</div>
+                        <div class="text-muted small">{{formatBalance(token.target_amount, token.decimals)}} tokens</div>
+                      </div>
+                    </div>
+                    <!-- Add native ATOM info -->
+                    <div class="col-md-4 mb-2">
+                      <div class="card card-body p-2 small border-primary">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div class="fw-bold">ATOM</div>
+                          <span class="badge bg-primary">Native</span>
+                        </div>
+                        <div class="text-muted small mt-1" style="font-family: monospace;">uatom (Cosmos SDK)</div>
+                        <div class="text-muted small">1.0 ATOM (gas fees)</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 
                 <div class="input-group mb-3">
                   <input
@@ -555,9 +692,12 @@
                     </div>
                   </div>
                   <div class="text-end">
-                    <button class="btn btn-outline-secondary btn-sm" @click="showTransactionDetails(tx)">
-                      <i class="fas fa-eye"></i>
+                    <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)" data-bs-toggle="modal" data-bs-target="#transactionModal">
+                      <i class="fas fa-eye me-1"></i>Details
                     </button>
+                    <a v-if="tx.hash && tx.data.result && tx.data.result.explorer_url" :href="tx.data.result.explorer_url" target="_blank" class="btn btn-outline-success btn-sm ms-1">
+                      <i class="fas fa-external-link-alt me-1"></i>View
+                    </a>
                     <button class="btn btn-outline-danger btn-sm ms-1" @click="removeTransaction(index)">
                       <i class="fas fa-trash"></i>
                     </button>
@@ -643,13 +783,132 @@
             <div v-if="networkConfig.contracts && Object.keys(networkConfig.contracts).length" class="info-card mt-3">
               <h5 class="info-title">
                 <i class="fas fa-file-contract"></i>
-                Contract Addresses
+                Smart Contracts
               </h5>
-              <div class="info-item" v-for="(address, name) in networkConfig.contracts" :key="name">
-                <span class="info-label">{{ name }}:</span>
-                <span class="info-value">{{ address }}</span>
+              
+              <!-- System Contracts -->
+              <div class="mb-3">
+                <h6 class="text-primary mb-2">System Contracts</h6>
+                <div v-if="networkConfig.contracts.atomicMultiSend" class="info-item">
+                  <span class="info-label">AtomicMultiSend:</span>
+                  <span class="info-value">{{ networkConfig.contracts.atomicMultiSend }}</span>
+                </div>
+                <div v-if="networkConfig.contracts.native_token" class="info-item">
+                  <span class="info-label">Native ATOM (ERC20):</span>
+                  <span class="info-value">{{ networkConfig.contracts.native_token }}</span>
+                </div>
+                <div v-if="networkConfig.contracts.werc20_precompile" class="info-item">
+                  <span class="info-label">WERC20 Precompile:</span>
+                  <span class="info-value">{{ networkConfig.contracts.werc20_precompile }}</span>
+                </div>
+              </div>
+              
+              <!-- ERC20 Token Contracts -->
+              <div v-if="networkConfig.contracts.erc20_tokens && Object.keys(networkConfig.contracts.erc20_tokens).length">
+                <h6 class="text-success mb-2">ERC20 Token Contracts</h6>
+                <div class="info-item" v-for="(address, symbol) in networkConfig.contracts.erc20_tokens" :key="symbol">
+                  <span class="info-label">{{ symbol }}:</span>
+                  <span class="info-value">{{ address }}</span>
+                </div>
+              </div>
+              
+              <!-- Other Contracts -->
+              <div v-if="hasOtherContracts">
+                <h6 class="text-info mb-2">Other Contracts</h6>
+                <div class="info-item" v-for="(address, name) in otherContracts" :key="name">
+                  <span class="info-label">{{ name }}:</span>
+                  <span class="info-value">{{ address }}</span>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transaction Details Modal -->
+    <div class="modal fade" id="transactionModal" tabindex="-1" aria-labelledby="transactionModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="transactionModalLabel">
+              <i class="fas fa-info-circle me-2"></i>Transaction Details
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="selectedTransaction">
+              <!-- Transaction Summary -->
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <strong>Status:</strong>
+                  <span class="ms-2 badge" :class="selectedTransaction.success ? 'bg-success' : 'bg-danger'">
+                    {{selectedTransaction.success ? 'Success' : 'Failed'}}
+                  </span>
+                </div>
+                <div class="col-md-6">
+                  <strong>Address Type:</strong> {{selectedTransaction.addressType}}
+                </div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-12">
+                  <strong>Address:</strong> 
+                  <code class="small ms-2">{{selectedTransaction.address}}</code>
+                </div>
+              </div>
+              
+              <!-- Transaction Hash -->
+              <div v-if="selectedTransaction.hash" class="mb-3">
+                <strong>Transaction Hash:</strong>
+                <div class="mt-1">
+                  <code class="small">{{selectedTransaction.hash}}</code>
+                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" :href="getTransactionExplorerUrl(selectedTransaction)" target="_blank" class="btn btn-outline-primary btn-sm ms-2">
+                    <i class="fas fa-external-link-alt me-1"></i>View on Explorer
+                  </a>
+                </div>
+              </div>
+              
+              <!-- Blockchain Data -->
+              <div v-if="getBlockchainData(selectedTransaction)" class="mb-3">
+                <h6>Blockchain Transaction Data</h6>
+                <div class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">
+                  <pre class="mb-0"><code>{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
+                </div>
+              </div>
+              
+              <!-- Transfer Details -->
+              <div v-if="getTransferData(selectedTransaction)" class="mb-3">
+                <h6>Token Transfers</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>Token</th>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Contract</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="transfer in getTransferData(selectedTransaction)" :key="transfer.hash + transfer.token">
+                        <td>{{transfer.denom || 'Unknown'}}</td>
+                        <td>{{transfer.amount}}</td>
+                        <td>
+                          <span class="badge" :class="transfer.type === 'native' ? 'bg-primary' : 'bg-success'">
+                            {{transfer.type}}
+                          </span>
+                        </td>
+                        <td><code class="small">{{transfer.token}}</code></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
@@ -670,6 +929,7 @@
               evm: { chainId: '', chainIdHex: '', rpc: '', websocket: '' }, 
               contracts: {} 
             },
+            tokenInfo: [],
             requesterBalances: [],
             faucetBalances: [],
             recentTransactions: [],
@@ -690,6 +950,7 @@
           fetch("/config.json").then(response => response.json()).then(data => {
             this.conf = data
             this.sampleAddresses = data.sample || { cosmos: '', evm: '' }
+            this.tokenInfo = data.tokens || []
             if (data.network) {
               this.networkConfig = data.network
             }
@@ -722,6 +983,22 @@
           },
           isValidAddress() {
             return this.addressType === 'EVM' || this.addressType === 'Cosmos';
+          },
+          hasOtherContracts() {
+            if (!this.networkConfig.contracts) return false;
+            const systemKeys = ['atomicMultiSend', 'erc20_tokens', 'native_token', 'werc20_precompile'];
+            return Object.keys(this.networkConfig.contracts).some(key => !systemKeys.includes(key));
+          },
+          otherContracts() {
+            if (!this.networkConfig.contracts) return {};
+            const systemKeys = ['atomicMultiSend', 'erc20_tokens', 'native_token', 'werc20_precompile'];
+            const result = {};
+            Object.keys(this.networkConfig.contracts).forEach(key => {
+              if (!systemKeys.includes(key)) {
+                result[key] = this.networkConfig.contracts[key];
+              }
+            });
+            return result;
           }
         },
         methods: {
@@ -840,14 +1117,19 @@
                 this.loadRequesterBalances()
               ]);
 
+              const txHash = data.result?.transaction_hash || data.result?.hash;
+              const explorerUrl = data.result?.explorer_url;
+              
               this.message = `
-                <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert">
+                <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
                     <h6 class="alert-heading">
                       <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
                       ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
                     </h6>
                     <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
-                    <p class="mb-0 small text-muted">Transaction details saved to Recent Txs tab.</p>
+                    ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
+                    ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
+                    <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
               `
@@ -915,15 +1197,63 @@
 
           showTransactionDetails(tx) {
             this.selectedTransaction = tx;
-            this.message = `
-              <div class="alert alert-info alert-dismissible show fade" role="alert">
-                <h6 class="alert-heading">
-                  <i class="fas fa-info-circle me-2"></i>Transaction Details
-                </h6>
-                <pre class="mt-2 p-3 rounded" style="background: var(--bg-primary); border: 1px solid var(--border-color); font-size: 0.8rem; overflow-x: auto;"><code>${JSON.stringify(tx.data, null, 2)}</code></pre>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-              </div>
-            `
+          },
+
+          getBlockchainData(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            
+            const result = tx.data.result;
+            let blockchainData = {};
+            
+            // Add basic transaction info
+            if (result.transaction_hash) {
+              blockchainData.transaction_hash = result.transaction_hash;
+            }
+            if (result.block_height || result.block_number) {
+              blockchainData.block_height = result.block_height || result.block_number;
+            }
+            if (result.gas_used) {
+              blockchainData.gas_used = result.gas_used;
+            }
+            
+            // Add network-specific data
+            if (result.network_type === 'cosmos' && result.tx_response) {
+              blockchainData.cosmos_transaction = {
+                height: result.tx_response.height,
+                gas_wanted: result.tx_response.gas_wanted,
+                gas_used: result.tx_response.gas_used,
+                code: result.tx_response.code,
+                codespace: result.tx_response.codespace,
+                events: result.tx_response.events || [],
+                raw_log: result.tx_response.raw_log
+              };
+            } else if (result.network_type === 'evm' && result.evm_tx_data) {
+              blockchainData.evm_transaction = {
+                hash: result.evm_tx_data.hash,
+                blockNumber: result.evm_tx_data.blockNumber,
+                blockHash: result.evm_tx_data.blockHash,
+                transactionIndex: result.evm_tx_data.transactionIndex,
+                from: result.evm_tx_data.from,
+                to: result.evm_tx_data.to,
+                value: result.evm_tx_data.value,
+                gasUsed: result.evm_tx_data.gasUsed,
+                gasPrice: result.evm_tx_data.gasPrice,
+                status: result.evm_tx_data.status,
+                logs: result.evm_tx_data.logs || []
+              };
+            }
+            
+            return Object.keys(blockchainData).length > 0 ? blockchainData : null;
+          },
+
+          getTransferData(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            return tx.data.result.transfers || null;
+          },
+
+          getTransactionExplorerUrl(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            return tx.data.result.explorer_url || null;
           },
 
           formatDate(date) {
@@ -1111,6 +1441,28 @@
 
           getExplorerUrl(txHash) {
             return `${this.networkConfig.evm.explorer || 'https://cevm-01-explorer.dev.skip.build'}/tx/${txHash}`;
+          },
+
+          // Token classification helpers
+          getTokenType(token) {
+            if (token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+              return 'Native';
+            }
+            return 'ERC20';
+          },
+
+          getTokenTypeBadge(token) {
+            if (token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+              return 'bg-primary';
+            }
+            return 'bg-success';
+          },
+
+          getTokenCardClass(token) {
+            if (token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+              return 'border-primary';
+            }
+            return 'border-success';
           }
         }
       }).mount('#app')

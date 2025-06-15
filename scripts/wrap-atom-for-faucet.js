@@ -143,6 +143,8 @@ async function wrapAtomForFaucet() {
   console.log('='.repeat(60));
   console.log('Faucet Address:', wallet.address);
   console.log('WERC20 Address:', WERC20_ADDRESS);
+  console.log('NOTE: The WERC20 precompile needs to be properly configured/registered');
+  console.log('      This script tests the interface but may fail until precompile is active');
 
   try {
     // Get current balances
@@ -160,8 +162,8 @@ async function wrapAtomForFaucet() {
       watomBalance = 0n;
     }
 
-    // Amount to wrap (100,000 ATOM worth)
-    const wrapAmount = ethers.parseUnits('100000', 6); // 6 decimals for ATOM
+    // Amount to wrap (smaller test amount first)
+    const wrapAmount = ethers.parseUnits('1', 6); // 1 ATOM for testing
     console.log('Amount to wrap:', ethers.formatUnits(wrapAmount, 6), 'ATOM');
 
     if (nativeBalance < wrapAmount) {
@@ -170,9 +172,13 @@ async function wrapAtomForFaucet() {
 
     // Wrap ATOM by calling deposit function with value
     console.log('\n📝 Wrapping ATOM to WATOM...');
-    const depositTx = await werc20.deposit({ 
+    
+    // Use a direct transaction since the precompile may not work with the standard ABI
+    const depositTx = await wallet.sendTransaction({
+      to: WERC20_ADDRESS,
       value: wrapAmount,
-      gasLimit: 200000
+      data: '0xd0e30db0', // deposit() function selector
+      gasLimit: 300000
     });
     
     console.log('⏳ Transaction hash:', depositTx.hash);
@@ -193,7 +199,14 @@ async function wrapAtomForFaucet() {
     const atomicMultiSendAddress = config.blockchain.contracts.atomicMultiSend;
     const approvalAmount = ethers.parseUnits('1000000', 6); // 1M WATOM approval
 
-    const approveTx = await werc20.approve(atomicMultiSendAddress, approvalAmount, {
+    // Use direct transaction for approval
+    const approveData = '0x095ea7b3' + // approve(address,uint256) function selector
+                        atomicMultiSendAddress.slice(2).padStart(64, '0') + // spender address
+                        approvalAmount.toString(16).padStart(64, '0'); // amount
+
+    const approveTx = await wallet.sendTransaction({
+      to: WERC20_ADDRESS,
+      data: approveData,
       gasLimit: 100000
     });
     
@@ -211,6 +224,10 @@ async function wrapAtomForFaucet() {
 
     console.log('\n🎉 WATOM wrapping and approval completed successfully!');
     console.log('The faucet can now distribute WATOM tokens.');
+    console.log('\n📋 Next Steps:');
+    console.log('1. Add WATOM contract to config.js token amounts');
+    console.log('2. Update AtomicMultiSend to handle WATOM transfers');
+    console.log('3. Test end-to-end faucet distribution');
 
     return {
       wrapTx: depositTx.hash,

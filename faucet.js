@@ -7,15 +7,15 @@ import { bech32 } from 'bech32';
 import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
 import { accountFromAny, SigningStargateClient } from "@cosmjs/stargate";
 import { pathToString } from '@cosmjs/crypto';
-import { fromHex, toHex, toBase64, } from '@cosmjs/encoding';
+import { toHex, toBase64, } from '@cosmjs/encoding';
 import { TxRaw, SignDoc, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx.js";
 import { Any } from "cosmjs-types/google/protobuf/any.js";
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx.js";
 // We'll create the protobuf encoding manually to match what the chain expects
-// Note: We'll create the proper ethereum secp256k1 PubKey encoding manually since cosmjs-types doesn't include it
+//  Since cosmjs-types doesn't include it, we'll create the proper ethereum secp256k1 PubKey encoding manually s
 import Long from "long";
 
-// Noble crypto imports for proper key derivation
+// Noble crypto imports for key derivation
 import { keccak_256 } from '@noble/hashes/sha3';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
@@ -28,7 +28,7 @@ import { FrequencyChecker } from './checker.js';
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
 
-// Proper protobuf encoding for cosmos.evm.crypto.v1.ethsecp256k1.PubKey
+// protobuf encoding for cosmos.evm.crypto.v1.ethsecp256k1.PubKey
 // Based on the protobuf definition: message PubKey { bytes key = 1; }
 function encodeEthSecp256k1PubKey(publicKeyBytes) {
   // Field 1, wire type 2 (length-delimited): tag = (1 << 3) | 2 = 10 (0x0A)
@@ -60,14 +60,14 @@ function hexToBech32(hexAddress, prefix = 'cosmos') {
   // Convert hex to bytes
   const bytes = Buffer.from(cleanHex, 'hex');
   
-  // Convert to bech32
+  // Encode as bech32
   const words = bech32.toWords(bytes);
   const encoded = bech32.encode(prefix, words);
   
   return encoded;
 }
 
-// Create proper ethereum secp256k1 signature for Cosmos SDK
+// Create eth_ecp256k1 signature
 // Format: r (32 bytes) + s (32 bytes) = 64 bytes total (no recovery ID for Cosmos)
 // Based on ethsecp256k1.go spec: The Go code does the keccak256 hashing in the Sign function
 function createEthSecp256k1Signature(messageBytes, privateKeyBytes) {
@@ -86,18 +86,14 @@ function createEthSecp256k1Signature(messageBytes, privateKeyBytes) {
   // Use noble secp256k1 to create the signature
   const signature = secp256k1.sign(digestBz, privateKeyBytes);
 
-  // Use the compact raw bytes format directly from noble
-  // This gives us exactly 64 bytes: r (32) + s (32) - no recovery ID
+  // Use compact raw bytes
+  // This gives exactly 64 bytes: r (32) + s (32) - no recovery ID
   const signatureBytes = signature.toCompactRawBytes();
 
   return signatureBytes;
 }
 
-// Note: Old EthSecp256k1PubKey type removed - we now use direct protobuf encoding functions
-
-// Note: Custom registry removed - we now use direct protobuf encoding for complete manual control
-
-// Custom pubkey decoder that handles ethereum secp256k1 keys
+// pubkey decoder for eth_secp256k1 keys
 function customDecodePubkey(pubkey) {
   if (pubkey.typeUrl === '/cosmos.evm.crypto.v1.ethsecp256k1.PubKey' ||
       pubkey.typeUrl === '/ethermint.crypto.v1.ethsecp256k1.PubKey') {
@@ -199,7 +195,7 @@ function getPrivateKeyFromMnemonic(mnemonic, derivationPath) {
     return privateKey;
 }
 
-// Generate addresses from private key using ETH_SECP256K1 method
+// Generate wallet addresses using eth_secp256k1 [skip ripemd160 hashing]
 function generateEthSecp256k1AddressesFromPrivateKey(privateKeyHex, prefix) {
     const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
     if (privateKey.length !== 32) {
@@ -209,7 +205,7 @@ function generateEthSecp256k1AddressesFromPrivateKey(privateKeyHex, prefix) {
     const publicKey = secp256k1.getPublicKey(privateKey, true); // compressed public key
     const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false).slice(1); // remove 0x04 prefix
 
-    // For ETH_SECP256K1: Skip RIPEMD160 for cosmos address, use keccak hash converted to bech32
+    // Use keccak hashed hex address, directly converted to bech32
     const keccakHash = keccak_256(publicKeyUncompressed);
     const addressBytes = keccakHash.slice(-20);
     const fiveBitArray = convertBits(addressBytes, 8, 5, true);
@@ -225,7 +221,7 @@ function generateEthSecp256k1AddressesFromPrivateKey(privateKeyHex, prefix) {
     };
 }
 
-// Address type detection utilities
+// Address type detection
 function isHexAddress(address) {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
@@ -258,7 +254,7 @@ function bech32ToHex(bech32Address) {
 }
 
 /**
- * Convert EVM address to Cosmos address using ETH_SECP256K1 derivation
+ * Convert hex address to bech32 address
  * This is for display purposes - the actual derivation should use the proper method
  */
 function evmToCosmosAddress(evmWallet, prefix) {
@@ -268,10 +264,8 @@ function evmToCosmosAddress(evmWallet, prefix) {
     return cosmosAddress;
 }
 
-// Note: Old helper functions removed - we now use direct protobuf encoding
-
 /**
- * Create ETH-compatible cosmos wallet for eth_secp256k1 chains
+ * Create wallet
  */
 async function createEthCompatibleCosmosWallet(mnemonic, options) {
     // Derive private key from mnemonic using the specified HD path
@@ -280,7 +274,7 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
     const privateKeyHex = Buffer.from(privateKeyBytes).toString('hex');
 
     // Generate addresses using ETH_SECP256K1 method
-    const { cosmosAddress, ethAddress, publicKey } = generateEthSecp256k1AddressesFromPrivateKey(
+    const { cosmosAddress } = generateEthSecp256k1AddressesFromPrivateKey(
         privateKeyHex,
         options.prefix
     );
@@ -358,29 +352,6 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
     };
 }
 
-/**
- * Derive addresses from mnemonic (same approach as ../evm)
- */
-async function deriveAddresses(mnemonic, hdPaths, prefix = "cosmos") {
-  const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, {
-    prefix: prefix,
-    hdPaths: hdPaths
-  });
-
-  const accounts = await wallet.getAccounts();
-  const cosmosAddress = accounts[0].address;
-  const hexAddress = bech32ToHex(cosmosAddress);
-
-  return {
-    wallet,
-    cosmosAddress,
-    hexAddress,
-    publicKey: Buffer.from(accounts[0].pubkey).toString('hex')
-  };
-}
-
-
-
 // load config
     console.log("[SUCCESS] Faucet configuration loaded")
 
@@ -425,8 +396,40 @@ app.get('/config.json', async (req, res) => {
       rpc: chainConf.endpoints.evm_endpoint,
       websocket: chainConf.endpoints.evm_websocket
     },
-    contracts: chainConf.contracts
+    contracts: {
+      ...chainConf.contracts,
+      // Add ERC20 token contracts for easy reference
+      erc20_tokens: chainConf.tx.amounts.reduce((acc, token) => {
+        if (token.erc20_contract && token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+          acc[token.denom.toUpperCase()] = token.erc20_contract;
+        }
+        return acc;
+      }, {}),
+      // Native token mapping
+      native_token: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // ATOM via ERC20 conversion
+      werc20_precompile: "0x0000000000000000000000000000000000000802" // WERC20 precompile address
+    }
   }
+  
+  // Add token information for frontend display
+  project.tokens = [
+    // Add native ATOM token info
+    {
+      denom: "uatom",
+      name: "ATOM",
+      contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+      decimals: 6,
+      target_amount: "1000000" // 1 ATOM
+    },
+    // Add ERC20 tokens
+    ...chainConf.tx.amounts.map(token => ({
+      denom: token.denom,
+      name: token.denom.toUpperCase(),
+      contract: token.erc20_contract,
+      decimals: token.decimals,
+      target_amount: token.target_balance
+    }))
+  ];
   
   project.supportedAddressTypes = ['cosmos', 'evm']
   res.send(project);
@@ -757,8 +760,31 @@ async function sendSmartCosmosTx(recipient, neededAmounts) {
 async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-                  if (attempt > 1) console.log(`[RETRY] Cosmos tx retry ${attempt}/${maxRetries}`);
+      if (attempt > 1) console.log(`[RETRY] Cosmos tx retry ${attempt}/${maxRetries}`);
       const result = await sendCosmosTransactionInternal(recipient, neededAmounts, 'cosmosEvm');
+      
+      // Wait for transaction to be included in a block and get full details
+      if (result.code === 0 && result.transactionHash) {
+        console.log(`✅ Cosmos transaction successful: ${result.transactionHash}`);
+        
+        // Wait a moment for the transaction to be processed
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Fetch the full transaction details for better user feedback
+        try {
+          const rest = conf.blockchain.endpoints.rest_endpoint;
+          const detailResp = await fetch(`${rest}/cosmos/tx/v1beta1/txs/${result.transactionHash}`);
+          if (detailResp.ok) {
+            const detailJson = await detailResp.json();
+            result.tx_response = detailJson.tx_response;
+            result.height = detailJson.tx_response?.height || result.height;
+            result.gasUsed = detailJson.tx_response?.gas_used || result.gasUsed;
+          }
+        } catch (detailError) {
+          console.log('Failed to fetch transaction details:', detailError.message);
+        }
+      }
+      
       return result;
     } catch (error) {
       // Check if this is a signature/sequence related error that might benefit from retry
@@ -1210,8 +1236,13 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
       }];
       
       const cosmosResult = await sendCosmosTransactionWithRetry(cosmosBech32Address, cosmosGasTokens, 2);
-      cosmosGasTx = cosmosResult;
-      console.log("✅ Cosmos gas fee sent:", cosmosResult.hash);
+      cosmosGasTx = {
+        hash: cosmosResult.transactionHash,
+        code: cosmosResult.code,
+        height: cosmosResult.height,
+        gasUsed: cosmosResult.gasUsed
+      };
+      console.log("✅ Cosmos gas fee sent:", cosmosResult.transactionHash);
     } catch (cosmosError) {
       console.warn("⚠️ Failed to send cosmos gas fee (non-critical):", cosmosError.message);
       // Don't fail the entire transaction for cosmos gas fee failure
