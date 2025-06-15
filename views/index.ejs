@@ -422,7 +422,77 @@
                 <h5 class="mb-0"><i class="fas fa-faucet me-2"></i>Request Tokens</h5>
               </div>
               <div class="card-body">
-                <p class="text-muted mb-3">Enter your wallet address to receive test tokens.</p>
+                <p class="text-muted mb-3">Enter your wallet address to receive test tokens or connect your wallet.</p>
+                
+                <!-- Wallet Connection Section -->
+                <div class="mb-4">
+                  <h6 class="text-muted mb-3"><i class="fas fa-wallet me-2"></i>Connect Wallet</h6>
+                  <div class="row">
+                    <!-- Cosmos Wallet (Keplr) -->
+                    <div class="col-md-6 mb-2">
+                      <button 
+                        type="button" 
+                        class="btn w-100" 
+                        :class="cosmosWallet.connected ? 'btn-success' : 'btn-outline-primary'"
+                        @click="cosmosWallet.connected ? disconnectKeplr() : connectKeplr()"
+                        :disabled="cosmosWallet.connecting"
+                      >
+                        <span v-if="cosmosWallet.connecting" class="loading-spinner me-2"></span>
+                        <i v-else class="fas fa-atom me-2"></i>
+                        <span v-if="cosmosWallet.connected">
+                          Connected: {{formatAddress(cosmosWallet.address)}}
+                        </span>
+                        <span v-else-if="cosmosWallet.connecting">
+                          Connecting to Keplr...
+                        </span>
+                        <span v-else>
+                          Connect Keplr Wallet
+                        </span>
+                      </button>
+                    </div>
+                    
+                    <!-- EVM Wallet -->
+                    <div class="col-md-6 mb-2">
+                      <button 
+                        type="button" 
+                        class="btn w-100" 
+                        :class="evmWallet.connected ? 'btn-success' : 'btn-outline-secondary'"
+                        @click="evmWallet.connected ? disconnectEvm() : connectEvm()"
+                        :disabled="evmWallet.connecting"
+                      >
+                        <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
+                        <i v-else class="fab fa-ethereum me-2"></i>
+                        <span v-if="evmWallet.connected">
+                          Connected: {{formatAddress(evmWallet.address)}}
+                        </span>
+                        <span v-else-if="evmWallet.connecting">
+                          Connecting to Wallet...
+                        </span>
+                        <span v-else>
+                          Connect EVM Wallet
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Use Connected Address Button -->
+                  <div v-if="cosmosWallet.connected || evmWallet.connected" class="text-center mt-2">
+                    <div class="btn-group" role="group">
+                      <button v-if="cosmosWallet.connected" 
+                              type="button" 
+                              class="btn btn-sm btn-outline-primary"
+                              @click="useConnectedAddress(cosmosWallet.address)">
+                        Use Cosmos Address
+                      </button>
+                      <button v-if="evmWallet.connected" 
+                              type="button" 
+                              class="btn btn-sm btn-outline-secondary"
+                              @click="useConnectedAddress(evmWallet.address)">
+                        Use EVM Address
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 
                 <!-- Token Information -->
                 <div v-if="tokenInfo && tokenInfo.length" class="mb-3">
@@ -531,6 +601,43 @@
                 WATOM Wrapping & Unwrapping
               </div>
               <div class="card-body">
+                <!-- EVM Wallet Connection for WATOM -->
+                <div v-if="!evmWallet.connected" class="alert alert-info mb-4">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                      <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>EVM Wallet Required</h6>
+                      <p class="mb-0">Connect your EVM wallet to use WATOM wrapping and unwrapping features.</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      class="btn btn-primary"
+                      @click="connectEvm()"
+                      :disabled="evmWallet.connecting"
+                    >
+                      <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
+                      <i v-else class="fab fa-ethereum me-2"></i>
+                      {{evmWallet.connecting ? 'Connecting...' : 'Connect EVM Wallet'}}
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Connected Wallet Info -->
+                <div v-if="evmWallet.connected" class="alert alert-success mb-4">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                      <h6 class="mb-2"><i class="fas fa-check-circle me-2"></i>EVM Wallet Connected</h6>
+                      <p class="mb-0">{{formatAddress(evmWallet.address)}}</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-secondary btn-sm"
+                      @click="disconnectEvm()"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+                
                 <div class="row">
                   <!-- Wrap ATOM → WATOM -->
                   <div class="col-md-6">
@@ -553,12 +660,12 @@
                             >
                             <span class="input-group-text">ATOM</span>
                           </div>
-                          <div class="form-text">Balance: {{formatBalance(nativeBalance, 6)}} ATOM</div>
+                          <div class="form-text">Balance: {{formatBalance(nativeBalance, 18)}} ATOM</div>
                         </div>
                         <button 
                           class="btn btn-primary w-100" 
                           @click="wrapAtom"
-                          :disabled="isWrapping || !wrapAmount || parseFloat(wrapAmount) <= 0"
+                          :disabled="!evmWallet.connected || isWrapping || !wrapAmount || parseFloat(wrapAmount) <= 0"
                         >
                           <span v-if="isWrapping" class="loading-spinner me-2"></span>
                           {{isWrapping ? 'Wrapping...' : 'Wrap ATOM'}}
@@ -588,12 +695,12 @@
                             >
                             <span class="input-group-text">WATOM</span>
                           </div>
-                          <div class="form-text">Balance: {{formatBalance(watomBalance, 6)}} WATOM</div>
+                          <div class="form-text">Balance: {{formatBalance(watomBalance, 18)}} WATOM</div>
                         </div>
                         <button 
                           class="btn btn-secondary w-100" 
                           @click="unwrapAtom"
-                          :disabled="isUnwrapping || !unwrapAmount || parseFloat(unwrapAmount) <= 0"
+                          :disabled="!evmWallet.connected || isUnwrapping || !unwrapAmount || parseFloat(unwrapAmount) <= 0"
                         >
                           <span v-if="isUnwrapping" class="loading-spinner me-2"></span>
                           {{isUnwrapping ? 'Unwrapping...' : 'Unwrap WATOM'}}
@@ -943,7 +1050,22 @@
             isWrapping: false,
             isUnwrapping: false,
             watomTransactions: [],
-            watomContractAddress: '0x0000000000000000000000000000000000000802' // WERC20 precompile address
+            watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
+            // Wallet connection state
+            cosmosWallet: {
+              connected: false,
+              connecting: false,
+              address: null,
+              chainId: null
+            },
+            evmWallet: {
+              connected: false,
+              connecting: false,
+              address: null,
+              chainId: null
+            },
+            // EIP-6963 detected wallets
+            detectedWallets: []
           }
         },
         created() {
@@ -961,6 +1083,13 @@
           }).catch(error => {
             console.error('Failed to load config:', error);
           });
+          
+          // Detect EIP-6963 wallets
+          this.detectEIP6963Wallets();
+        },
+        mounted() {
+          // Check for existing connections
+          this.checkExistingConnections();
         },
         watch: {
           address: {
@@ -1002,6 +1131,252 @@
           }
         },
         methods: {
+          // Wallet Connection Methods
+          
+          async detectEIP6963Wallets() {
+            if (typeof window === 'undefined') return;
+            
+            // Listen for EIP-6963 announcements
+            window.addEventListener('eip6963:announceProvider', (event) => {
+              const wallet = event.detail;
+              if (!this.detectedWallets.find(w => w.info.uuid === wallet.info.uuid)) {
+                this.detectedWallets.push(wallet);
+              }
+            });
+            
+            // Request existing providers
+            window.dispatchEvent(new Event('eip6963:requestProvider'));
+          },
+          
+          async checkExistingConnections() {
+            // Check Keplr connection
+            if (window.keplr) {
+              try {
+                const chainId = this.networkConfig.cosmos?.chainId || '4321';
+                await window.keplr.getKey(chainId);
+                const offlineSigner = window.keplr.getOfflineSigner(chainId);
+                const accounts = await offlineSigner.getAccounts();
+                if (accounts.length > 0) {
+                  this.cosmosWallet.connected = true;
+                  this.cosmosWallet.address = accounts[0].address;
+                  this.cosmosWallet.chainId = chainId;
+                }
+              } catch (error) {
+                // Not connected or chain not added
+              }
+            }
+            
+            // Check EVM connection
+            if (window.ethereum) {
+              try {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                  const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                  this.evmWallet.connected = true;
+                  this.evmWallet.address = accounts[0];
+                  this.evmWallet.chainId = chainId;
+                }
+              } catch (error) {
+                console.error('Error checking EVM connection:', error);
+              }
+            }
+          },
+          
+          async connectKeplr() {
+            if (!window.keplr) {
+              alert('Please install Keplr wallet extension');
+              return;
+            }
+            
+            this.cosmosWallet.connecting = true;
+            
+            try {
+              // Use the universal chain parameters from config
+              const chainConfig = {
+                chainId: this.networkConfig.cosmos?.chainId || "4321",
+                chainName: "cosmos", 
+                rpc: this.networkConfig.cosmos?.rpc || "https://devnet-1-rpc.ib.skip.build",
+                rest: this.networkConfig.cosmos?.rest || "https://devnet-1-lcd.ib.skip.build",
+                bip44: {
+                  coinType: 60
+                },
+                bech32Config: {
+                  bech32PrefixAccAddr: "cosmos",
+                  bech32PrefixAccPub: "cosmospub", 
+                  bech32PrefixValAddr: "cosmosvaloper",
+                  bech32PrefixValPub: "cosmosvaloperpub",
+                  bech32PrefixConsAddr: "cosmosvalcons",
+                  bech32PrefixConsPub: "cosmosvalconspub"
+                },
+                currencies: [
+                  {
+                    coinDenom: "ATOM",
+                    coinMinimalDenom: "uatom",
+                    coinDecimals: 6,
+                    coinGeckoId: "cosmos"
+                  }
+                ],
+                feeCurrencies: [
+                  {
+                    coinDenom: "ATOM",
+                    coinMinimalDenom: "uatom",
+                    coinDecimals: 6,
+                    coinGeckoId: "cosmos",
+                    gasPriceStep: {
+                      low: 0.01,
+                      average: 0.025,
+                      high: 0.03
+                    }
+                  }
+                ],
+                stakeCurrency: {
+                  coinDenom: "ATOM",
+                  coinMinimalDenom: "uatom",
+                  coinDecimals: 6,
+                  coinGeckoId: "cosmos"
+                },
+                features: [
+                  "eth-address-gen",
+                  "eth-key-sign"
+                ]
+              };
+              
+              // Try to suggest chain addition first
+              try {
+                await window.keplr.experimentalSuggestChain(chainConfig);
+              } catch (error) {
+                console.warn('Failed to suggest chain, trying to connect anyway:', error);
+              }
+              
+              // Enable the chain
+              await window.keplr.enable(chainConfig.chainId);
+              
+              // Get the offline signer
+              const offlineSigner = window.keplr.getOfflineSigner(chainConfig.chainId);
+              const accounts = await offlineSigner.getAccounts();
+              
+              if (accounts.length > 0) {
+                this.cosmosWallet.connected = true;
+                this.cosmosWallet.address = accounts[0].address;
+                this.cosmosWallet.chainId = chainConfig.chainId;
+              }
+              
+            } catch (error) {
+              console.error('Error connecting to Keplr:', error);
+              alert('Failed to connect to Keplr: ' + error.message);
+            } finally {
+              this.cosmosWallet.connecting = false;
+            }
+          },
+          
+          async connectEvm() {
+            // Try EIP-6963 first, fallback to window.ethereum
+            let provider = null;
+            
+            if (this.detectedWallets.length > 0) {
+              // Use first detected wallet or show selection
+              provider = this.detectedWallets[0].provider;
+            } else if (window.ethereum) {
+              provider = window.ethereum;
+            } else {
+              alert('Please install a compatible EVM wallet (MetaMask, Coinbase Wallet, etc.)');
+              return;
+            }
+            
+            this.evmWallet.connecting = true;
+            
+            try {
+              // Request account access
+              const accounts = await provider.request({ 
+                method: 'eth_requestAccounts' 
+              });
+              
+              if (accounts.length === 0) {
+                throw new Error('No accounts found');
+              }
+              
+              // Get current chain ID
+              const chainId = await provider.request({ 
+                method: 'eth_chainId' 
+              });
+              
+              const expectedChainId = this.networkConfig.evm?.chainIdHex || '0x40000';
+              
+              // Check if we're on the right chain
+              if (chainId !== expectedChainId) {
+                try {
+                  // Try to switch to the correct chain
+                  await provider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: expectedChainId }],
+                  });
+                } catch (switchError) {
+                  // If switching fails, try to add the chain
+                  if (switchError.code === 4902) {
+                    await provider.request({
+                      method: 'wallet_addEthereumChain',
+                      params: [{
+                        chainId: expectedChainId,
+                        chainName: 'Cosmos EVM Devnet',
+                        rpcUrls: [this.networkConfig.evm?.rpc || 'https://cevm-01-evmrpc.dev.skip.build'],
+                        nativeCurrency: {
+                          name: 'ATOM',
+                          symbol: 'ATOM',
+                          decimals: 18
+                        },
+                        blockExplorerUrls: [this.networkConfig.evm?.explorer || 'https://cevm-01-explorer.dev.skip.build']
+                      }],
+                    });
+                  } else {
+                    throw switchError;
+                  }
+                }
+              }
+              
+              this.evmWallet.connected = true;
+              this.evmWallet.address = accounts[0];
+              this.evmWallet.chainId = chainId;
+              
+            } catch (error) {
+              console.error('Error connecting to EVM wallet:', error);
+              alert('Failed to connect to EVM wallet: ' + error.message);
+            } finally {
+              this.evmWallet.connecting = false;
+            }
+          },
+          
+          disconnectKeplr() {
+            this.cosmosWallet.connected = false;
+            this.cosmosWallet.address = null;
+            this.cosmosWallet.chainId = null;
+          },
+          
+          disconnectEvm() {
+            this.evmWallet.connected = false;
+            this.evmWallet.address = null;
+            this.evmWallet.chainId = null;
+          },
+          
+          useConnectedAddress(address) {
+            this.address = address;
+          },
+          
+          formatAddress(address) {
+            if (!address) return '';
+            return address.slice(0, 6) + '...' + address.slice(-4);
+          },
+          
+          getEvmProvider() {
+            // Try EIP-6963 first, fallback to window.ethereum
+            if (this.detectedWallets.length > 0) {
+              return this.detectedWallets[0].provider;
+            } else if (window.ethereum) {
+              return window.ethereum;
+            }
+            return null;
+          },
+          
+          // Existing Methods
           async loadFaucetBalances() {
             try {
               const [cosmosResponse, evmResponse] = await Promise.all([
@@ -1267,19 +1642,22 @@
 
           // WATOM wrapping/unwrapping methods
           async loadWatomBalances() {
-            if (!window.ethereum) {
-              console.warn('MetaMask not detected');
+            // Use global EVM wallet state
+            if (!this.evmWallet.connected || !this.evmWallet.address) {
+              console.warn('EVM wallet not connected');
+              this.nativeBalance = '0';
+              this.watomBalance = '0';
               return;
             }
 
             try {
-              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-              if (!accounts.length) return;
+              const provider = this.getEvmProvider();
+              if (!provider) return;
 
-              const userAddress = accounts[0];
+              const userAddress = this.evmWallet.address;
               
               // Get native balance
-              const nativeBalance = await window.ethereum.request({
+              const nativeBalance = await provider.request({
                 method: 'eth_getBalance',
                 params: [userAddress, 'latest']
               });
@@ -1297,7 +1675,10 @@
           async getERC20Balance(tokenAddress, userAddress) {
             const balanceOfData = '0x70a08231' + userAddress.slice(2).padStart(64, '0');
             try {
-              const result = await window.ethereum.request({
+              const provider = this.getEvmProvider();
+              if (!provider) return '0';
+              
+              const result = await provider.request({
                 method: 'eth_call',
                 params: [{
                   to: tokenAddress,
@@ -1312,8 +1693,9 @@
           },
 
           async wrapAtom() {
-            if (!window.ethereum) {
-              alert('Please install MetaMask to use WATOM wrapping');
+            // Check if EVM wallet is connected
+            if (!this.evmWallet.connected || !this.evmWallet.address) {
+              alert('Please connect your EVM wallet first');
               return;
             }
 
@@ -1325,24 +1707,21 @@
             this.isWrapping = true;
 
             try {
-              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-              if (!accounts.length) {
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                const newAccounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (!newAccounts.length) {
-                  throw new Error('Please connect your wallet');
-                }
+              const provider = this.getEvmProvider();
+              if (!provider) {
+                throw new Error('No EVM provider available');
               }
 
-              const amountWei = (parseFloat(this.wrapAmount) * 1000000).toString(); // Convert to 6 decimal wei
+              // Convert amount to wei (18 decimals for native ATOM)
+              const amountWei = BigInt(Math.floor(parseFloat(this.wrapAmount) * 1e18)).toString();
 
               // Call deposit function on WERC20 precompile
-              const txHash = await window.ethereum.request({
+              const txHash = await provider.request({
                 method: 'eth_sendTransaction',
                 params: [{
-                  from: accounts[0],
+                  from: this.evmWallet.address,
                   to: this.watomContractAddress,
-                  value: '0x' + parseInt(amountWei).toString(16),
+                  value: '0x' + BigInt(amountWei).toString(16),
                   data: '0xd0e30db0' // deposit() function selector
                 }]
               });
@@ -1354,10 +1733,11 @@
                 timestamp: new Date()
               });
 
+              const wrappedAmount = this.wrapAmount;
               this.wrapAmount = '';
               await this.loadWatomBalances();
 
-              alert(`Successfully wrapped ${this.wrapAmount} ATOM! Transaction: ${txHash}`);
+              alert(`Successfully wrapped ${wrappedAmount} ATOM! Transaction: ${txHash}`);
 
             } catch (error) {
               console.error('Wrap error:', error);
@@ -1368,8 +1748,9 @@
           },
 
           async unwrapAtom() {
-            if (!window.ethereum) {
-              alert('Please install MetaMask to use WATOM unwrapping');
+            // Check if EVM wallet is connected
+            if (!this.evmWallet.connected || !this.evmWallet.address) {
+              alert('Please connect your EVM wallet first');
               return;
             }
 
@@ -1381,24 +1762,21 @@
             this.isUnwrapping = true;
 
             try {
-              const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-              if (!accounts.length) {
-                await window.ethereum.request({ method: 'eth_requestAccounts' });
-                const newAccounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (!newAccounts.length) {
-                  throw new Error('Please connect your wallet');
-                }
+              const provider = this.getEvmProvider();
+              if (!provider) {
+                throw new Error('No EVM provider available');
               }
 
-              const amountWei = (parseFloat(this.unwrapAmount) * 1000000).toString(); // Convert to 6 decimal wei
+              // Convert amount to wei (18 decimals for WATOM)
+              const amountWei = BigInt(Math.floor(parseFloat(this.unwrapAmount) * 1e18)).toString();
 
               // Call withdraw function on WERC20 precompile
-              const withdrawData = '0x2e1a7d4d' + parseInt(amountWei).toString(16).padStart(64, '0'); // withdraw(uint256)
+              const withdrawData = '0x2e1a7d4d' + BigInt(amountWei).toString(16).padStart(64, '0'); // withdraw(uint256)
 
-              const txHash = await window.ethereum.request({
+              const txHash = await provider.request({
                 method: 'eth_sendTransaction',
                 params: [{
-                  from: accounts[0],
+                  from: this.evmWallet.address,
                   to: this.watomContractAddress,
                   data: withdrawData
                 }]
@@ -1411,10 +1789,11 @@
                 timestamp: new Date()
               });
 
+              const unwrappedAmount = this.unwrapAmount;
               this.unwrapAmount = '';
               await this.loadWatomBalances();
 
-              alert(`Successfully unwrapped ${this.unwrapAmount} WATOM! Transaction: ${txHash}`);
+              alert(`Successfully unwrapped ${unwrappedAmount} WATOM! Transaction: ${txHash}`);
 
             } catch (error) {
               console.error('Unwrap error:', error);
