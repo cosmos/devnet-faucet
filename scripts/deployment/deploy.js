@@ -19,7 +19,7 @@ async function main() {
     const wbtc = await WBTC.deploy(faucetAddress);
     await wbtc.waitForDeployment();
     deployedContracts.WBTC = await wbtc.getAddress();
-    console.log("✅ WBTC deployed to:", deployedContracts.WBTC);
+    console.log(" WBTC deployed to:", deployedContracts.WBTC);
 
     // Deploy PEPE Token
     console.log("\n📍 Deploying PEPE...");
@@ -27,7 +27,7 @@ async function main() {
     const pepe = await PEPE.deploy(faucetAddress);
     await pepe.waitForDeployment();
     deployedContracts.PEPE = await pepe.getAddress();
-    console.log("✅ PEPE deployed to:", deployedContracts.PEPE);
+    console.log(" PEPE deployed to:", deployedContracts.PEPE);
 
     // Deploy USDT Token
     console.log("\n📍 Deploying USDT...");
@@ -35,7 +35,7 @@ async function main() {
     const usdt = await USDT.deploy(faucetAddress);
     await usdt.waitForDeployment();
     deployedContracts.USDT = await usdt.getAddress();
-    console.log("✅ USDT deployed to:", deployedContracts.USDT);
+    console.log(" USDT deployed to:", deployedContracts.USDT);
 
     // Deploy MultiSend Contract
     console.log("\n📍 Deploying MultiSend...");
@@ -43,10 +43,10 @@ async function main() {
     const multiSend = await MultiSend.deploy();
     await multiSend.waitForDeployment();
     deployedContracts.MultiSend = await multiSend.getAddress();
-    console.log("✅ MultiSend deployed to:", deployedContracts.MultiSend);
+    console.log(" MultiSend deployed to:", deployedContracts.MultiSend);
 
     console.log("\n" + "=".repeat(50));
-    console.log("📋 DEPLOYMENT SUMMARY");
+    console.log(" DEPLOYMENT SUMMARY");
     console.log("=".repeat(50));
     console.log("Network: Cosmos EVM (Chain ID: 262144)");
     console.log("Faucet Address:", faucetAddress);
@@ -54,7 +54,7 @@ async function main() {
     console.log("WBTC (8 decimals):", deployedContracts.WBTC);
     console.log("PEPE (18 decimals):", deployedContracts.PEPE);
     console.log("USDT (6 decimals):", deployedContracts.USDT);
-    console.log("\n🔄 Utility Contracts:");
+    console.log("\n Utility Contracts:");
     console.log("MultiSend:", deployedContracts.MultiSend);
 
     // Verify token supplies
@@ -84,10 +84,10 @@ async function main() {
     console.log("USDT Faucet Balance:", ethers.formatUnits(usdtBalance, 6), "USDT");
 
     // Transfer ownership of MultiSend to faucet address
-    console.log("\n📋 Transferring MultiSend ownership to faucet address...");
+    console.log("\n Transferring MultiSend ownership to faucet address...");
     const multiSendContract = await ethers.getContractAt("MultiSend", deployedContracts.MultiSend);
     await multiSendContract.transferOwnership(faucetAddress);
-    console.log("✅ MultiSend ownership transferred to:", faucetAddress);
+    console.log(" MultiSend ownership transferred to:", faucetAddress);
 
     // Save deployment info to file
     const deploymentInfo = {
@@ -116,14 +116,14 @@ async function main() {
     };
 
     fs.writeFileSync('./deployment.json', JSON.stringify(deploymentInfo, null, 2));
-    console.log("\n✅ Deployment info saved to deployment.json");
+    console.log("\n Deployment info saved to deployment.json");
 
     console.log("\n" + "=".repeat(50));
-    console.log("🎉 ALL CONTRACTS DEPLOYED SUCCESSFULLY!");
+    console.log(" ALL CONTRACTS DEPLOYED SUCCESSFULLY!");
     console.log("=".repeat(50));
 
   } catch (error) {
-    console.error("\n❌ Deployment failed:");
+    console.error("\n Deployment failed:");
     console.error(error);
     process.exit(1);
   }

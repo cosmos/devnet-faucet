@@ -94,7 +94,7 @@ contract MultiSend {
         require(recipients.length > 0, "MultiSend: no recipients specified");
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            multiSend(recipients[i], transfers);
+            this.multiSend(recipients[i], transfers);
         }
     }
 

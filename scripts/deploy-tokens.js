@@ -75,7 +75,7 @@ async function deployToken(provider, wallet, tokenConfig, retryCount = 0) {
     const maxRetries = 3;
     const pauseMs = 5000; // 5 seconds
 
-    console.log(`\n🚀 Deploying ${tokenConfig.denom.toUpperCase()} token...`);
+    console.log(`\n Deploying ${tokenConfig.denom.toUpperCase()} token...`);
     console.log(`  Target address: ${tokenConfig.erc20_contract}`);
     console.log(`  Decimals: ${tokenConfig.decimals}`);
 
@@ -83,7 +83,7 @@ async function deployToken(provider, wallet, tokenConfig, retryCount = 0) {
         // Check if contract already exists
         const existingCode = await provider.getCode(tokenConfig.erc20_contract);
         if (existingCode !== '0x') {
-            console.log(`  ✅ Contract already exists at ${tokenConfig.erc20_contract}`);
+            console.log(`   Contract already exists at ${tokenConfig.erc20_contract}`);
             return { success: true, address: tokenConfig.erc20_contract, existing: true };
         }
 
@@ -93,7 +93,7 @@ async function deployToken(provider, wallet, tokenConfig, retryCount = 0) {
         const decimals = tokenConfig.decimals || 18;
         const initialSupply = ethers.parseUnits("1000000000", decimals); // 1B tokens
 
-        console.log(`  📋 Token details:`);
+        console.log(`   Token details:`);
         console.log(`    Name: ${tokenName}`);
         console.log(`    Symbol: ${tokenSymbol}`);
         console.log(`    Decimals: ${decimals}`);
@@ -135,9 +135,9 @@ async function deployToken(provider, wallet, tokenConfig, retryCount = 0) {
         await contract.waitForDeployment();
         const deployedAddress = await contract.getAddress();
 
-        console.log(`  ✅ Contract deployed successfully!`);
+        console.log(`   Contract deployed successfully!`);
         console.log(`  📍 Deployed address: ${deployedAddress}`);
-        console.log(`  🎯 Expected address: ${tokenConfig.erc20_contract}`);
+        console.log(`   Expected address: ${tokenConfig.erc20_contract}`);
         console.log(`  📊 Addresses match: ${deployedAddress.toLowerCase() === tokenConfig.erc20_contract.toLowerCase()}`);
 
         // Verify deployment
@@ -146,7 +146,7 @@ async function deployToken(provider, wallet, tokenConfig, retryCount = 0) {
         const deployedDecimals = await contract.decimals();
         const deployedSupply = await contract.totalSupply();
 
-        console.log(`  🔍 Verification:`);
+        console.log(`   Verification:`);
         console.log(`    Name: ${deployedName}`);
         console.log(`    Symbol: ${deployedSymbol}`);
         console.log(`    Decimals: ${deployedDecimals}`);
@@ -167,10 +167,10 @@ async function deployToken(provider, wallet, tokenConfig, retryCount = 0) {
         };
 
     } catch (error) {
-        console.log(`  ❌ Deployment failed: ${error.message}`);
+        console.log(`   Deployment failed: ${error.message}`);
 
         if (retryCount < maxRetries) {
-            console.log(`  🔄 Retrying in ${pauseMs/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
+            console.log(`   Retrying in ${pauseMs/1000} seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
             await sleep(pauseMs);
             return deployToken(provider, wallet, tokenConfig, retryCount + 1);
         } else {
@@ -204,7 +204,7 @@ async function main() {
         console.log(`  Balance: ${ethers.formatEther(balance)} ETH`);
 
         if (balance === 0n) {
-            console.log('  ⚠️ Warning: Deployer has zero balance - deployments may fail');
+            console.log('   Warning: Deployer has zero balance - deployments may fail');
         }
 
         const deploymentResults = [];
@@ -245,20 +245,20 @@ async function main() {
         const skipped = deploymentResults.filter(r => r.skipped);
         const existing = deploymentResults.filter(r => r.existing);
 
-        console.log(`✅ Successful deployments: ${successful.length}`);
-        console.log(`❌ Failed deployments: ${failed.length}`);
+        console.log(` Successful deployments: ${successful.length}`);
+        console.log(` Failed deployments: ${failed.length}`);
         console.log(`⏭️ Skipped: ${skipped.length}`);
-        console.log(`🔄 Already existing: ${existing.length}`);
+        console.log(` Already existing: ${existing.length}`);
 
         if (successful.length > 0) {
-            console.log('\n✅ Successfully deployed:');
+            console.log('\n Successfully deployed:');
             successful.forEach(result => {
                 console.log(`  - ${result.denom}: ${result.address}`);
             });
         }
 
         if (failed.length > 0) {
-            console.log('\n❌ Failed deployments:');
+            console.log('\n Failed deployments:');
             failed.forEach(result => {
                 console.log(`  - ${result.denom}: ${result.error}`);
             });
@@ -290,9 +290,9 @@ async function main() {
         console.log(`\n📄 Deployment report saved: ${reportPath}`);
 
         if (failed.length === 0) {
-            console.log('\n🎉 All token deployments completed successfully!');
+            console.log('\n All token deployments completed successfully!');
         } else {
-            console.log(`\n⚠️ ${failed.length} deployments failed. Check the report for details.`);
+            console.log(`\n ${failed.length} deployments failed. Check the report for details.`);
             process.exit(1);
         }
 

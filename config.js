@@ -4,9 +4,7 @@ import { Wallet, HDNodeWallet, randomBytes } from 'ethers';
 
 // Use the specific faucet mnemonic
 const mnemonic = "mosquito peanut thought width car cushion salt matter trouble census win tribe leisure truth install basic april direct indicate eyebrow liar afraid street trip"
-console.log("======================== faucet mnemonic =========================")
-console.log(mnemonic)
-console.log("==================================================================")
+// Mnemonic loaded for wallet initialization
 
 export default {
     port: 8088, // http port
@@ -56,21 +54,21 @@ export default {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0x0312040979E0d6333F537A39b23a5DD6F574dBd8", // Deployed WBTC contract
+                    erc20_contract: "0x5747251a4066e8e129873f2e2f016fC5f84555BA", // Deployed WBTC contract
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xE43bdb38aF42C9D61a258ED1c0DE28c82f00BA61", // Deployed PEPE contract
+                    erc20_contract: "0xF423d7aC78c83350cd4F0B5850A1446B68e4bC2a", // Deployed PEPE contract
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0x6ba2828b31Dff02B1424B1321B580C7F9D0FbC61", // Deployed USDT contract
+                    erc20_contract: "0x0Ebc057c812D86400515e509E131619Ae3AC2dc3", // Deployed USDT contract
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }

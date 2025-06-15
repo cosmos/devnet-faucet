@@ -7,7 +7,7 @@ import config from '../config.js';
  */
 
 async function fundWithERC20(provider, deployerWallet, tokenConfig, faucetAddress) {
-    console.log(`\n💰 Funding faucet with ${tokenConfig.denom.toUpperCase()}...`);
+    console.log(`\n Funding faucet with ${tokenConfig.denom.toUpperCase()}...`);
 
     try {
         // Skip native token
@@ -32,14 +32,14 @@ async function fundWithERC20(provider, deployerWallet, tokenConfig, faucetAddres
             deployerWallet
         );
 
-        console.log(`  📋 Contract: ${tokenConfig.erc20_contract}`);
+        console.log(`   Contract: ${tokenConfig.erc20_contract}`);
 
         // Check deployer balance
         const deployerBalance = await tokenContract.balanceOf(deployerWallet.address);
         console.log(`  💼 Deployer balance: ${ethers.formatUnits(deployerBalance, tokenConfig.decimals)}`);
 
         if (deployerBalance === 0n) {
-            console.log(`  ❌ Deployer has no ${tokenConfig.denom} tokens`);
+            console.log(`   Deployer has no ${tokenConfig.denom} tokens`);
             return { success: false, error: 'No tokens to transfer' };
         }
 
@@ -52,12 +52,12 @@ async function fundWithERC20(provider, deployerWallet, tokenConfig, faucetAddres
         const neededAmount = targetBalance - currentBalance;
 
         if (neededAmount <= 0n) {
-            console.log(`  ✅ Faucet already has sufficient balance`);
+            console.log(`   Faucet already has sufficient balance`);
             return { success: true, sufficient: true };
         }
 
         if (deployerBalance < neededAmount) {
-            console.log(`  ⚠️ Deployer doesn't have enough tokens, sending available amount`);
+            console.log(`   Deployer doesn't have enough tokens, sending available amount`);
             const sendAmount = deployerBalance;
 
             console.log(`  📤 Transferring ${ethers.formatUnits(sendAmount, tokenConfig.decimals)} ${tokenConfig.denom}...`);
@@ -65,7 +65,7 @@ async function fundWithERC20(provider, deployerWallet, tokenConfig, faucetAddres
             console.log(`  ⏳ Transaction hash: ${tx.hash}`);
 
             const receipt = await tx.wait();
-            console.log(`  ✅ Transfer completed! Gas used: ${receipt.gasUsed}`);
+            console.log(`   Transfer completed! Gas used: ${receipt.gasUsed}`);
 
             return {
                 success: true,
@@ -80,7 +80,7 @@ async function fundWithERC20(provider, deployerWallet, tokenConfig, faucetAddres
             console.log(`  ⏳ Transaction hash: ${tx.hash}`);
 
             const receipt = await tx.wait();
-            console.log(`  ✅ Transfer completed! Gas used: ${receipt.gasUsed}`);
+            console.log(`   Transfer completed! Gas used: ${receipt.gasUsed}`);
 
             return {
                 success: true,
@@ -92,13 +92,13 @@ async function fundWithERC20(provider, deployerWallet, tokenConfig, faucetAddres
         }
 
     } catch (error) {
-        console.log(`  ❌ Failed to fund with ${tokenConfig.denom}: ${error.message}`);
+        console.log(`   Failed to fund with ${tokenConfig.denom}: ${error.message}`);
         return { success: false, error: error.message };
     }
 }
 
 async function fundWithNative(provider, deployerWallet, faucetAddress) {
-    console.log(`\n💰 Funding faucet with native tokens...`);
+    console.log(`\n Funding faucet with native tokens...`);
 
     try {
         // Check deployer balance
@@ -106,7 +106,7 @@ async function fundWithNative(provider, deployerWallet, faucetAddress) {
         console.log(`  💼 Deployer balance: ${ethers.formatEther(deployerBalance)} ETH`);
 
         if (deployerBalance === 0n) {
-            console.log(`  ❌ Deployer has no native tokens`);
+            console.log(`   Deployer has no native tokens`);
             return { success: false, error: 'No native tokens to transfer' };
         }
 
@@ -118,12 +118,12 @@ async function fundWithNative(provider, deployerWallet, faucetAddress) {
         const sendAmount = ethers.parseEther("0.1");
 
         if (deployerBalance < sendAmount) {
-            console.log(`  ⚠️ Deployer doesn't have enough for 0.1 ETH, sending available amount minus gas`);
+            console.log(`   Deployer doesn't have enough for 0.1 ETH, sending available amount minus gas`);
             const gasReserve = ethers.parseEther("0.01"); // Reserve for gas
             const availableAmount = deployerBalance - gasReserve;
 
             if (availableAmount <= 0n) {
-                console.log(`  ❌ Not enough balance to send any native tokens`);
+                console.log(`   Not enough balance to send any native tokens`);
                 return { success: false, error: 'Insufficient balance for transfer' };
             }
 
@@ -135,7 +135,7 @@ async function fundWithNative(provider, deployerWallet, faucetAddress) {
             });
 
             const receipt = await tx.wait();
-            console.log(`  ✅ Transfer completed! Gas used: ${receipt.gasUsed}`);
+            console.log(`   Transfer completed! Gas used: ${receipt.gasUsed}`);
 
             return {
                 success: true,
@@ -153,7 +153,7 @@ async function fundWithNative(provider, deployerWallet, faucetAddress) {
             });
 
             const receipt = await tx.wait();
-            console.log(`  ✅ Transfer completed! Gas used: ${receipt.gasUsed}`);
+            console.log(`   Transfer completed! Gas used: ${receipt.gasUsed}`);
 
             return {
                 success: true,
@@ -165,13 +165,13 @@ async function fundWithNative(provider, deployerWallet, faucetAddress) {
         }
 
     } catch (error) {
-        console.log(`  ❌ Failed to fund with native tokens: ${error.message}`);
+        console.log(`   Failed to fund with native tokens: ${error.message}`);
         return { success: false, error: error.message };
     }
 }
 
 async function main() {
-    console.log('\n💰 FAUCET FUNDING SCRIPT');
+    console.log('\n FAUCET FUNDING SCRIPT');
     console.log('========================\n');
 
     try {
@@ -217,13 +217,13 @@ async function main() {
         const skipped = results.filter(r => r.skipped);
         const failed = results.filter(r => !r.success);
 
-        console.log(`✅ Successful transfers: ${successful.length}`);
-        console.log(`✅ Already sufficient: ${sufficient.length}`);
+        console.log(` Successful transfers: ${successful.length}`);
+        console.log(` Already sufficient: ${sufficient.length}`);
         console.log(`⏭️ Skipped: ${skipped.length}`);
-        console.log(`❌ Failed: ${failed.length}`);
+        console.log(` Failed: ${failed.length}`);
 
         if (successful.length > 0) {
-            console.log('\n✅ Successful transfers:');
+            console.log('\n Successful transfers:');
             successful.forEach(result => {
                 const token = result.type === 'native' ? 'ETH' : result.denom;
                 console.log(`  - ${token}: ${result.formatted} (${result.tx_hash})`);
@@ -231,7 +231,7 @@ async function main() {
         }
 
         if (sufficient.length > 0) {
-            console.log('\n✅ Already sufficient:');
+            console.log('\n Already sufficient:');
             sufficient.forEach(result => {
                 const token = result.type === 'native' ? 'ETH' : result.denom;
                 console.log(`  - ${token}: Already funded`);
@@ -239,7 +239,7 @@ async function main() {
         }
 
         if (failed.length > 0) {
-            console.log('\n❌ Failed transfers:');
+            console.log('\n Failed transfers:');
             failed.forEach(result => {
                 const token = result.type === 'native' ? 'ETH' : result.denom;
                 console.log(`  - ${token}: ${result.error}`);
@@ -247,7 +247,7 @@ async function main() {
         }
 
         // Final balance check
-        console.log('\n🔍 Final Faucet Balances:');
+        console.log('\n Final Faucet Balances:');
 
         // Native balance
         const finalNativeBalance = await provider.getBalance(faucetAddress);
@@ -274,7 +274,7 @@ async function main() {
             }
         }
 
-        console.log('\n🎉 Faucet funding completed!');
+        console.log('\n Faucet funding completed!');
 
     } catch (error) {
         console.error('\n💥 Funding script failed:', error);

@@ -51,9 +51,9 @@ const colors = {
 
 const log = {
     info: (msg) => console.log(`${colors.blue}ℹ ${msg}${colors.reset}`),
-    success: (msg) => console.log(`${colors.green}✅ ${msg}${colors.reset}`),
+    success: (msg) => console.log(`${colors.green} ${msg}${colors.reset}`),
     warning: (msg) => console.log(`${colors.yellow}⚠ ${msg}${colors.reset}`),
-    error: (msg) => console.log(`${colors.red}❌ ${msg}${colors.reset}`),
+    error: (msg) => console.log(`${colors.red} ${msg}${colors.reset}`),
     header: (msg) => console.log(`${colors.cyan}\n${'='.repeat(60)}\n  ${msg}\n${'='.repeat(60)}${colors.reset}`)
 };
 
