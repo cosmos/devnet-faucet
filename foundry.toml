@@ -7,5 +7,7 @@ remappings = [
     "hardhat/=node_modules/hardhat/",
 ]
 evm_version = "istanbul"
+via_ir = true
+optimizer = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

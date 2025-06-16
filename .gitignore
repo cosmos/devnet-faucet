@@ -162,3 +162,4 @@ deployments/*.json
 
 # IDE and editor files
 .cursorrules
+.claude/
