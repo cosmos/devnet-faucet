@@ -63,13 +63,8 @@ typings/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# env
 .env
-.env.test
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -119,16 +114,14 @@ logs
 ehthumbs.db
 Thumbs.db
 
-# Foundry build artifacts
+# Foundry
 out/
 cache/
 broadcast/
+lib/
 
-# Hardhat build artifacts
-artifacts/
-cache/
-typechain/
-typechain-types/
+# Forge dependencies
+/lib
 
 # Faucet specific
 /web.js
