@@ -2,9 +2,31 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
-contract PEPE is ERC20 {
-    constructor(address recipient) ERC20("Pepe", "PEPE") {
-        _mint(recipient, 1000000000 * 10**18); // 1 billion PEPE with 18 decimals
+/**
+ * @title Pepe Token
+ * @dev Pepe meme token for cosmos-evm testnet
+ */
+contract PEPE is ERC20, ERC20Burnable, Ownable, AccessControl {
+
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+    constructor(address initialOwner) 
+        ERC20("Pepe Token", "PEPE")
+        Ownable(0x42e6047c5780B103E52265F6483C2d0113aA6B87)
+    {
+        // Grant roles
+        _grantRole(MINTER_ROLE, 0x42e6047c5780B103E52265F6483C2d0113aA6B87);
+
+        // Initial token distribution
+        _mint(0x42e6047c5780B103E52265F6483C2d0113aA6B87, 100000000000000000000000000);
+    }
+
+
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
+        _mint(to, amount);
     }
 }
