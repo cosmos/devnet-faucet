@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
 import fetch from 'node-fetch';
 
-import { HDNodeWallet, JsonRpcProvider, Contract, } from 'ethers'
+import { HDNodeWallet, Wallet, JsonRpcProvider, Contract, } from 'ethers'
 import { bech32 } from 'bech32';
 
 import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
@@ -20,8 +21,10 @@ import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import { BIP32Factory } from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 
-import conf from './config.js'
+import conf, { DERIVED_ADDRESS, DERIVED_PRIVATE_KEY, DERIVED_PUBLIC_KEY, DERIVED_COSMOS_ADDRESS } from './config.js'
 import { FrequencyChecker } from './checker.js';
+
+const { MNEMONIC } = process.env;
 
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
@@ -370,7 +373,7 @@ app.get('/config.json', async (req, res) => {
   const chainConf = conf.blockchain
 
   // Create EVM wallet to get the correct addresses
-  const evmWallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
+  const evmWallet = { address: DERIVED_ADDRESS, privateKey: DERIVED_PRIVATE_KEY };
   sample.evm = evmWallet.address;
   sample.cosmos = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
@@ -450,7 +453,7 @@ app.get('/balance/:type', async (req, res) => {
       if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
         targetAddress = address;
       } else {
-        const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
+        const wallet = { address: DERIVED_ADDRESS, privateKey: DERIVED_PRIVATE_KEY };
         targetAddress = wallet.address;
       }
 
@@ -600,12 +603,29 @@ app.get('/send/:address', async (req, res) => {
 })
 
 app.listen(conf.port, async () => {
-          console.log(`[START] Faucet server running on port ${conf.port}`)
+  console.log(`[START] Faucet server running on port ${conf.port}`);
+  
+  // Check if addresses are cached, derive if not
+  if (!conf.derivedAddresses) {
+    console.log('⚠️  No cached addresses found - deriving and caching addresses...');
+    try {
+      const { deriveAndCacheAddresses } = await import('./scripts/derive-and-cache-addresses.js');
+      await deriveAndCacheAddresses(process.env.MNEMONIC);
+      console.log('✅ Addresses derived and cached successfully');
+      
+      // Restart the server to use cached addresses
+      console.log('🔄 Restarting to use cached addresses...');
+      process.exit(0); // PM2 or similar will restart
+    } catch (error) {
+      console.error('❌ Failed to derive addresses:', error.message);
+      process.exit(1);
+    }
+  }
 
   // Initialize wallet addresses
   const chainConf = conf.blockchain;
-  const evmWallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0]));
-  const cosmosAddress = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
+  const evmWallet = { address: DERIVED_ADDRESS, privateKey: DERIVED_PRIVATE_KEY };
+  const cosmosAddress = DERIVED_COSMOS_ADDRESS || evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
   console.log(`Wallet ready - Cosmos: ${cosmosAddress} | EVM: ${evmWallet.address}`);
 })
@@ -636,6 +656,15 @@ async function checkRecipientBalances(address, addressType) {
           decimals: token.decimals
         });
       }
+      
+      // For cosmos recipients, also check native ATOM balance
+      const atomBalance = data.balances?.find(b => b.denom === "uatom");
+      balances.push({
+        denom: "uatom",
+        current_amount: atomBalance ? atomBalance.amount : "0",
+        target_amount: "1000000", // 1 ATOM target
+        decimals: 6
+      });
     } else if (addressType === 'evm') {
       // Check EVM balances via JSON-RPC
       const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
@@ -684,20 +713,21 @@ async function checkRecipientBalances(address, addressType) {
 function calculateNeededAmounts(currentBalances, tokenConfigs) {
   const neededAmounts = [];
 
-  for (let i = 0; i < currentBalances.length; i++) {
-    const current = currentBalances[i];
-    const config = tokenConfigs[i];
-
+  for (const current of currentBalances) {
     const currentAmount = BigInt(current.current_amount);
     const targetAmount = BigInt(current.target_amount);
 
     if (currentAmount < targetAmount) {
       const needed = targetAmount - currentAmount;
+      
+      // Find matching config or use balance data for uatom
+      const config = tokenConfigs.find(c => c.denom === current.denom);
+      
       neededAmounts.push({
-        denom: config.denom,
+        denom: current.denom,
         amount: needed.toString(),
-        erc20_contract: config.erc20_contract,
-        decimals: config.decimals
+        erc20_contract: config?.erc20_contract || "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Special marker for native tokens
+        decimals: current.decimals
       });
     }
   }
@@ -984,10 +1014,8 @@ async function createPubKeyVariants(publicKeyBytes) {
 async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVariant = 'cosmosEvm') {
   const chainConf = conf.blockchain;
 
-  // For now, only send native tokens via Cosmos bank sends
-  // TODO: Handle ERC20 tokens later (they can't be sent via bank send)
+  // For cosmos recipients, only send native ATOM tokens via Cosmos bank sends
   const tokensToSend = neededAmounts.filter(token =>
-    token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ||
     token.denom === "uatom"
   );
 
@@ -1056,7 +1084,8 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
   const txBodyBytes = TxBody.encode(txBodyValue).finish();
 
   // 4. Get our manually derived keys for consistency
-  const privateKeyBytes = getPrivateKeyFromMnemonic(chainConf.sender.mnemonic, pathToString(chainConf.sender.option.hdPaths[0]));
+  // Use cached private key bytes
+  const privateKeyBytes = Buffer.from(DERIVED_PRIVATE_KEY.slice(2), 'hex');
   const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes, true); // compressed
 
   // Verify key consistency
@@ -1140,7 +1169,9 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
   try {
     const chainConf = conf.blockchain;
     const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
-    const wallet = HDNodeWallet.fromPhrase(chainConf.sender.mnemonic, undefined, pathToString(chainConf.sender.option.hdPaths[0])).connect(ethProvider);
+    // Use cached private key to create wallet instance (still need full wallet for provider connection)
+    const walletInstance = new Wallet(DERIVED_PRIVATE_KEY);
+    const wallet = walletInstance.connect(ethProvider);
 
     console.log("Sending atomic EVM tokens to:", recipient);
     console.log("Needed amounts:", neededAmounts);
