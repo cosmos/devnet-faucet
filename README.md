@@ -1,262 +1,255 @@
 # Cosmos EVM Faucet
 
-A multi-token faucet for Cosmos EVM networks that supports both Cosmos and EVM address formats, with atomic token distribution and WATOM wrapping functionality.
+Automated multi-token faucet for Cosmos EVM networks with dual address support and configurable deployment.
 
-## Features
-
-- **Multi-Token Distribution**: Supports ERC20 tokens (WBTC, PEPE, USDT) via atomic transfers
-- **Dual Address Support**: Works with both Cosmos (`cosmos1...`) and EVM (`0x...`) addresses  
-- **Atomic Transfers**: All-or-nothing token distribution using custom AtomicMultiSend contract
-- **WATOM Wrapping**: Built-in interface for wrapping/unwrapping native ATOM tokens
-- **Approval-Based**: Uses ERC20 allowances instead of pre-funding contracts
-- **Rate Limiting**: IP and address-based request limits
-- **Transaction History**: Tracks and displays recent transactions
-
-## Architecture
-
-### Contracts
-- **AtomicMultiSend**: Custom contract for reliable multi-token distribution
-- **WERC20 Precompile**: Native wrapped ATOM token at `0x0000000000000000000000000000000000000802`
-
-### Components
-- **Backend**: Node.js Express server with CosmJS integration
-- **Frontend**: Vue.js 3 SPA with Bootstrap UI
-- **Database**: SQLite for request tracking
-
-## Prerequisites
-
-- Node.js v18+
-- Foundry (for contract deployment)
-- Access to Cosmos EVM RPC endpoints
-
-## Deployment
-
-### Automated Deployment (Recommended)
+## Quick Start
 
 ```bash
-# 1. Set environment variable (private key derived automatically)
+# Set environment
 export MNEMONIC="your twelve word mnemonic phrase here"
 
-# 2. Validate environment
-npm run validate
+# Deploy everything
+yarn deploy
 
-# 3. Deploy (choose one)
-npm run deploy         # Deploy only
-npm run deploy:test    # Deploy + integration tests
-
-# 4. Start faucet
-npm start
+# Start faucet
+yarn start
 ```
 
-### Vercel Deployment (Production)
+## Required Configuration
 
-For production deployment on Vercel:
+### Environment Variables
 
-1. **Set Environment Variable** in Vercel dashboard:
-   - `MNEMONIC` = "your twelve word mnemonic phrase here"
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MNEMONIC` | Yes | 12-word mnemonic phrase for wallet derivation |
 
-2. **Deploy**: Connect GitHub repo to Vercel - auto-deploys on push
+### Network Configuration
 
-See [VERCEL-DEPLOYMENT.md](./VERCEL-DEPLOYMENT.md) for detailed instructions.
+Edit `config.js` before deployment:
 
-The automated deployment handles:
-- Environment validation
-- Clean build artifacts
-- Contract compilation & deployment
-- ABI extraction
-- Configuration updates
-- Token approvals
-- Deployment verification
-- Optional integration testing
-
-### Manual Deployment (Legacy)
-
-<details>
-<summary>Click to expand manual steps</summary>
-
-#### 1. Clean Environment
-```bash
-# Remove any existing compiled artifacts
-rm -rf out cache broadcast deployments/*.json
-forge clean
-```
-
-#### 2. Deploy AtomicMultiSend Contract
-```bash
-# Set environment variable (private key derived from mnemonic)
-export MNEMONIC="your twelve word mnemonic phrase here"
-
-# Deploy the contract
-npm run deploy
-```
-
-#### 3. Extract Contract ABI
-```bash
-# Extract ABI from Foundry artifacts
-npm run extract-abi
-```
-
-#### 4. Configure Application
-Update `config.js` with the deployed contract address:
-```javascript
-contracts: {
-    atomicMultiSend: "0x28B4f61f63fB60D7e1a6784fF52B2FB6F56D6ccA"
-}
-```
-
-#### 5. Set Token Approvals
-```bash
-# Approve AtomicMultiSend to spend tokens on behalf of faucet wallet
-npm run approve-tokens
-```
-
-#### 6. Install Dependencies
-```bash
-npm install
-```
-
-#### 7. Start Faucet
-```bash
-npm start
-```
-
-</details>
-
-## Configuration
-
-### Network Settings
 ```javascript
 blockchain: {
+    name: "cosmos-evm-chain",
+    ids: {
+        chainId: 262144,                    // EVM chain ID
+        cosmosChainId: 'cosmos_262144-1',   // Cosmos chain ID
+    },
     endpoints: {
         rpc_endpoint: "https://cevm-01-rpc.dev.skip.build",
         grpc_endpoint: "https://cevm-01-grpc.dev.skip.build", 
         rest_endpoint: "https://cevm-01-lcd.dev.skip.build",
-        evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build"
-    },
-    ids: {
-        chainId: 262144,
-        cosmosChainId: 'cosmos_262144-1'
+        evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
+        evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
     }
 }
 ```
 
-### Token Configuration
+## Token Configuration
+
+### Adding/Removing Tokens
+
+Edit the `tx.amounts` array in `config.js`:
+
 ```javascript
 tx: {
     amounts: [
         {
-            denom: "wbtc",
-            amount: "100000000000", // 1000 WBTC (8 decimals)
-            erc20_contract: "0xC52cB914767C076919Dc4245D4B005c8865a2f1F",
-            decimals: 8,
-            target_balance: "100000000000"
+            denom: "wbtc",                    // Token identifier
+            amount: "100000000000",           // Amount to send (in smallest unit)
+            decimals: 8,                      // Token decimals
+            target_balance: "100000000000"    // Target balance for smart distribution
         }
-        // ... more tokens
     ]
 }
 ```
 
-## Operation
+### Token Contract Parameters
 
-### Faucet Workflow
-1. User enters Cosmos or EVM address
-2. System checks current balances for all configured tokens
-3. Calculates needed amounts to reach target balances
-4. Executes atomic transfer via AtomicMultiSend contract
-5. All transfers succeed or entire transaction reverts
+Before deployment, edit token contracts in `src/tokens/`:
 
-### WATOM Operations
-- **Wrap**: Send native ATOM to WERC20 precompile to receive WATOM ERC20 tokens
-- **Unwrap**: Call withdraw on WERC20 precompile to convert WATOM back to native ATOM
-- **Rate**: 1 ATOM = 1 WATOM (always)
-
-### Rate Limiting
-- 1 request per address per 24 hours
-- 10 requests per IP per 24 hours
-
-## Testing
-
-### Test Token Distribution
-```bash
-# Test with a new address
-curl "http://localhost:8088/send/0x56Ce23593fFFd265f9B002EAe4FeAd5935B00350"
+```solidity
+// src/tokens/WBTC.sol
+constructor(address initialOwner) 
+    ERC20("Wrapped Bitcoin", "WBTC")  // Name and symbol
+    Ownable()
+{
+    _mint(initialOwner, 100000000000000);  // Initial supply to faucet
+}
 ```
 
-### Verify Balances
+**Configurable Parameters:**
+- Token name and symbol
+- Initial supply minted to faucet
+- Decimals (inherited from ERC20 standard: 18 for most, 8 for WBTC, 6 for USDT)
+
+## Automated Deployment
+
+The deployment script handles:
+
+1. **Environment Validation** - Checks Node.js, Foundry, RPC connectivity, MNEMONIC
+2. **Address Derivation** - Generates EVM and Cosmos addresses from mnemonic
+3. **Contract Compilation** - Builds all Solidity contracts with Foundry
+4. **Token Deployment** - Deploys ERC20 tokens with dynamic faucet address
+5. **AtomicMultiSend Deployment** - Deploys multi-token transfer contract
+6. **Configuration Update** - Updates config.js with contract addresses
+7. **Token Approvals** - Approves AtomicMultiSend to spend faucet tokens
+
+### Deployment Commands
+
 ```bash
-# Check token balances were transferred correctly
-node -e "
-// Script to check token balances
-// (implementation details in deployment log)
-"
+# Validate environment only
+yarn validate
+
+# Deploy without tests
+yarn deploy
+
+# Deploy with integration tests
+yarn deploy:test
+```
+
+### Manual Steps (if needed)
+
+```bash
+# Compile contracts only
+node scripts/deployment/deploy-tokens-foundry.js compile
+
+# Deploy contracts only
+node scripts/deployment/deploy-tokens-foundry.js deploy
+
+# Set token approvals
+yarn approve-tokens
+```
+
+## Faucet Configuration
+
+### Rate Limiting
+
+```javascript
+limit: {
+    address: 1,    // Requests per address per 24h
+    ip: 10         // Requests per IP per 24h
+}
+```
+
+### Port and Database
+
+```javascript
+port: 8088,
+db: {
+    path: ".faucet/history.db"  // SQLite database path
+}
+```
+
+### Branding
+
+```javascript
+project: {
+    name: "Cosmos-EVM Devnet Faucet",
+    logo: "https://example.com/logo.svg",
+    deployer: `<a href="https://cosmos.network">Cosmos Network</a>`
+}
+```
+
+## Deployment Architecture
+
+### Automatic Address Management
+
+- **Wallet Derivation**: Faucet wallet derived from MNEMONIC using path `m/44'/60'/0'/0/0`
+- **Dual Addresses**: Same private key generates both EVM (`0x...`) and Cosmos (`cosmos...`) addresses
+- **Dynamic Deployment**: All contracts receive faucet address as constructor parameter
+
+### Contract Dependencies
+
+- **OpenZeppelin v4.9.3**: ERC20, Ownable, AccessControl, ReentrancyGuard
+- **Foundry**: Contract compilation and deployment
+- **AtomicMultiSend**: Custom contract for reliable multi-token distribution
+
+### File Structure
+
+```
+├── config.js                 # Main configuration
+├── src/
+│   ├── tokens/               # ERC20 token contracts
+│   └── AtomicMultiSend.sol   # Multi-token transfer contract
+├── scripts/
+│   ├── automated-deploy.js   # Main deployment script
+│   └── deployment/           # Individual deployment modules
+└── deployments/              # Deployment artifacts and ABIs
+```
+
+## Operation
+
+### Smart Distribution
+
+The faucet checks recipient balances and only sends tokens needed to reach target amounts:
+
+1. Query current balances for all configured tokens
+2. Calculate shortfall for each token vs target balance
+3. Execute atomic transfer for only needed amounts
+4. Skip tokens that already meet target balance
+
+### API Endpoints
+
+- `GET /` - Web interface
+- `GET /send/:address` - Request tokens (Cosmos or EVM address)
+- `GET /config.json` - Network configuration
+- `GET /balance/:type` - Balance information
+
+### Response Format
+
+```json
+{
+  "result": {
+    "message": "Tokens sent successfully",
+    "current_balances": [...],
+    "tokens_sent": [...],
+    "transactions": [...]
+  }
+}
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### Environment Issues
 
-**Contract deployment fails**
-- Ensure PRIVATE_KEY is set correctly
-- Check RPC endpoint is accessible
-- Verify sufficient native token balance for gas
+```bash
+# Check prerequisites
+yarn validate
 
-**Token transfers fail**
-- Confirm token approvals are set: `node scripts/approve-tokens.js`
-- Check faucet wallet has sufficient token balances
-- Verify contract address in config.js
+# Common fixes
+export MNEMONIC="your mnemonic here"
+forge --version
+node --version
+```
 
-**Native token transfers fail**
-- Native token transfers to non-existent addresses will fail
-- Use real wallet addresses for testing
-- Consider disabling native tokens for testing ERC20-only functionality
+### Deployment Failures
 
-**Frontend issues**
-- WATOM functionality requires MetaMask
-- Ensure correct network is selected in MetaMask
-- Check browser console for connection errors
+- **Contract compilation**: Check OpenZeppelin dependencies in `lib/`
+- **Gas estimation**: Ensure faucet wallet has native tokens for gas
+- **RPC connectivity**: Verify endpoint URLs in config.js
+- **Address derivation**: Confirm MNEMONIC is valid 12-word phrase
 
-### Deployment Log Analysis
+### Runtime Issues
 
-**✅ Successful Operations:**
-- Contract compilation and deployment
-- ERC20 token approvals (WBTC, PEPE, USDT)
-- Multi-token atomic transfers
-- Frontend tab integration
-- WATOM wrapping UI implementation
+- **Token transfers fail**: Check token approvals and faucet balances
+- **Rate limiting**: Database in `.faucet/history.db`, resets every 24h
+- **Frontend errors**: Ensure MetaMask connected to correct network
 
-**⚠️ Known Limitations:**
-- Native token transfers require recipient addresses to be real accounts
-- WATOM functionality needs user wallet connection
-- Rate limiting resets every 24 hours
+## Production Deployment
 
-## Security Considerations
+### Vercel Configuration
 
-- Private keys are loaded from config but not exposed in logs
-- Token approvals use large amounts (1M tokens) for operational efficiency
-- AtomicMultiSend contract uses OpenZeppelin's Ownable and ReentrancyGuard
-- Only faucet wallet can execute atomic transfers
+1. Set `MNEMONIC` environment variable in Vercel dashboard
+2. Push to connected GitHub repository
+3. Vercel auto-deploys using `vercel.json` configuration
 
-## API Endpoints
+### Security Considerations
 
-- `GET /` - Frontend interface
-- `GET /config.json` - Network and token configuration
-- `GET /balance/cosmos` - Cosmos environment balances
-- `GET /balance/evm` - EVM environment balances  
-- `GET /send/:address` - Request tokens for address
-
-## Contract Addresses
-
-- **AtomicMultiSend**: `0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246`
-- **WERC20 (WATOM)**: `0x0000000000000000000000000000000000000802`
-- **WBTC**: `0xC52cB914767C076919Dc4245D4B005c8865a2f1F`
-- **PEPE**: `0xD0C124828bF8648E8681d1eD3117f20Ab989e7a1`
-- **USDT**: `0xf66bB908fa291EE1Fd78b09937b14700839E7c80`
-
-## Credits
-
-This faucet was built upon the excellent foundation provided by the **[Ping.pub](https://ping.pub)** team. Their original faucet implementation provided the core architecture and user interface that made this dual-environment Cosmos EVM faucet possible.
-
-**Original Foundation**: [ping-pub/faucet](https://github.com/ping-pub/faucet)
+- MNEMONIC stored as environment variable (not in code)
+- Private keys derived at runtime, never logged
+- Rate limiting prevents abuse
+- AtomicMultiSend contract uses ReentrancyGuard
+- Token approvals use reasonable amounts
 
 ## License
 

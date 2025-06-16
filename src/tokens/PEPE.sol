@@ -16,13 +16,14 @@ contract PEPE is ERC20, ERC20Burnable, Ownable, AccessControl {
 
     constructor(address initialOwner) 
         ERC20("Pepe Token", "PEPE")
-        Ownable(0x42e6047c5780B103E52265F6483C2d0113aA6B87)
+        Ownable()
     {
-        // Grant roles
-        _grantRole(MINTER_ROLE, 0x42e6047c5780B103E52265F6483C2d0113aA6B87);
+        // Grant roles to initial owner
+        _grantRole(MINTER_ROLE, initialOwner);
+        _transferOwnership(initialOwner);
 
-        // Initial token distribution
-        _mint(0x42e6047c5780B103E52265F6483C2d0113aA6B87, 100000000000000000000000000);
+        // Initial token distribution to owner
+        _mint(initialOwner, 100000000000000000000000000);
     }
 
 

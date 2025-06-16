@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title AtomicMultiSend
@@ -30,7 +30,7 @@ contract AtomicMultiSend is Ownable, ReentrancyGuard {
     // Track total deposits for accounting
     mapping(address => uint256) public totalDeposits;
     
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable() {}
     
     /**
      * @dev Atomically send multiple tokens to a single recipient

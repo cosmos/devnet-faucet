@@ -114,14 +114,15 @@ logs
 ehthumbs.db
 Thumbs.db
 
-# Foundry
+# Foundry build artifacts
 out/
 cache/
 broadcast/
-lib/
 
-# Forge dependencies
-/lib
+# Allow essential Foundry dependencies but ignore submodules
+lib/*
+!lib/forge-std/
+!lib/openzeppelin-contracts/
 
 # Faucet specific
 /web.js
