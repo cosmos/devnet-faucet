@@ -6,17 +6,21 @@ import "forge-std/console.sol";
 import "../src/AtomicMultiSend.sol";
 
 contract DeployAtomicMultiSend is Script {
-    address constant FAUCET_ADDRESS = 0x42e6047c5780B103E52265F6483C2d0113aA6B87;
+    // Get faucet address from environment or derive from private key
+    function getFaucetAddress(uint256 deployerPrivateKey) internal pure returns (address) {
+        return vm.addr(deployerPrivateKey);
+    }
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address faucetAddress = getFaucetAddress(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("==============================================");
         console.log("ATOMIC MULTISEND CONTRACT DEPLOYMENT");
         console.log("==============================================");
         console.log("Deployer:", vm.addr(deployerPrivateKey));
-        console.log("Faucet Address:", FAUCET_ADDRESS);
+        console.log("Faucet Address:", faucetAddress);
         console.log("Chain ID:", block.chainid);
         console.log("Block Number:", block.number);
         console.log("Timestamp:", block.timestamp);
@@ -30,7 +34,7 @@ contract DeployAtomicMultiSend is Script {
 
         // Transfer AtomicMultiSend ownership to faucet address
         console.log("\nTransferring AtomicMultiSend ownership to faucet...");
-        atomicMultiSend.transferOwnership(FAUCET_ADDRESS);
+        atomicMultiSend.transferOwnership(faucetAddress);
         console.log("AtomicMultiSend new owner:", atomicMultiSend.owner());
 
         vm.stopBroadcast();
@@ -47,7 +51,7 @@ contract DeployAtomicMultiSend is Script {
         console.log('  "network": "cosmos_evm",');
         console.log('  "chainId": %s,', block.chainid);
         console.log('  "deployer": "%s",', vm.addr(deployerPrivateKey));
-        console.log('  "faucetAddress": "%s",', FAUCET_ADDRESS);
+        console.log('  "faucetAddress": "%s",', faucetAddress);
         console.log('  "blockNumber": %s,', block.number);
         console.log('  "timestamp": %s,', block.timestamp);
         console.log('  "contracts": {');

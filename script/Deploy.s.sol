@@ -9,17 +9,21 @@ import "../src/tokens/USDT.sol";
 import "../src/AtomicMultiSend.sol";
 
 contract Deploy is Script {
-    address constant FAUCET_ADDRESS = 0x42e6047c5780B103E52265F6483C2d0113aA6B87;
+    // Get faucet address from environment or derive from private key
+    function getFaucetAddress(uint256 deployerPrivateKey) internal pure returns (address) {
+        return vm.addr(deployerPrivateKey);
+    }
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address faucetAddress = getFaucetAddress(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("==============================================");
         console.log("COSMOS EVM CONTRACT DEPLOYMENT");
         console.log("==============================================");
         console.log("Deployer:", vm.addr(deployerPrivateKey));
-        console.log("Faucet Address:", FAUCET_ADDRESS);
+        console.log("Faucet Address:", faucetAddress);
         console.log("Chain ID:", block.chainid);
         console.log("Block Number:", block.number);
         console.log("Timestamp:", block.timestamp);
@@ -27,7 +31,7 @@ contract Deploy is Script {
 
         // Deploy WBTC
         console.log("\n[1/4] Deploying WBTC Token...");
-        WBTC wbtc = new WBTC(FAUCET_ADDRESS);
+        WBTC wbtc = new WBTC(faucetAddress);
         console.log("WBTC deployed at:", address(wbtc));
         console.log("WBTC total supply:", wbtc.totalSupply());
         console.log("WBTC decimals:", wbtc.decimals());
@@ -35,7 +39,7 @@ contract Deploy is Script {
 
         // Deploy PEPE
         console.log("\n[2/4] Deploying PEPE Token...");
-        PEPE pepe = new PEPE(FAUCET_ADDRESS);
+        PEPE pepe = new PEPE(faucetAddress);
         console.log("PEPE deployed at:", address(pepe));
         console.log("PEPE total supply:", pepe.totalSupply());
         console.log("PEPE decimals:", pepe.decimals());
@@ -43,7 +47,7 @@ contract Deploy is Script {
 
         // Deploy USDT
         console.log("\n[3/4] Deploying USDT Token...");
-        USDT usdt = new USDT(FAUCET_ADDRESS);
+        USDT usdt = new USDT(faucetAddress);
         console.log("USDT deployed at:", address(usdt));
         console.log("USDT total supply:", usdt.totalSupply());
         console.log("USDT decimals:", usdt.decimals());
@@ -57,7 +61,7 @@ contract Deploy is Script {
 
         // Transfer AtomicMultiSend ownership to faucet address
         console.log("\nTransferring AtomicMultiSend ownership to faucet...");
-        atomicMultiSend.transferOwnership(FAUCET_ADDRESS);
+        atomicMultiSend.transferOwnership(faucetAddress);
         console.log("AtomicMultiSend new owner:", atomicMultiSend.owner());
 
         vm.stopBroadcast();
@@ -73,16 +77,16 @@ contract Deploy is Script {
 
         // Verify balances
         console.log("\nToken Balance Verification:");
-        console.log("WBTC Balance of Faucet:", wbtc.balanceOf(FAUCET_ADDRESS));
-        console.log("PEPE Balance of Faucet:", pepe.balanceOf(FAUCET_ADDRESS));
-        console.log("USDT Balance of Faucet:", usdt.balanceOf(FAUCET_ADDRESS));
+        console.log("WBTC Balance of Faucet:", wbtc.balanceOf(faucetAddress));
+        console.log("PEPE Balance of Faucet:", pepe.balanceOf(faucetAddress));
+        console.log("USDT Balance of Faucet:", usdt.balanceOf(faucetAddress));
 
         console.log("\nDeployment Summary JSON:");
         console.log("{");
         console.log('  "network": "cosmos_evm",');
         console.log('  "chainId": %s,', block.chainid);
         console.log('  "deployer": "%s",', vm.addr(deployerPrivateKey));
-        console.log('  "faucetAddress": "%s",', FAUCET_ADDRESS);
+        console.log('  "faucetAddress": "%s",', faucetAddress);
         console.log('  "blockNumber": %s,', block.number);
         console.log('  "timestamp": %s,', block.timestamp);
         console.log('  "contracts": {');
