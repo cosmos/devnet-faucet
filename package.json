@@ -7,7 +7,11 @@
   "scripts": {
     "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
     "test": "hardhat test",
-    "deploy": "node deploy-and-test.js"
+    "deploy": "node scripts/automated-deploy.js",
+    "deploy:test": "node scripts/automated-deploy.js --test",
+    "validate": "node scripts/validate-environment.js",
+    "extract-abi": "node scripts/extract-abi.js",
+    "approve-tokens": "node scripts/approve-tokens.js"
   },
   "repository": {
     "type": "git",
@@ -48,6 +52,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.9",
     "chai": "^4.5.0",
+    "dotenv": "^16.5.0",
     "hardhat": "^2.24.2",
     "hardhat-gas-reporter": "^1.0.10"
   }
