@@ -1,0 +1,113 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "description": "Cosmos EVM Faucet Token Registry",
+    "network": "cosmos-evm-testnet",
+    "createdAt": "2025-06-16T19:30:00.000Z",
+    "updatedAt": "2025-06-16T19:38:54.653Z"
+  },
+  "tokens": [
+    {
+      "name": "Wrapped Bitcoin",
+      "symbol": "WBTC",
+      "decimals": 8,
+      "description": "Wrapped Bitcoin for cosmos-evm testnet",
+      "features": {
+        "mintable": true,
+        "burnable": true,
+        "pausable": false,
+        "permit": false,
+        "snapshots": false,
+        "flashMint": false,
+        "capped": false
+      },
+      "roles": {
+        "owner": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+        "minter": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+        "pauser": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+      },
+      "distribution": [
+        {
+          "wallet": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+          "amount": "100000000000000"
+        }
+      ],
+      "faucet": {
+        "enabled": true,
+        "amount": "100000000000",
+        "targetBalance": "100000000000"
+      },
+      "contractAddress": "0x921c48F521329cF6187D1De1D0Ca5181B47FF946",
+      "deploymentBlock": "620411",
+      "deployer": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+    },
+    {
+      "name": "Pepe Token",
+      "symbol": "PEPE",
+      "decimals": 18,
+      "description": "Pepe meme token for cosmos-evm testnet",
+      "features": {
+        "mintable": true,
+        "burnable": true,
+        "pausable": false,
+        "permit": false,
+        "snapshots": false,
+        "flashMint": false,
+        "capped": false
+      },
+      "roles": {
+        "owner": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+        "minter": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+        "pauser": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+      },
+      "distribution": [
+        {
+          "wallet": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+          "amount": "100000000000000000000000000"
+        }
+      ],
+      "faucet": {
+        "enabled": true,
+        "amount": "1000000000000000000000",
+        "targetBalance": "1000000000000000000000"
+      },
+      "contractAddress": "0xD15E993afA1ee82FF0B47dc8Bb601C2747f24Be9",
+      "deploymentBlock": "620412",
+      "deployer": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+    },
+    {
+      "name": "Tether USD",
+      "symbol": "USDT",
+      "decimals": 6,
+      "description": "USDT stablecoin for cosmos-evm testnet",
+      "features": {
+        "mintable": true,
+        "burnable": true,
+        "pausable": false,
+        "permit": false,
+        "snapshots": false,
+        "flashMint": false,
+        "capped": false
+      },
+      "roles": {
+        "owner": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+        "minter": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+        "pauser": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+      },
+      "distribution": [
+        {
+          "wallet": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+          "amount": "100000000000000"
+        }
+      ],
+      "faucet": {
+        "enabled": true,
+        "amount": "1000000000",
+        "targetBalance": "1000000000"
+      },
+      "contractAddress": "0x480f8F25d13D523e89E9aaC518A5674A305ff687",
+      "deploymentBlock": "620413",
+      "deployer": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+    }
+  ]
+}
