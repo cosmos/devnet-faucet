@@ -54,7 +54,7 @@ Compiler run successful!
 
 ```bash
 # Set private key (CRITICAL: Use environment variable)
-export PRIVATE_KEY="0xdd138b977ac3248b328b7b65ac30338b1482a17197a175f03fd2df20fb0919c6"
+export PRIVATE_KEY="your_private_key_here"
 
 # Deploy using Foundry script
 forge script script/DeployAtomicMultiSend.s.sol \
@@ -72,8 +72,8 @@ Script ran successfully.
   ==============================================
   ATOMIC MULTISEND CONTRACT DEPLOYMENT
   ==============================================
-  Deployer: 0x42e6047c5780B103E52265F6483C2d0113aA6B87
-  Faucet Address: 0x42e6047c5780B103E52265F6483C2d0113aA6B87
+  Deployer: [DERIVED_FROM_PRIVATE_KEY]
+  Faucet Address: [DERIVED_FROM_PRIVATE_KEY]
   Chain ID: 262144
   Block Number: 599458
   Timestamp: 1749997423
@@ -81,7 +81,7 @@ Script ran successfully.
   
 Deploying AtomicMultiSend Contract...
   AtomicMultiSend deployed at: 0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246
-  AtomicMultiSend owner: 0x42e6047c5780B103E52265F6483C2d0113aA6B87
+  AtomicMultiSend owner: [DERIVED_FROM_PRIVATE_KEY]
 ```
 
 **What worked**:
@@ -117,7 +117,7 @@ node scripts/approve-tokens.js
 ============================================================
 APPROVING TOKENS FOR ATOMIC MULTISEND
 ============================================================
-Faucet Address: 0x42e6047c5780B103E52265F6483C2d0113aA6B87
+Faucet Address: [DERIVED_FROM_PRIVATE_KEY]
 AtomicMultiSend Address: 0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246
 
 Processing token: wbtc
@@ -157,10 +157,10 @@ node test-address-conversion.js
 ============================================================
 ADDRESS CONVERSION TEST
 ============================================================
-Faucet Hex Address: 0x42e6047c5780B103E52265F6483C2d0113aA6B87
+Faucet Hex Address: [DERIVED_FROM_PRIVATE_KEY]
 Expected Bech32: cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz
 Converted to Bech32: cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz
-Converted back to Hex: 0x42e6047c5780b103e52265f6483c2d0113aa6b87
+Converted back to Hex: [derived_from_private_key]
 Round-trip Bech32: cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz
 
 ============================================================

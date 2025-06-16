@@ -31,50 +31,96 @@ A multi-token faucet for Cosmos EVM networks that supports both Cosmos and EVM a
 
 ## Deployment
 
-### 1. Clean Environment
+### Automated Deployment (Recommended)
+
+```bash
+# 1. Set environment variable (private key derived automatically)
+export MNEMONIC="your twelve word mnemonic phrase here"
+
+# 2. Validate environment
+npm run validate
+
+# 3. Deploy (choose one)
+npm run deploy         # Deploy only
+npm run deploy:test    # Deploy + integration tests
+
+# 4. Start faucet
+npm start
+```
+
+### Vercel Deployment (Production)
+
+For production deployment on Vercel:
+
+1. **Set Environment Variable** in Vercel dashboard:
+   - `MNEMONIC` = "your twelve word mnemonic phrase here"
+
+2. **Deploy**: Connect GitHub repo to Vercel - auto-deploys on push
+
+See [VERCEL-DEPLOYMENT.md](./VERCEL-DEPLOYMENT.md) for detailed instructions.
+
+The automated deployment handles:
+- Environment validation
+- Clean build artifacts
+- Contract compilation & deployment
+- ABI extraction
+- Configuration updates
+- Token approvals
+- Deployment verification
+- Optional integration testing
+
+### Manual Deployment (Legacy)
+
+<details>
+<summary>Click to expand manual steps</summary>
+
+#### 1. Clean Environment
 ```bash
 # Remove any existing compiled artifacts
 rm -rf out cache broadcast deployments/*.json
 forge clean
 ```
 
-### 2. Deploy AtomicMultiSend Contract
+#### 2. Deploy AtomicMultiSend Contract
 ```bash
-# Set environment variables
-export PRIVATE_KEY="your_private_key_here"
+# Set environment variable (private key derived from mnemonic)
+export MNEMONIC="your twelve word mnemonic phrase here"
 
 # Deploy the contract
-forge script script/DeployAtomicMultiSend.s.sol \
-  --rpc-url https://cevm-01-evmrpc.dev.skip.build \
-  --broadcast \
-  --skip-simulation
+npm run deploy
 ```
 
-### 3. Configure Application
+#### 3. Extract Contract ABI
+```bash
+# Extract ABI from Foundry artifacts
+npm run extract-abi
+```
+
+#### 4. Configure Application
 Update `config.js` with the deployed contract address:
 ```javascript
 contracts: {
-    atomicMultiSend: "0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246"
+    atomicMultiSend: "0x28B4f61f63fB60D7e1a6784fF52B2FB6F56D6ccA"
 }
 ```
 
-### 4. Set Token Approvals
+#### 5. Set Token Approvals
 ```bash
 # Approve AtomicMultiSend to spend tokens on behalf of faucet wallet
-node scripts/approve-tokens.js
+npm run approve-tokens
 ```
 
-### 5. Install Dependencies
+#### 6. Install Dependencies
 ```bash
 npm install
 ```
 
-### 6. Start Faucet
+#### 7. Start Faucet
 ```bash
 npm start
-# or
-node faucet.js
 ```
+
+</details>
 
 ## Configuration
 
