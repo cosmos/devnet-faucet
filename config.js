@@ -2,12 +2,34 @@ import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 import { Wallet, HDNodeWallet, randomBytes } from 'ethers';
 
-// Use the specific faucet mnemonic
-const mnemonic = "mosquito peanut thought width car cushion salt matter trouble census win tribe leisure truth install basic april direct indicate eyebrow liar afraid street trip"
-// Mnemonic loaded for wallet initialization
+// Load mnemonic from environment variable for security
+const mnemonic = process.env.MNEMONIC || (() => {
+    console.error('❌ MNEMONIC environment variable not set');
+    console.error('For Vercel: Add MNEMONIC to environment variables');
+    console.error('For local: export MNEMONIC="your twelve word mnemonic phrase here"');
+    process.exit(1);
+})()
 
-export default {
-    port: 8088, // http port
+const config = {
+    port: 8088, 
+    derivedAddresses: {
+            "evm": {
+                    "address": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
+                    "privateKey": "0xdd138b977ac3248b328b7b65ac30338b1482a17197a175f03fd2df20fb0919c6",
+                    "publicKey": "0x031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
+            },
+            "cosmos": {
+                    "address": "cosmos1f2nl9zt6qxuxqu30mqlpgxrxhlq77r7gkm3syp",
+                    "publicKey": "AxV0pjNIMRsdPnc4oaLRMoQENos0/Zm0q2VmJcCUPC0W",
+                    "publicKeyHex": "031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
+            },
+            "derivation": {
+                    "path": "m/44'/60'/0'/0/0",
+                    "prefix": "cosmos",
+                    "derivedAt": "2025-06-16T19:59:13.319Z"
+            }
+    },
+    // http port
     db: {
         path: ".faucet/history.db" // save request states
     },
@@ -35,7 +57,7 @@ export default {
         },
         // Contract addresses - centralized for all components
         contracts: {
-            atomicMultiSend: "0x247CA16B2Fc5c9ae031e83c317c6DC6933Db7246", // New AtomicMultiSend contract for reliable token distribution
+            atomicMultiSend: "0x7526f84B6dEcAb19ad1523a0011325C13Bdf7085", // New AtomicMultiSend contract for reliable token distribution
         },
         sender: {
             mnemonic,
@@ -53,21 +75,21 @@ export default {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0xC52cB914767C076919Dc4245D4B005c8865a2f1F", // Deployed WBTC contract
+                    erc20_contract: "0x921c48F521329cF6187D1De1D0Ca5181B47FF946", // New deployed WBTC contract
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xD0C124828bF8648E8681d1eD3117f20Ab989e7a1", // Deployed PEPE contract
+                    erc20_contract: "0xD15E993afA1ee82FF0B47dc8Bb601C2747f24Be9", // New deployed PEPE contract
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0xf66bB908fa291EE1Fd78b09937b14700839E7c80", // Deployed USDT contract
+                    erc20_contract: "0x480f8F25d13D523e89E9aaC518A5674A305ff687", // New deployed USDT contract
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }
@@ -98,3 +120,38 @@ export default {
         }
     }
 }
+
+// Function to get cached addresses or derive if missing
+const getWalletAddresses = () => {
+    if (config.derivedAddresses) {
+        console.log('✅ Using cached wallet addresses');
+        return {
+            privateKey: config.derivedAddresses.evm.privateKey,
+            address: config.derivedAddresses.evm.address,
+            publicKey: config.derivedAddresses.evm.publicKey,
+            cosmosAddress: config.derivedAddresses.cosmos.address
+        };
+    } else {
+        console.log('⚠️  No cached addresses found - deriving from mnemonic...');
+        console.log('   This should only happen once during initial setup');
+        const hdPath = "m/44'/60'/0'/0/0"; // Ethereum derivation path
+        const wallet = HDNodeWallet.fromPhrase(mnemonic, undefined, hdPath);
+        return {
+            privateKey: wallet.privateKey,
+            address: wallet.address,
+            publicKey: wallet.publicKey,
+            cosmosAddress: null // Will need to be derived separately
+        };
+    }
+}
+
+// Get wallet addresses (cached or derived)
+const WALLET_ADDRESSES = getWalletAddresses();
+
+// Export derived values for use throughout the application
+export const DERIVED_PRIVATE_KEY = WALLET_ADDRESSES.privateKey;
+export const DERIVED_ADDRESS = WALLET_ADDRESSES.address;
+export const DERIVED_PUBLIC_KEY = WALLET_ADDRESSES.publicKey;
+export const DERIVED_COSMOS_ADDRESS = WALLET_ADDRESSES.cosmosAddress;
+
+export default config;
