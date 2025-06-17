@@ -33,17 +33,6 @@ class DeploymentManager {
         this.verbose = options.verbose || false;
     }
 
-    async deriveAndCacheAddresses() {
-        console.log(' Deriving and caching wallet addresses...');
-        
-        try {
-            const { deriveAndCacheAddresses } = await import('./derive-and-cache-addresses.js');
-            await deriveAndCacheAddresses(process.env.MNEMONIC);
-            console.log(' Wallet addresses cached successfully');
-        } catch (error) {
-            throw new Error(`Address derivation failed: ${error.message}`);
-        }
-    }
 
     async validateEnvironment() {
         console.log(' Validating environment...');
@@ -122,8 +111,9 @@ class DeploymentManager {
         console.log(' Deploying AtomicMultiSend contract...');
         
         try {
-            // Import derived private key from config
-            const { getPrivateKey } = await import('../config.js');
+            // Import and initialize secure key manager
+            const { getPrivateKey, initializeSecureKeys } = await import('../config.js');
+            await initializeSecureKeys();
             
             const { stdout } = await execAsync(
                 `PRIVATE_KEY=${getPrivateKey()} forge script script/Deploy${CONFIG.contractName}.s.sol ` +
@@ -174,8 +164,8 @@ class DeploymentManager {
             const configPath = CONFIG.configFile;
             let configContent = fs.readFileSync(configPath, 'utf8');
             
-            // Replace contract address using regex
-            const addressRegex = /atomicMultiSend:\s*"0x[a-fA-F0-9]{40}"/;
+            // Replace contract address using regex (handles both env var and direct address patterns)
+            const addressRegex = /atomicMultiSend:\s*(?:process\.env\.ATOMIC_MULTISEND_CONTRACT\s*\|\|\s*)?(?:"0x[a-fA-F0-9]{40}"|null)/;
             const newAddressLine = `atomicMultiSend: "${contractAddress}"`;
             
             if (addressRegex.test(configContent)) {
@@ -346,7 +336,6 @@ class DeploymentManager {
         
         try {
             await this.validateEnvironment();
-            await this.deriveAndCacheAddresses();
             await this.cleanBuildArtifacts();
             await this.deployTokenRegistry();
             await this.compileContracts();
