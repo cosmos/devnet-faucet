@@ -139,6 +139,7 @@ test-*.js
 debug-*.js
 check-*.js
 approve-*.js
+temp-*.json
 .claude/
 
 # Reports with timestamps
