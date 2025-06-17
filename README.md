@@ -1,15 +1,12 @@
-# Cosmos EVM Faucet - Technical Setup & Operations Guide
+# Cosmos EVM Faucet - Setup & Operations
 
-A production-ready, automated multi-token faucet for Cosmos EVM networks with secure key management, dual address support, and fully automated deployment pipeline.
+## Prerequisites
 
-## Prerequisites & Dependencies
+**Required Software:**
+- Node.js >= 18.0.0
+- Foundry (latest version)
 
-### Required Software
-- **Node.js** >= 18.0.0
-- **Foundry** (latest version)
-- **Git** for repository management
-
-### Installation Commands
+**Installation:**
 ```bash
 # Install Foundry
 curl -L https://foundry.paradigm.xyz | bash
@@ -20,9 +17,9 @@ node --version
 forge --version
 ```
 
-## Environment Setup
+## Setup
 
-### 1. Clone and Install Dependencies
+### 1. Install Dependencies
 ```bash
 git clone <repository-url>
 cd cdev-faucet
@@ -34,12 +31,12 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your configuration:
+Edit `.env`:
 ```bash
-# CRITICAL: Set mnemonic as environment variable, never commit to git
-export MNEMONIC="your twelve word mnemonic phrase here"
+# Required
+MNEMONIC="your twelve word mnemonic phrase here"
 
-# Contract addresses (auto-populated during deployment)
+# Contract addresses (set after deployment)
 ATOMIC_MULTISEND_CONTRACT="0x..."
 WBTC_CONTRACT="0x..."
 PEPE_CONTRACT="0x..."
@@ -47,12 +44,12 @@ USDT_CONTRACT="0x..."
 ```
 
 ### 3. Network Configuration
-Edit `config.js` for your target network:
+Edit `config.js`:
 ```javascript
 blockchain: {
     ids: {
-        chainId: 262144,                    // EVM chain ID
-        cosmosChainId: 'cosmos_262144-1',   // Cosmos chain ID
+        chainId: 262144,
+        cosmosChainId: 'cosmos_262144-1',
     },
     endpoints: {
         rpc_endpoint: "https://cevm-01-rpc.dev.skip.build",
@@ -64,224 +61,99 @@ blockchain: {
 }
 ```
 
-## Automated Deployment Process
+## Deployment
 
-### Quick Deployment (Recommended)
+### Automated (Recommended)
 ```bash
-# Complete automated deployment
-npm run deploy
-
-# Start faucet server
-npm start
+npm run deploy  # Deploy contracts and configure system
+npm start       # Start faucet server
 ```
 
-### Deployment Pipeline Overview
-The automated deployment script (`scripts/automated-deploy.js`) executes:
-
-1. **Environment Validation**
-   - Verifies Node.js and Foundry versions
-   - Tests RPC connectivity
-   - Validates mnemonic format
-
-2. **Secure Key Derivation**
-   - Derives EVM and Cosmos addresses using eth_secp256k1
-   - Caches addresses in config (public keys only)
-   - Never writes private keys to disk
-
-3. **Contract Compilation & Deployment**
-   - Uses pure Foundry workflow (optimized for minimal dependencies)
-   - Deploys ERC20 tokens with faucet as initial owner
-   - Deploys AtomicMultiSend contract for atomic transfers
-
-4. **Configuration Updates**
-   - Updates config.js with deployed contract addresses
-   - Sets appropriate token approvals
-   - Generates deployment report
-
-### Manual Deployment Steps (if needed)
+### Manual Steps
 ```bash
-# Validate environment only
-npm run validate
-
-# Compile contracts only
-forge build
-
-# Deploy tokens with Foundry
-forge script script/DeployAll.s.sol --rpc-url $RPC_URL --broadcast
-
-# Set token approvals
-npm run approve-tokens
+npm run validate              # Validate environment
+forge build                   # Compile contracts
+npm run approve-tokens        # Set token approvals
 ```
 
-## Token Configuration System
+## Token Configuration
 
-### Current Token Setup
-The faucet deploys three ERC20 tokens with the following configuration:
+**Current Tokens:**
+| Token | Symbol | Decimals | Target Balance |
+|-------|---------|-----------|----------------|
+| Wrapped Bitcoin | WBTC | 8 | 1,000 |
+| Pepe Token | PEPE | 18 | 1,000 |
+| Tether USD | USDT | 6 | 1,000 |
 
-| Token | Symbol | Decimals | Initial Supply | Target Balance |
-|-------|---------|-----------|---------------|----------------|
-| Wrapped Bitcoin | WBTC | 8 | 1,000,000 | 1,000 |
-| Pepe Token | PEPE | 18 | 100,000,000 | 1,000 |
-| Tether USD | USDT | 6 | 1,000,000 | 1,000 |
-
-### Adding/Modifying Tokens
-1. Create new token contract in `src/tokens/`
-2. Add to deployment script in `script/DeployAll.s.sol`
+**Adding Tokens:**
+1. Create contract in `src/tokens/`
+2. Add to `script/DeployAll.s.sol`
 3. Update `config.js` amounts array
-4. Add environment variable for contract address
+4. Add environment variable
 
-Example token configuration:
-```javascript
-{
-    denom: "newtoken",
-    amount: "1000000000000000000000", // 1000 tokens (18 decimals)
-    erc20_contract: process.env.NEWTOKEN_CONTRACT,
-    decimals: 18,
-    target_balance: "1000000000000000000000"
-}
-```
+## Operations
 
-## Security Implementation
-
-### Key Management
-- **Mnemonic Security**: Never stored in files, only environment variables
-- **Key Derivation**: Uses standard eth_secp256k1 path `m/44'/60'/0'/0/0`
-- **Runtime Security**: Private keys exist only in memory during operation
-- **Address Validation**: Startup validation ensures derived addresses match cached values
-
-### Contract Security
-- **ReentrancyGuard**: Protects against reentrancy attacks
-- **Atomic Transfers**: All token transfers are atomic (all succeed or all fail)
-- **Access Controls**: Faucet wallet owns all deployed tokens
-- **Rate Limiting**: IP and address-based limits prevent abuse
-
-## Foundry Optimization
-
-### Minimal Dependencies
-The project uses an optimized Foundry setup that:
-- Only includes required OpenZeppelin contracts
-- Uses pure Foundry workflow (no Hardhat/Node.js mixing)
-- Optimized compilation settings for production
-- Minimal library dependencies stored in git
-
-### Build Configuration (`foundry.toml`)
-```toml
-[profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
-remappings = [
-    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-    "forge-std/=lib/forge-std/src/",
-]
-optimizer = true
-optimizer_runs = 200
-```
-
-## Operation & Monitoring
-
-### Startup Process
-1. **Secure Key Initialization**: Derives addresses from mnemonic
-2. **Address Validation**: Compares derived vs cached addresses
-3. **Contract Connection**: Validates contract addresses and connectivity
-4. **Rate Limit Database**: Initializes SQLite database for request tracking
+### Server Startup
+1. Derives addresses from mnemonic
+2. Validates cached addresses
+3. Connects to contracts
+4. Initializes rate limiting database
 
 ### API Endpoints
-- `GET /` - Web interface for manual token requests
-- `GET /send/:address` - Programmatic token request (Cosmos or EVM address)
-- `GET /config.json` - Network configuration for wallet setup
-- `GET /balance/:type` - Balance queries for monitoring
-
-### Smart Distribution Logic
-1. Query recipient's current token balances
-2. Calculate needed amounts to reach target balances
-3. Execute atomic multi-token transfer for only needed amounts
-4. Skip tokens where recipient already has sufficient balance
+- `GET /` - Web interface
+- `GET /send/:address` - Request tokens (Cosmos or EVM address)
+- `GET /config.json` - Network configuration
+- `GET /balance/:type` - Balance queries
 
 ### Rate Limiting
-- **Per Address**: 1 request per 24 hours
-- **Per IP**: 10 requests per 24 hours
-- **Database**: SQLite stored in `.faucet/history.db`
+- 1 request per address per 24 hours
+- 10 requests per IP per 24 hours
+- Database: `.faucet/history.db`
 
 ## Production Deployment
 
-### Vercel Deployment
+### Vercel
 1. Connect repository to Vercel
-2. Set environment variables in Vercel dashboard:
+2. Set environment variables:
    ```
-   MNEMONIC=<your_mnemonic_phrase>
+   MNEMONIC=<mnemonic_phrase>
    ATOMIC_MULTISEND_CONTRACT=0x...
    WBTC_CONTRACT=0x...
    PEPE_CONTRACT=0x...
    USDT_CONTRACT=0x...
+   NODE_ENV=production
    ```
-3. Deploy using `vercel.json` configuration
-
-### Environment Variables for Production
-```bash
-# Required
-MNEMONIC="twelve word mnemonic phrase"
-
-# Contract addresses (set after deployment)
-ATOMIC_MULTISEND_CONTRACT="0x..."
-WBTC_CONTRACT="0x..."
-PEPE_CONTRACT="0x..."
-USDT_CONTRACT="0x..."
-
-# Optional
-NODE_ENV=production
-PORT=8088
-```
+3. Deploy
 
 ## Troubleshooting
 
-### Common Issues
-
-#### Deployment Failures
+### Deployment Issues
 ```bash
-# Check environment
-npm run validate
-
-# Common fixes
-export MNEMONIC="valid twelve word phrase"
-forge install
-forge build
+npm run validate                    # Check environment
+export MNEMONIC="valid phrase"      # Set mnemonic
+forge install && forge build       # Rebuild contracts
 ```
 
-#### Runtime Issues
+### Runtime Issues
 - **Address Validation Failed**: Mnemonic changed since deployment
-- **Contract Not Found**: Update contract addresses in environment variables
-- **RPC Connection**: Verify endpoint URLs and network connectivity
-- **Gas Estimation**: Ensure faucet wallet has native tokens for gas
+- **Contract Not Found**: Update environment variables
+- **RPC Connection**: Verify endpoint URLs
+- **Gas Issues**: Fund faucet wallet with native tokens
 
-#### Token Transfer Failures
+### Token Transfer Issues
 - **Insufficient Allowance**: Run `npm run approve-tokens`
-- **Insufficient Balance**: Fund faucet wallet with tokens
-- **Network Issues**: Check RPC endpoint connectivity
+- **Insufficient Balance**: Fund faucet wallet
+- **Network Issues**: Check RPC connectivity
 
-### Monitoring & Maintenance
-- **Log Monitoring**: All sensitive data is sanitized from logs
-- **Balance Monitoring**: Regularly check faucet token balances
-- **Rate Limit Database**: Stored in `.faucet/history.db`, auto-resets
-- **Address Derivation**: Validate cached addresses on startup
+## Monitoring
 
-## File Structure
-```
-├── config.js                     # Main configuration with environment variables
-├── faucet.js                     # Main server with secure key management
-├── src/
-│   ├── SecureKeyManager.js       # Secure key derivation and management
-│   ├── tokens/                   # ERC20 token contracts
-│   └── AtomicMultiSend.sol       # Multi-token transfer contract
-├── scripts/
-│   ├── automated-deploy.js       # Complete deployment automation
-│   ├── derive-and-cache-addresses.js  # Address derivation utility
-│   └── deployment/               # Foundry deployment modules
-├── script/                       # Foundry deployment scripts
-├── views/                        # Web interface templates
-├── .env.example                  # Environment variable template
-└── deployments/                  # Contract ABIs and deployment records
-```
+**Required Checks:**
+- Faucet token balances
+- RPC endpoint connectivity
+- Rate limit database size
+- Log files for errors
 
-## License
-MIT
+**Log Locations:**
+- Server logs: console output
+- Rate limiting: `.faucet/history.db`
+- All sensitive data sanitized from logs
