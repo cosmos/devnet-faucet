@@ -302,11 +302,13 @@
               <span v-if="recentTransactions.length" class="badge bg-primary ms-1">{{recentTransactions.length}}</span>
             </button>
           </li>
+          <!-- WATOM Wrap/Unwrap Tab - Hidden for production
           <li class="nav-item" role="presentation">
             <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
               <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
             </button>
           </li>
+          -->
         </ul>
 
         <div class="tab-content">
@@ -593,7 +595,7 @@
             </div>
           </div>
 
-          <!-- WATOM Wrap/Unwrap Tab -->
+          <!-- WATOM Wrap/Unwrap Tab - Hidden for production
           <div class="tab-pane fade" id="watom" role="tabpanel">
             <div class="card">
               <div class="card-header">
@@ -770,6 +772,7 @@
               </div>
             </div>
           </div>
+          -->
 
           <!-- Recent Transactions Tab -->
           <div class="tab-pane fade" id="recent" role="tabpanel">
@@ -1042,15 +1045,15 @@
             recentTransactions: [],
             isLoading: false,
             selectedTransaction: null,
-            // WATOM related data
-            wrapAmount: '',
-            unwrapAmount: '',
-            nativeBalance: '0',
-            watomBalance: '0',
-            isWrapping: false,
-            isUnwrapping: false,
-            watomTransactions: [],
-            watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
+            // WATOM related data - Hidden for production
+            // wrapAmount: '',
+            // unwrapAmount: '',
+            // nativeBalance: '0',
+            // watomBalance: '0',
+            // isWrapping: false,
+            // isUnwrapping: false,
+            // watomTransactions: [],
+            // watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
             // Wallet connection state
             cosmosWallet: {
               connected: false,
@@ -1683,7 +1686,8 @@
             }).format(date);
           },
 
-          // WATOM wrapping/unwrapping methods
+          // WATOM wrapping/unwrapping methods - Hidden for production
+          /*
           async loadWatomBalances() {
             // Use global EVM wallet state
             if (!this.evmWallet.connected || !this.evmWallet.address) {
@@ -1890,6 +1894,7 @@
               this.watomTransactions = JSON.parse(stored);
             }
           },
+          */
 
           getExplorerUrl(txHash) {
             return `${this.networkConfig.evm.explorer || 'https://cevm-01-explorer.dev.skip.build'}/tx/${txHash}`;
