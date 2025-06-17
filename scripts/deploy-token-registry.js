@@ -261,8 +261,18 @@ ${constructorBody.join('\n')}
     async deployTokens() {
         console.log(' Deploying tokens...');
         
-        for (const token of this.registry.tokens) {
+        // Deploy tokens sequentially with nonce management
+        for (let i = 0; i < this.registry.tokens.length; i++) {
+            const token = this.registry.tokens[i];
+            console.log(`\n[${i + 1}/${this.registry.tokens.length}] Deploying ${token.symbol}...`);
+            
             await this.deployToken(token);
+            
+            // Wait for the transaction to be confirmed before proceeding
+            if (i < this.registry.tokens.length - 1) {
+                console.log(' Waiting 5 seconds before next deployment...');
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
         }
         
         console.log(' All tokens deployed');
@@ -280,7 +290,11 @@ ${constructorBody.join('\n')}
             
             const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
             
-            // Deploy contract
+            // Get current nonce for sequential deployment
+            const currentNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+            console.log(`   Using nonce: ${currentNonce}`);
+            
+            // Deploy contract with explicit nonce
             const contractFactory = new ethers.ContractFactory(
                 artifact.abi,
                 artifact.bytecode.object,
@@ -289,8 +303,14 @@ ${constructorBody.join('\n')}
             
             const ownerAddress = secureKeyManager.getEvmAddress();
             console.log(`   Deploying with owner: ${ownerAddress}`);
-            const contract = await contractFactory.deploy(ownerAddress);
-            await contract.waitForDeployment();
+            
+            const deployTx = await contractFactory.deploy(ownerAddress, {
+                nonce: currentNonce,
+                gasLimit: 2000000
+            });
+            
+            console.log(`   Transaction hash: ${deployTx.deploymentTransaction()?.hash}`);
+            const contract = await deployTx.waitForDeployment();
             
             const deployedAddress = await contract.getAddress();
             console.log(`   ${token.symbol} deployed at: ${deployedAddress}`);
@@ -336,7 +356,30 @@ ${constructorBody.join('\n')}
     async updateConfigWithDeployments() {
         console.log('  Updating configuration with deployed addresses...');
         
-        // Update config.js with new token addresses
+        // Update tokens.json with new contract addresses
+        const tokensPath = path.join(process.cwd(), 'tokens.json');
+        let tokensConfig = JSON.parse(fs.readFileSync(tokensPath, 'utf8'));
+        
+        // Update each token's contract address in tokens.json
+        for (const deployment of this.deploymentResults) {
+            const tokenEntry = tokensConfig.tokens.find(t => t.symbol === deployment.symbol);
+            if (tokenEntry) {
+                tokenEntry.contract.address = deployment.address;
+                tokenEntry.contract.deploymentBlock = deployment.deploymentBlock;
+                tokenEntry.contract.deploymentTransaction = deployment.transactionHash;
+                tokenEntry.contract.deployer = secureKeyManager.getEvmAddress();
+                tokenEntry.metadata.lastUpdated = new Date().toISOString();
+                console.log(`  Updated ${deployment.symbol}: ${deployment.address}`);
+            }
+        }
+        
+        // Update metadata
+        tokensConfig.meta.updatedAt = new Date().toISOString();
+        
+        // Write updated tokens.json
+        fs.writeFileSync(tokensPath, JSON.stringify(tokensConfig, null, 2));
+        
+        // Update config.js with new token addresses (legacy support)
         let configContent = fs.readFileSync('config.js', 'utf8');
         
         // Update each token contract address in config.js
@@ -362,7 +405,7 @@ ${constructorBody.join('\n')}
         this.registry.meta.updatedAt = new Date().toISOString();
         fs.writeFileSync('token-registry.json', JSON.stringify(this.registry, null, 2));
         
-        console.log(' Configuration updated');
+        console.log(' Configuration updated in both tokens.json and config.js');
     }
 
     async saveDeploymentReport() {
