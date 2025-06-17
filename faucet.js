@@ -1390,7 +1390,7 @@ async function verifyTransaction(txResult, addressType) {
             gas_used: txResult.gasUsed,
             gas_wanted: txResult.gasWanted,
             tx_response: detailJson.tx_response || null,
-            explorer_url: `https://explorer.skip.build/transactions/${txResult.transactionHash}`, // Cosmos explorer
+            rest_api_url: `${rest}/cosmos/tx/v1beta1/txs/${txResult.transactionHash}`, // REST API for transaction details
             transfers: txResult.transfers || []
           };
         } catch (_) {
@@ -1403,7 +1403,7 @@ async function verifyTransaction(txResult, addressType) {
             block_height: txResult.height,
             gas_used: txResult.gasUsed,
             gas_wanted: txResult.gasWanted,
-            explorer_url: `https://explorer.skip.build/transactions/${txResult.transactionHash}`,
+            rest_api_url: `${conf.blockchain.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs/${txResult.transactionHash}`,
             transfers: txResult.transfers || []
           };
         }
@@ -1413,7 +1413,7 @@ async function verifyTransaction(txResult, addressType) {
           message: `Transaction failed: ${txResult.rawLog}`,
           network_type: "cosmos",
           transaction_hash: txResult.transactionHash,
-          explorer_url: `https://explorer.skip.build/transactions/${txResult.transactionHash}`
+          rest_api_url: `${conf.blockchain.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs/${txResult.transactionHash}`
         };
       }
     } else if (addressType === 'evm') {
@@ -1468,14 +1468,14 @@ async function verifyTransaction(txResult, addressType) {
     const hash = txResult.hash || txResult.transactionHash || "unknown";
     const explorerUrl = addressType === 'evm' && hash !== "unknown" ? 
       `${conf.blockchain.endpoints.evm_explorer}/tx/${hash}` : 
-      (addressType === 'cosmos' && hash !== "unknown" ? `https://explorer.skip.build/transactions/${hash}` : null);
+      (addressType === 'cosmos' && hash !== "unknown" ? `${conf.blockchain.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs/${hash}` : null);
     
     return {
       code: 1,
       message: `Verification failed: ${error.message}`,
       network_type: addressType,
       transaction_hash: hash,
-      explorer_url: explorerUrl
+      [addressType === 'evm' ? 'explorer_url' : 'rest_api_url']: explorerUrl
     };
   }
 }

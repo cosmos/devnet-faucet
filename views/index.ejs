@@ -973,14 +973,64 @@
                 <div class="mt-1">
                   <code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; word-break: break-all;">{{selectedTransaction.hash}}</code>
                   <a v-if="getTransactionExplorerUrl(selectedTransaction)" :href="getTransactionExplorerUrl(selectedTransaction)" target="_blank" class="btn btn-outline-primary btn-sm ms-2 mt-1">
-                    <i class="fas fa-external-link-alt me-1"></i>View on Explorer
+                    <i class="fas fa-external-link-alt me-1"></i>{{getTransactionExplorerLabel(selectedTransaction)}}
                   </a>
                 </div>
               </div>
               
-              <!-- Blockchain Data -->
-              <div v-if="getBlockchainData(selectedTransaction)" class="mb-3">
-                <h6 class="text-primary mb-2">Blockchain Transaction Data</h6>
+              <!-- Cosmos Transaction Details -->
+              <div v-if="selectedTransaction.data?.result?.network_type === 'cosmos'" class="mb-3">
+                <h6 class="text-primary mb-2">Cosmos Transaction Details</h6>
+                
+                <!-- Important Cosmos Data -->
+                <div v-if="getCosmosImportantData(selectedTransaction)" class="mb-3">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-dark">
+                      <tbody>
+                        <tr>
+                          <td style="color: var(--text-secondary);">Block Height:</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).block_height}}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: var(--text-secondary);">Gas Used / Wanted:</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).gas_used}} / {{getCosmosImportantData(selectedTransaction).gas_wanted}}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: var(--text-secondary);">Code:</td>
+                          <td><span class="badge" :class="getCosmosImportantData(selectedTransaction).code === 0 ? 'bg-success' : 'bg-danger'">{{getCosmosImportantData(selectedTransaction).code}}</span></td>
+                        </tr>
+                        <tr v-if="getCosmosImportantData(selectedTransaction).timestamp">
+                          <td style="color: var(--text-secondary);">Timestamp:</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).timestamp}}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: var(--text-secondary);">Events:</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).events_count}} event(s)</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                <!-- Toggle for Full JSON -->
+                <div class="text-center mb-3">
+                  <button class="btn btn-outline-secondary btn-sm" @click="showFullCosmosJson = !showFullCosmosJson">
+                    <i class="fas" :class="showFullCosmosJson ? 'fa-eye-slash' : 'fa-eye'"></i>
+                    {{showFullCosmosJson ? 'Hide' : 'Show'}} Full REST API Response
+                  </button>
+                </div>
+                
+                <!-- Full JSON (collapsible) -->
+                <div v-if="showFullCosmosJson && getFullCosmosData(selectedTransaction)" class="mb-3">
+                  <div class="p-3 rounded border" style="max-height: 400px; overflow-y: auto; background: var(--bg-primary); border-color: var(--border-color) !important;">
+                    <pre class="mb-0" style="color: var(--text-primary); font-size: 0.7rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getFullCosmosData(selectedTransaction), null, 2)}}</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- EVM Transaction Data -->
+              <div v-else-if="getBlockchainData(selectedTransaction)" class="mb-3">
+                <h6 class="text-primary mb-2">EVM Transaction Data</h6>
                 <div class="p-3 rounded border" style="max-height: 400px; overflow-y: auto; background: var(--bg-primary); border-color: var(--border-color) !important;">
                   <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
                 </div>
@@ -1044,6 +1094,7 @@
             recentTransactions: [],
             isLoading: false,
             selectedTransaction: null,
+            showFullCosmosJson: false,
             // WATOM related data - Hidden for production
             // wrapAmount: '',
             // unwrapAmount: '',
@@ -1617,6 +1668,7 @@
 
           showTransactionDetails(tx) {
             this.selectedTransaction = tx;
+            this.showFullCosmosJson = false; // Reset JSON view when opening new transaction
           },
 
           getBlockchainData(tx) {
@@ -1635,19 +1687,34 @@
             if (result.gas_used) {
               blockchainData.gas_used = result.gas_used;
             }
+            if (result.gas_wanted) {
+              blockchainData.gas_wanted = result.gas_wanted;
+            }
             
             // Add network-specific data
-            if (result.network_type === 'cosmos' && result.tx_response) {
-              blockchainData.cosmos_transaction = {
-                height: result.tx_response.height,
-                gas_wanted: result.tx_response.gas_wanted,
-                gas_used: result.tx_response.gas_used,
-                code: result.tx_response.code,
-                codespace: result.tx_response.codespace,
-                events: result.tx_response.events || [],
-                raw_log: result.tx_response.raw_log
-              };
+            if (result.network_type === 'cosmos') {
+              blockchainData.network_type = 'cosmos';
+              if (result.rest_api_url) {
+                blockchainData.rest_api_url = result.rest_api_url;
+              }
+              
+              if (result.tx_response) {
+                blockchainData.cosmos_details = {
+                  height: result.tx_response.height,
+                  gas_wanted: result.tx_response.gas_wanted,
+                  gas_used: result.tx_response.gas_used,
+                  code: result.tx_response.code,
+                  codespace: result.tx_response.codespace,
+                  timestamp: result.tx_response.timestamp,
+                  info: result.tx_response.info,
+                  events_count: (result.tx_response.events || []).length
+                };
+                
+                // Store full response for optional viewing
+                blockchainData.full_cosmos_response = result.tx_response;
+              }
             } else if (result.network_type === 'evm' && result.evm_tx_data) {
+              blockchainData.network_type = 'evm';
               blockchainData.evm_transaction = {
                 hash: result.evm_tx_data.hash,
                 blockNumber: result.evm_tx_data.blockNumber,
@@ -1666,6 +1733,26 @@
             return Object.keys(blockchainData).length > 0 ? blockchainData : null;
           },
 
+          getCosmosImportantData(tx) {
+            const result = tx?.data?.result;
+            if (!result || result.network_type !== 'cosmos') return null;
+            
+            return {
+              block_height: result.block_height,
+              gas_used: result.gas_used,
+              gas_wanted: result.gas_wanted,
+              code: result.tx_response?.code,
+              timestamp: result.tx_response?.timestamp,
+              events_count: (result.tx_response?.events || []).length
+            };
+          },
+
+          getFullCosmosData(tx) {
+            const result = tx?.data?.result;
+            if (!result || result.network_type !== 'cosmos') return null;
+            return result.tx_response || null;
+          },
+
           getTransferData(tx) {
             if (!tx || !tx.data || !tx.data.result) return null;
             return tx.data.result.transfers || null;
@@ -1673,7 +1760,14 @@
 
           getTransactionExplorerUrl(tx) {
             if (!tx || !tx.data || !tx.data.result) return null;
-            return tx.data.result.explorer_url || null;
+            return tx.data.result.explorer_url || tx.data.result.rest_api_url || null;
+          },
+
+          getTransactionExplorerLabel(tx) {
+            if (!tx || !tx.data || !tx.data.result) return 'View';
+            if (tx.data.result.explorer_url) return 'View on Explorer';
+            if (tx.data.result.rest_api_url) return 'View REST API';
+            return 'View';
           },
 
           formatDate(date) {
