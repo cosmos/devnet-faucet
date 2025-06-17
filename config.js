@@ -4,7 +4,16 @@ import secureKeyManager from './src/SecureKeyManager.js';
 
 const config = {
     port: 8088, 
-    derivedAddresses: {},
+    derivedAddresses: {
+        "evm": {
+            "address": "0x42e6047c5780b103e52265f6483c2d0113aa6b87",
+            "publicKey": "0x031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
+        },
+        "cosmos": {
+            "address": "cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz",
+            "publicKey": "031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
+        }
+    },
     // http port
     db: {
         path: ".faucet/history.db" // save request states
