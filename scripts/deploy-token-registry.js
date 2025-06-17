@@ -82,7 +82,7 @@ class TokenRegistryDeployer {
         const imports = this.getRequiredImports(token.features);
         const inheritance = this.getContractInheritance(token.features);
         const constructor = this.buildConstructor(token);
-        const features = this.buildFeatures(token.features);
+        const features = this.buildFeatures(token.features, token);
         
         return `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -203,8 +203,16 @@ ${constructorBody.join('\n')}
     }`;
     }
 
-    buildFeatures(features) {
+    buildFeatures(features, token) {
         const featureFunctions = [];
+
+        // Add decimals override if not 18 (ERC20 default)
+        if (token.decimals && token.decimals !== 18) {
+            featureFunctions.push(`
+    function decimals() public view virtual override returns (uint8) {
+        return ${token.decimals};
+    }`);
+        }
 
         if (features.mintable) {
             featureFunctions.push(`
