@@ -1227,7 +1227,10 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
 
     // Load ABI
     const fs = await import('fs');
-    const atomicMultiSendABI = JSON.parse(fs.readFileSync('./deployments/AtomicMultiSend.abi.json', 'utf8'));
+    const path = await import('path');
+    const abiPath = path.join(process.cwd(), 'deployments', 'AtomicMultiSend.abi.json');
+    console.log(`Loading ABI from: ${abiPath}`);
+    const atomicMultiSendABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
     const atomicMultiSend = new Contract(atomicMultiSendAddress, atomicMultiSendABI, wallet);
 
     // Prepare transfer array for the contract
