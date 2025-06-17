@@ -120,10 +120,10 @@ class DeploymentManager {
         
         try {
             // Import derived private key from config
-            const { DERIVED_PRIVATE_KEY } = await import('../config.js');
+            const { getPrivateKey } = await import('../config.js');
             
             const { stdout } = await execAsync(
-                `PRIVATE_KEY=${DERIVED_PRIVATE_KEY} forge script script/Deploy${CONFIG.contractName}.s.sol ` +
+                `PRIVATE_KEY=${getPrivateKey()} forge script script/Deploy${CONFIG.contractName}.s.sol ` +
                 `--rpc-url ${CONFIG.rpcUrl} ` +
                 `--broadcast ` +
                 `--skip-simulation`

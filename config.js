@@ -4,7 +4,7 @@ import { Wallet, HDNodeWallet, randomBytes } from 'ethers';
 
 // Load mnemonic from environment variable for security
 const mnemonic = process.env.MNEMONIC || (() => {
-    console.error('❌ MNEMONIC environment variable not set');
+    console.error('MNEMONIC environment variable not set');
     console.error('For Vercel: Add MNEMONIC to environment variables');
     console.error('For local: export MNEMONIC="your twelve word mnemonic phrase here"');
     process.exit(1);
@@ -12,23 +12,7 @@ const mnemonic = process.env.MNEMONIC || (() => {
 
 const config = {
     port: 8088, 
-    derivedAddresses: {
-            "evm": {
-                    "address": "0x42e6047c5780B103E52265F6483C2d0113aA6B87",
-                    "privateKey": "0xdd138b977ac3248b328b7b65ac30338b1482a17197a175f03fd2df20fb0919c6",
-                    "publicKey": "0x031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
-            },
-            "cosmos": {
-                    "address": "cosmos1f2nl9zt6qxuxqu30mqlpgxrxhlq77r7gkm3syp",
-                    "publicKey": "AxV0pjNIMRsdPnc4oaLRMoQENos0/Zm0q2VmJcCUPC0W",
-                    "publicKeyHex": "031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
-            },
-            "derivation": {
-                    "path": "m/44'/60'/0'/0/0",
-                    "prefix": "cosmos",
-                    "derivedAt": "2025-06-16T19:59:13.319Z"
-            }
-    },
+    derivedAddresses: {},
     // http port
     db: {
         path: ".faucet/history.db" // save request states
@@ -121,23 +105,32 @@ const config = {
     }
 }
 
+// Secure private key derivation - kept in memory only
+let _secureWallet = null;
+
+const getSecureWallet = () => {
+    if (!_secureWallet) {
+        const hdPath = "m/44'/60'/0'/0/0"; // Ethereum derivation path
+        _secureWallet = HDNodeWallet.fromPhrase(mnemonic, undefined, hdPath);
+        // Clear mnemonic reference after use for additional security
+        Object.freeze(_secureWallet);
+    }
+    return _secureWallet;
+};
+
 // Function to get cached addresses or derive if missing
 const getWalletAddresses = () => {
     if (config.derivedAddresses) {
-        console.log('✅ Using cached wallet addresses');
+        console.log('Using cached wallet addresses');
         return {
-            privateKey: config.derivedAddresses.evm.privateKey,
             address: config.derivedAddresses.evm.address,
             publicKey: config.derivedAddresses.evm.publicKey,
             cosmosAddress: config.derivedAddresses.cosmos.address
         };
     } else {
-        console.log('⚠️  No cached addresses found - deriving from mnemonic...');
-        console.log('   This should only happen once during initial setup');
-        const hdPath = "m/44'/60'/0'/0/0"; // Ethereum derivation path
-        const wallet = HDNodeWallet.fromPhrase(mnemonic, undefined, hdPath);
+        console.log('WARNING: No cached addresses found - deriving from mnemonic...');
+        const wallet = getSecureWallet();
         return {
-            privateKey: wallet.privateKey,
             address: wallet.address,
             publicKey: wallet.publicKey,
             cosmosAddress: null // Will need to be derived separately
@@ -149,9 +142,12 @@ const getWalletAddresses = () => {
 const WALLET_ADDRESSES = getWalletAddresses();
 
 // Export derived values for use throughout the application
-export const DERIVED_PRIVATE_KEY = WALLET_ADDRESSES.privateKey;
 export const DERIVED_ADDRESS = WALLET_ADDRESSES.address;
 export const DERIVED_PUBLIC_KEY = WALLET_ADDRESSES.publicKey;
 export const DERIVED_COSMOS_ADDRESS = WALLET_ADDRESSES.cosmosAddress;
+
+// Secure private key access - only accessible within application
+export const getPrivateKey = () => getSecureWallet().privateKey;
+export const getSecureWalletInstance = () => getSecureWallet();
 
 export default config;

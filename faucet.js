@@ -21,7 +21,7 @@ import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import { BIP32Factory } from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 
-import conf, { DERIVED_ADDRESS, DERIVED_PRIVATE_KEY, DERIVED_PUBLIC_KEY, DERIVED_COSMOS_ADDRESS } from './config.js'
+import conf, { DERIVED_ADDRESS, getPrivateKey, DERIVED_PUBLIC_KEY, DERIVED_COSMOS_ADDRESS } from './config.js'
 import { FrequencyChecker } from './checker.js';
 
 const { MNEMONIC } = process.env;
@@ -373,7 +373,7 @@ app.get('/config.json', async (req, res) => {
   const chainConf = conf.blockchain
 
   // Create EVM wallet to get the correct addresses
-  const evmWallet = { address: DERIVED_ADDRESS, privateKey: DERIVED_PRIVATE_KEY };
+  const evmWallet = { address: DERIVED_ADDRESS, privateKey: getPrivateKey() };
   sample.evm = evmWallet.address;
   sample.cosmos = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
@@ -453,7 +453,7 @@ app.get('/balance/:type', async (req, res) => {
       if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
         targetAddress = address;
       } else {
-        const wallet = { address: DERIVED_ADDRESS, privateKey: DERIVED_PRIVATE_KEY };
+        const wallet = { address: DERIVED_ADDRESS, privateKey: getPrivateKey() };
         targetAddress = wallet.address;
       }
 
@@ -624,7 +624,7 @@ app.listen(conf.port, async () => {
 
   // Initialize wallet addresses
   const chainConf = conf.blockchain;
-  const evmWallet = { address: DERIVED_ADDRESS, privateKey: DERIVED_PRIVATE_KEY };
+  const evmWallet = { address: DERIVED_ADDRESS, privateKey: getPrivateKey() };
   const cosmosAddress = DERIVED_COSMOS_ADDRESS || evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
   console.log(`Wallet ready - Cosmos: ${cosmosAddress} | EVM: ${evmWallet.address}`);
@@ -1085,7 +1085,7 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
 
   // 4. Get our manually derived keys for consistency
   // Use cached private key bytes
-  const privateKeyBytes = Buffer.from(DERIVED_PRIVATE_KEY.slice(2), 'hex');
+  const privateKeyBytes = Buffer.from(getPrivateKey().slice(2), 'hex');
   const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes, true); // compressed
 
   // Verify key consistency
@@ -1170,7 +1170,7 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
     const chainConf = conf.blockchain;
     const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
     // Use cached private key to create wallet instance (still need full wallet for provider connection)
-    const walletInstance = new Wallet(DERIVED_PRIVATE_KEY);
+    const walletInstance = new Wallet(getPrivateKey());
     const wallet = walletInstance.connect(ethProvider);
 
     console.log("Sending atomic EVM tokens to:", recipient);

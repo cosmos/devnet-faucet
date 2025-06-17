@@ -10,7 +10,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { ethers } from 'ethers';
-import config, { DERIVED_ADDRESS, DERIVED_PRIVATE_KEY } from '../config.js';
+import config, { DERIVED_ADDRESS, getPrivateKey } from '../config.js';
 
 const execAsync = promisify(exec);
 
@@ -19,7 +19,7 @@ class TokenRegistryDeployer {
         this.registry = null;
         this.deploymentResults = [];
         this.provider = new ethers.JsonRpcProvider(config.blockchain.endpoints.evm_endpoint);
-        this.wallet = new ethers.Wallet(DERIVED_PRIVATE_KEY, this.provider);
+        this.wallet = new ethers.Wallet(getPrivateKey(), this.provider);
     }
 
     async loadRegistry() {

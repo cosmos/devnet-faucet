@@ -11,7 +11,7 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import config from '../../config.js';
+import config, { getPrivateKey } from '../../config.js';
 import { pathToString } from '@cosmjs/crypto';
 
 // Generate deployer wallet from centralized config
@@ -29,7 +29,7 @@ const CONFIG = {
         rpcUrl: config.blockchain.endpoints.evm_endpoint,
     },
     DEPLOYER: {
-        privateKey: deployerWallet.privateKey,
+        privateKey: getPrivateKey(),
         address: deployerWallet.address
     },
     GAS: {
