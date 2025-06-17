@@ -18,17 +18,17 @@ const config = {
         name: "cosmos-evm-chain",
         type: "DualEnvironment", // New type for dual environment support
         ids: {
-            chainId: 262144, // EVM chain ID (0x40000)
-            cosmosChainId: 'cosmos_262144-1', // Cosmos chain ID
+            chainId: 4231, // EVM chain ID 
+            cosmosChainId: 'cosmos_4321-1', // Cosmos chain ID
         },
         endpoints: {
             // Cosmos environment
-            rpc_endpoint: "https://cevm-01-rpc.dev.skip.build",
-            grpc_endpoint: "https://cevm-01-grpc.dev.skip.build",
-            rest_endpoint: "https://cevm-01-lcd.dev.skip.build",
+            rpc_endpoint: "https://devnet-1-rpc.ib.skip.build",
+            grpc_endpoint: "devnet-1-grpc.ib.skip.build:443",
+            rest_endpoint: "https://devnet-1-lcd.ib.skip.build",
             // EVM environment
-            evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
-            evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
+            evm_endpoint: "https://devnet-1-evmrpc.ib.skip.build",
+            evm_websocket: "wss://devnet-1-evmws.ib.skip.build",
             evm_explorer: "https://evm-devnet-1.cloud.blockscout.com",
         },
         // Contract addresses - loaded from environment variables for security
