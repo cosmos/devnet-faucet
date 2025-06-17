@@ -47,10 +47,10 @@ export async function deriveAndCacheAddresses(mnemonic = null) {
         const addressesJson = JSON.stringify(addresses, null, 2);
         
         // Find and replace the derivedAddresses section (handles nested objects)
-        const derivedAddressesRegex = /derivedAddresses:\s*{[\s\S]*?(?=\n\s*},?\s*(?:\/\/.*?)?$)/m;
+        const derivedAddressesRegex = /derivedAddresses:\s*{[\s\S]*?}\s*,/;
         const updatedContent = configContent.replace(
             derivedAddressesRegex,
-            `derivedAddresses: ${addressesJson.replace(/\n/g, '\n    ')}`
+            `derivedAddresses: ${addressesJson.replace(/\n/g, '\n    ')},`
         );
         
         // Write updated config
