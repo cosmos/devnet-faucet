@@ -13,14 +13,16 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import 'dotenv/config'; 
+import configModule from '../config.js';
 
 const execAsync = promisify(exec);
+const config = configModule.default || configModule;
 
 const { MNEMONIC } = process.env;
 
 // Configuration
 const CONFIG = {
-    rpcUrl: 'https://devnet-1-evmrpc.ib.skip.build',
+    rpcUrl: config.blockchain.endpoints.evm_endpoint,
     contractName: 'AtomicMultiSend',
     configFile: 'config.js',
     requiredEnvVars: ['MNEMONIC'] // Only mnemonic needed, private key derived
@@ -77,9 +79,9 @@ class DeploymentManager {
         try {
             const deploymentRecord = {
                 timestamp: new Date().toISOString(),
-                network: 'cosmos-evm-testnet',
-                chainId: 4231,
-                cosmosChainId: '4321',
+                network: config.blockchain.name,
+                chainId: config.blockchain.ids.chainId,
+                cosmosChainId: config.blockchain.ids.cosmosChainId,
                 rpcUrl: CONFIG.rpcUrl,
                 deployer: this.deploymentData?.deployer,
                 contracts: {
@@ -364,7 +366,7 @@ class DeploymentManager {
             // Test 1: EVM workflow - token distribution to fresh EVM address
             console.log(' Test 1: EVM workflow - Token distribution to fresh EVM address');
             const testEvmAddress = '0x1234567890abcdef1234567890abcdef12345678';
-            const { stdout: result1 } = await execAsync(`curl -s "http://localhost:8088/send/${testEvmAddress}"`);
+            const { stdout: result1 } = await execAsync(`curl -s "http://localhost:${config.port}/send/${testEvmAddress}"`);
             const response1 = JSON.parse(result1);
             
             if (response1.result && response1.result.code === 0) {
@@ -379,7 +381,7 @@ class DeploymentManager {
             // Test 2: Cosmos workflow - ATOM distribution to cosmos address
             console.log('\n Test 2: Cosmos workflow - ATOM distribution to cosmos address');
             const testCosmosAddress = 'cosmos170v7axfk7r0ts6ht7zw5er5glankxjdf2me5sa';
-            const { stdout: result2 } = await execAsync(`curl -s "http://localhost:8088/send/${testCosmosAddress}"`);
+            const { stdout: result2 } = await execAsync(`curl -s "http://localhost:${config.port}/send/${testCosmosAddress}"`);
             const response2 = JSON.parse(result2);
             
             if (response2.result && response2.result.code === 0) {

@@ -14,14 +14,9 @@ import secureKeyManager from '../src/SecureKeyManager.js';
 
 const execAsync = promisify(exec);
 
-// Minimal config for token deployment
-const config = {
-    blockchain: {
-        endpoints: {
-            evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build"
-        }
-    }
-};
+// Load network configuration from main config
+import configModule from '../config.js';
+const config = configModule.default || configModule;
 
 class TokenRegistryDeployer {
     constructor() {
@@ -311,6 +306,16 @@ ${constructorBody.join('\n')}
             console.log(`     Decimals: ${decimals}`);
             console.log(`     Total Supply: ${ethers.formatUnits(totalSupply, decimals)}`);
             
+            // Wait a moment and verify the contract exists
+            console.log(`   Waiting 3 seconds for block confirmation...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            const code = await this.provider.getCode(deployedAddress);
+            if (code === '0x') {
+                throw new Error(`Contract not found at ${deployedAddress} after deployment - possible network reorg`);
+            }
+            console.log(`   ✓ Contract verified on-chain`);
+            
             // Store deployment result
             this.deploymentResults.push({
                 name: token.name,
@@ -381,6 +386,32 @@ ${constructorBody.join('\n')}
         console.log(` Deployment report saved: ${reportPath}`);
     }
 
+    async finalVerifyAllContracts() {
+        console.log(' Performing final verification of all deployed contracts...');
+        
+        let allValid = true;
+        for (const deployment of this.deploymentResults) {
+            try {
+                const code = await this.provider.getCode(deployment.address);
+                if (code === '0x') {
+                    console.error(`   ✗ ${deployment.symbol}: No contract at ${deployment.address}`);
+                    allValid = false;
+                } else {
+                    console.log(`   ✓ ${deployment.symbol}: Contract verified at ${deployment.address}`);
+                }
+            } catch (error) {
+                console.error(`   ✗ ${deployment.symbol}: Verification failed - ${error.message}`);
+                allValid = false;
+            }
+        }
+        
+        if (!allValid) {
+            throw new Error('Final contract verification failed - some contracts not found on network');
+        }
+        
+        console.log(' ✓ All contracts verified successfully');
+    }
+
     async deploy() {
         const startTime = Date.now();
         console.log(' Starting comprehensive token registry deployment...\n');
@@ -396,6 +427,7 @@ ${constructorBody.join('\n')}
             }
             
             await this.deployTokens();
+            await this.finalVerifyAllContracts();
             await this.updateConfigWithDeployments();
             await this.saveDeploymentReport();
             

@@ -8,8 +8,10 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
+import configModule from '../config.js';
 
 const execAsync = promisify(exec);
+const config = configModule.default || configModule;
 
 class EnvironmentValidator {
     constructor() {
@@ -145,12 +147,13 @@ class EnvironmentValidator {
     }
 
     async checkTokenContracts() {
-        const rpcUrl = process.env.RPC_URL || 'https://cevm-01-evmrpc.dev.skip.build';
-        const tokenContracts = [
-            { name: 'WBTC', address: '0xC52cB914767C076919Dc4245D4B005c8865a2f1F' },
-            { name: 'PEPE', address: '0xD0C124828bF8648E8681d1eD3117f20Ab989e7a1' },
-            { name: 'USDT', address: '0xf66bB908fa291EE1Fd78b09937b14700839E7c80' }
-        ];
+        const rpcUrl = process.env.RPC_URL || config.blockchain.endpoints.evm_endpoint;
+        const tokenContracts = config.blockchain.tx.amounts
+            .filter(token => token.erc20_contract && token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
+            .map(token => ({
+                name: token.denom.toUpperCase(),
+                address: token.erc20_contract
+            }));
         
         for (const token of tokenContracts) {
             try {
