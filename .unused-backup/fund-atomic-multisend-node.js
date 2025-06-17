@@ -11,10 +11,10 @@ async function getNonceWithRetry(wallet, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       const nonce = await wallet.getNonce("pending");
-      console.log(`🔢 Retrieved nonce ${nonce} on attempt ${i + 1}`);
+      console.log(` Retrieved nonce ${nonce} on attempt ${i + 1}`);
       return nonce;
     } catch (error) {
-      console.log(`⚠️ Nonce retrieval failed (attempt ${i + 1}): ${error.message}`);
+      console.log(` Nonce retrieval failed (attempt ${i + 1}): ${error.message}`);
       if (i === maxRetries - 1) throw error;
       await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
@@ -40,7 +40,7 @@ async function waitForTransactionWithTimeout(tx, timeoutMs = 30000) {
 
 async function main() {
   console.log("=".repeat(60));
-  console.log("💰 FUNDING ATOMIC MULTISEND CONTRACT");
+  console.log(" FUNDING ATOMIC MULTISEND CONTRACT");
   console.log("=".repeat(60));
 
   try {
@@ -54,13 +54,13 @@ async function main() {
 
     const atomicMultiSendAddress = config.blockchain.contracts.atomicMultiSend;
     
-    console.log("🏭 Contract Address:", atomicMultiSendAddress);
-    console.log("💼 Faucet Address:", faucetWallet.address);
-    console.log("🌐 Network:", config.blockchain.name);
+    console.log(" Contract Address:", atomicMultiSendAddress);
+    console.log(" Faucet Address:", faucetWallet.address);
+    console.log(" Network:", config.blockchain.name);
 
     // Check faucet wallet balance
     const faucetBalance = await provider.getBalance(faucetWallet.address);
-    console.log("💰 Faucet ETH Balance:", ethers.formatEther(faucetBalance));
+    console.log(" Faucet ETH Balance:", ethers.formatEther(faucetBalance));
 
     if (faucetBalance === 0n) {
       throw new Error("Faucet wallet has no ETH balance for gas fees");
@@ -78,17 +78,17 @@ async function main() {
       "function symbol() view returns (string)"
     ];
 
-    console.log("\n🚀 Starting funding process...");
+    console.log("\n Starting funding process...");
 
     let currentNonce = await getNonceWithRetry(faucetWallet);
 
     // Fund each token
     for (const tokenConfig of config.blockchain.tx.amounts) {
-      console.log(`\n📦 Processing ${tokenConfig.denom.toUpperCase()}...`);
+      console.log(`\n Processing ${tokenConfig.denom.toUpperCase()}...`);
 
       if (tokenConfig.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
         // Native token funding
-        console.log("💎 Funding with native tokens...");
+        console.log(" Funding with native tokens...");
         const fundAmount = ethers.parseUnits("10000", tokenConfig.decimals); // 10k tokens
         
         try {
@@ -106,19 +106,19 @@ async function main() {
             nonce: currentNonce
           });
           
-          console.log("📤 Transaction submitted:", tx.hash);
+          console.log(" Transaction submitted:", tx.hash);
           const receipt = await waitForTransactionWithTimeout(tx);
-          console.log("✅ Native funding successful! Gas used:", receipt.gasUsed.toString());
+          console.log(" Native funding successful! Gas used:", receipt.gasUsed.toString());
           
           currentNonce++;
         } catch (error) {
-          console.error(`❌ Native funding failed: ${error.message}`);
+          console.error(` Native funding failed: ${error.message}`);
           continue;
         }
         
       } else {
         // ERC20 token funding
-        console.log(`🪙 Funding with ${tokenConfig.denom}...`);
+        console.log(` Funding with ${tokenConfig.denom}...`);
         const tokenContract = new ethers.Contract(tokenConfig.erc20_contract, erc20ABI, faucetWallet);
         
         try {
@@ -126,16 +126,16 @@ async function main() {
           const balance = await tokenContract.balanceOf(faucetWallet.address);
           const symbol = await tokenContract.symbol();
           
-          console.log(`📊 Faucet ${symbol} balance:`, ethers.formatUnits(balance, tokenConfig.decimals));
+          console.log(` Faucet ${symbol} balance:`, ethers.formatUnits(balance, tokenConfig.decimals));
           
           if (balance === 0n) {
-            console.log(`⚠️ Warning: Faucet has no ${symbol} tokens to transfer`);
+            console.log(` Warning: Faucet has no ${symbol} tokens to transfer`);
             continue;
           }
           
           // Transfer 50% of balance to AtomicMultiSend contract
           const transferAmount = balance / 2n;
-          console.log(`🔄 Transferring ${ethers.formatUnits(transferAmount, tokenConfig.decimals)} ${symbol}...`);
+          console.log(` Transferring ${ethers.formatUnits(transferAmount, tokenConfig.decimals)} ${symbol}...`);
           
           const gasEstimate = await tokenContract.transfer.estimateGas(atomicMultiSendAddress, transferAmount);
           
@@ -145,13 +145,13 @@ async function main() {
             nonce: currentNonce
           });
           
-          console.log("📤 Transaction submitted:", tx.hash);
+          console.log(" Transaction submitted:", tx.hash);
           const receipt = await waitForTransactionWithTimeout(tx);
-          console.log("✅ Token funding successful! Gas used:", receipt.gasUsed.toString());
+          console.log(" Token funding successful! Gas used:", receipt.gasUsed.toString());
           
           // Verify transfer
           const contractBalance = await tokenContract.balanceOf(atomicMultiSendAddress);
-          console.log(`📈 Contract ${symbol} balance:`, ethers.formatUnits(contractBalance, tokenConfig.decimals));
+          console.log(` Contract ${symbol} balance:`, ethers.formatUnits(contractBalance, tokenConfig.decimals));
           
           currentNonce++;
           
@@ -159,14 +159,14 @@ async function main() {
           await new Promise(resolve => setTimeout(resolve, 2000));
           
         } catch (error) {
-          console.error(`❌ ${tokenConfig.denom} funding failed: ${error.message}`);
+          console.error(` ${tokenConfig.denom} funding failed: ${error.message}`);
           continue;
         }
       }
     }
 
     console.log("\n" + "=".repeat(60));
-    console.log("📊 FINAL CONTRACT BALANCES");
+    console.log(" FINAL CONTRACT BALANCES");
     console.log("=".repeat(60));
 
     // Check final balances
@@ -187,12 +187,12 @@ async function main() {
       }
     }
 
-    console.log("\n🎉 FUNDING COMPLETED SUCCESSFULLY!");
-    console.log("✅ AtomicMultiSend contract is ready for faucet operations");
-    console.log("✅ All transfers are now guaranteed to be atomic");
+    console.log("\n FUNDING COMPLETED SUCCESSFULLY!");
+    console.log(" AtomicMultiSend contract is ready for faucet operations");
+    console.log(" All transfers are now guaranteed to be atomic");
 
   } catch (error) {
-    console.error("\n💥 Funding failed:");
+    console.error("\n Funding failed:");
     console.error(error);
     process.exit(1);
   }

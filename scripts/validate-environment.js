@@ -19,7 +19,7 @@ class EnvironmentValidator {
     }
 
     log(status, message, details = '') {
-        const icons = { pass: '✅', warn: '⚠️', fail: '❌', info: 'ℹ️' };
+        const icons = { pass: '', warn: '', fail: '', info: '' };
         console.log(`${icons[status]} ${message}${details ? ` ${details}` : ''}`);
         
         if (status === 'fail') this.errors.push(message);
@@ -187,7 +187,7 @@ class EnvironmentValidator {
     }
 
     async validate() {
-        console.log('🔍 Validating deployment environment...\n');
+        console.log(' Validating deployment environment...\n');
         
         await this.checkNodeVersion();
         await this.checkFoundry();
@@ -198,26 +198,26 @@ class EnvironmentValidator {
         await this.checkTokenContracts();
         await this.checkWalletBalance();
         
-        console.log('\n📊 Validation Summary:');
-        console.log(`✅ Passed: ${this.checks.length - this.errors.length - this.warnings.length}`);
-        console.log(`⚠️  Warnings: ${this.warnings.length}`);
-        console.log(`❌ Errors: ${this.errors.length}`);
+        console.log('\n Validation Summary:');
+        console.log(` Passed: ${this.checks.length - this.errors.length - this.warnings.length}`);
+        console.log(`  Warnings: ${this.warnings.length}`);
+        console.log(` Errors: ${this.errors.length}`);
         
         if (this.errors.length > 0) {
-            console.log('\n❌ Critical Issues:');
+            console.log('\n Critical Issues:');
             this.errors.forEach(error => console.log(`  • ${error}`));
         }
         
         if (this.warnings.length > 0) {
-            console.log('\n⚠️  Warnings:');
+            console.log('\n  Warnings:');
             this.warnings.forEach(warning => console.log(`  • ${warning}`));
         }
         
         if (this.errors.length === 0) {
-            console.log('\n🎉 Environment validation passed! Ready for deployment.');
+            console.log('\n Environment validation passed! Ready for deployment.');
             return true;
         } else {
-            console.log('\n💥 Environment validation failed! Please fix the issues above.');
+            console.log('\n Environment validation failed! Please fix the issues above.');
             return false;
         }
     }

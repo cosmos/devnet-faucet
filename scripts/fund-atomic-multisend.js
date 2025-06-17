@@ -7,7 +7,7 @@ async function main() {
   const [deployer] = await ethers.getSigners();
 
   console.log("=".repeat(60));
-  console.log("💰 FUNDING ATOMIC MULTISEND CONTRACT");
+  console.log(" FUNDING ATOMIC MULTISEND CONTRACT");
   console.log("=".repeat(60));
 
   // Load latest deployment addresses
@@ -43,13 +43,13 @@ async function main() {
       "function allowance(address owner, address spender) view returns (uint256)"
     ];
 
-    console.log("\n🏦 Funding contract with tokens...");
+    console.log("\n Funding contract with tokens...");
 
     // Fund each ERC20 token
     for (const tokenConfig of config.blockchain.tx.amounts) {
       if (tokenConfig.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
         // Native token - send directly to contract
-        console.log(`\n💎 Funding native token (${tokenConfig.denom})...`);
+        console.log(`\n Funding native token (${tokenConfig.denom})...`);
         const fundAmount = ethers.parseUnits("10000", tokenConfig.decimals); // 10k tokens
         
         const tx = await faucetWallet.sendTransaction({
@@ -59,11 +59,11 @@ async function main() {
         });
         
         await tx.wait();
-        console.log(`✅ Sent ${ethers.formatUnits(fundAmount, tokenConfig.decimals)} ${tokenConfig.denom} (native)`);
+        console.log(` Sent ${ethers.formatUnits(fundAmount, tokenConfig.decimals)} ${tokenConfig.denom} (native)`);
         
       } else {
         // ERC20 token
-        console.log(`\n🪙 Funding ${tokenConfig.denom}...`);
+        console.log(`\n Funding ${tokenConfig.denom}...`);
         const tokenContract = new ethers.Contract(tokenConfig.erc20_contract, erc20ABI, faucetWallet);
         
         // Check current balance
@@ -71,7 +71,7 @@ async function main() {
         console.log(`Faucet ${tokenConfig.denom} balance:`, ethers.formatUnits(balance, tokenConfig.decimals));
         
         if (balance === 0n) {
-          console.log(`⚠️ Warning: Faucet has no ${tokenConfig.denom} tokens to transfer`);
+          console.log(` Warning: Faucet has no ${tokenConfig.denom} tokens to transfer`);
           continue;
         }
         
@@ -82,7 +82,7 @@ async function main() {
         const tx = await tokenContract.transfer(atomicMultiSendAddress, transferAmount);
         await tx.wait();
         
-        console.log(`✅ Transferred ${ethers.formatUnits(transferAmount, tokenConfig.decimals)} ${tokenConfig.denom}`);
+        console.log(` Transferred ${ethers.formatUnits(transferAmount, tokenConfig.decimals)} ${tokenConfig.denom}`);
         
         // Verify transfer
         const contractBalance = await tokenContract.balanceOf(atomicMultiSendAddress);
@@ -90,7 +90,7 @@ async function main() {
       }
     }
 
-    console.log("\n📊 FINAL BALANCES:");
+    console.log("\n FINAL BALANCES:");
     console.log("=".repeat(40));
 
     // Check all balances
@@ -107,10 +107,10 @@ async function main() {
       console.log(`${tokenSymbol}: ${ethers.formatUnits(balance, tokenConfig.decimals)}`);
     }
 
-    console.log("\n🎉 FUNDING COMPLETED SUCCESSFULLY!");
+    console.log("\n FUNDING COMPLETED SUCCESSFULLY!");
 
   } catch (error) {
-    console.error("\n💥 Funding failed:");
+    console.error("\n Funding failed:");
     console.error(error);
     process.exit(1);
   }

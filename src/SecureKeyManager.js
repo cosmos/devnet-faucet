@@ -58,9 +58,9 @@ class SecureKeyManager {
     
     this._initialized = true;
     
-    console.log('✅ SecureKeyManager initialized successfully');
-    console.log('📍 EVM Address:', evmAddress);
-    console.log('📍 Cosmos Address:', cosmosAddress);
+    console.log(' SecureKeyManager initialized successfully');
+    console.log(' EVM Address:', evmAddress);
+    console.log(' Cosmos Address:', cosmosAddress);
   }
 
   _deriveEvmAddress(publicKeyBytes) {
@@ -132,7 +132,7 @@ class SecureKeyManager {
       throw new Error('Address validation failed:\n' + errors.join('\n'));
     }
 
-    console.log('✅ Address validation successful');
+    console.log(' Address validation successful');
     return true;
   }
 
@@ -145,7 +145,7 @@ class SecureKeyManager {
     this._keys.clear();
     this._initialized = false;
     
-    console.log('🔒 Sensitive key data cleared from memory');
+    console.log(' Sensitive key data cleared from memory');
   }
 
   _ensureInitialized() {

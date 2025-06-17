@@ -23,7 +23,7 @@ class TokenRegistryDeployer {
     }
 
     async loadRegistry() {
-        console.log('📋 Loading token registry...');
+        console.log(' Loading token registry...');
         
         const registryPath = path.join(process.cwd(), 'token-registry.json');
         if (!fs.existsSync(registryPath)) {
@@ -37,18 +37,18 @@ class TokenRegistryDeployer {
         const registryStr = registryContent.replace(/FAUCET_ADDRESS/g, DERIVED_ADDRESS);
         this.registry = JSON.parse(registryStr);
         
-        console.log(`✅ Loaded ${this.registry.tokens.length} token definitions`);
-        console.log(`📍 Faucet address: ${DERIVED_ADDRESS}`);
+        console.log(` Loaded ${this.registry.tokens.length} token definitions`);
+        console.log(` Faucet address: ${DERIVED_ADDRESS}`);
     }
 
     async generateSolidityContracts() {
-        console.log('🔧 Generating Solidity contracts...');
+        console.log(' Generating Solidity contracts...');
         
         for (const token of this.registry.tokens) {
             await this.generateTokenContract(token);
         }
         
-        console.log('✅ All Solidity contracts generated');
+        console.log(' All Solidity contracts generated');
     }
 
     async generateTokenContract(token) {
@@ -62,7 +62,7 @@ class TokenRegistryDeployer {
         }
         
         fs.writeFileSync(contractPath, contractCode);
-        console.log(`  📄 Generated: ${token.symbol}.sol`);
+        console.log(`   Generated: ${token.symbol}.sol`);
     }
 
     buildTokenContract(token) {
@@ -227,30 +227,30 @@ ${constructorBody.join('\n')}
     }
 
     async compileContracts() {
-        console.log('🔨 Compiling contracts...');
+        console.log(' Compiling contracts...');
         
         try {
             const { stdout } = await execAsync('forge build');
-            console.log('✅ Contracts compiled successfully');
+            console.log(' Contracts compiled successfully');
             return true;
         } catch (error) {
-            console.error('❌ Contract compilation failed:', error.message);
+            console.error(' Contract compilation failed:', error.message);
             return false;
         }
     }
 
     async deployTokens() {
-        console.log('🚀 Deploying tokens...');
+        console.log(' Deploying tokens...');
         
         for (const token of this.registry.tokens) {
             await this.deployToken(token);
         }
         
-        console.log('✅ All tokens deployed');
+        console.log(' All tokens deployed');
     }
 
     async deployToken(token) {
-        console.log(`\n📦 Deploying ${token.name} (${token.symbol})...`);
+        console.log(`\n Deploying ${token.name} (${token.symbol})...`);
         
         try {
             // Load contract artifact
@@ -268,12 +268,12 @@ ${constructorBody.join('\n')}
                 this.wallet
             );
             
-            console.log(`  🔧 Deploying with owner: ${DERIVED_ADDRESS}`);
+            console.log(`   Deploying with owner: ${DERIVED_ADDRESS}`);
             const contract = await contractFactory.deploy(DERIVED_ADDRESS);
             await contract.waitForDeployment();
             
             const deployedAddress = await contract.getAddress();
-            console.log(`  ✅ ${token.symbol} deployed at: ${deployedAddress}`);
+            console.log(`   ${token.symbol} deployed at: ${deployedAddress}`);
             
             // Verify deployment
             const symbol = await contract.symbol();
@@ -281,10 +281,10 @@ ${constructorBody.join('\n')}
             const decimals = await contract.decimals();
             const totalSupply = await contract.totalSupply();
             
-            console.log(`    📊 Symbol: ${symbol}`);
-            console.log(`    📊 Name: ${name}`);
-            console.log(`    📊 Decimals: ${decimals}`);
-            console.log(`    📊 Total Supply: ${ethers.formatUnits(totalSupply, decimals)}`);
+            console.log(`     Symbol: ${symbol}`);
+            console.log(`     Name: ${name}`);
+            console.log(`     Decimals: ${decimals}`);
+            console.log(`     Total Supply: ${ethers.formatUnits(totalSupply, decimals)}`);
             
             // Store deployment result
             this.deploymentResults.push({
@@ -298,13 +298,13 @@ ${constructorBody.join('\n')}
             });
             
         } catch (error) {
-            console.error(`❌ Failed to deploy ${token.symbol}:`, error.message);
+            console.error(` Failed to deploy ${token.symbol}:`, error.message);
             throw error;
         }
     }
 
     async updateConfigWithDeployments() {
-        console.log('⚙️  Updating configuration with deployed addresses...');
+        console.log('  Updating configuration with deployed addresses...');
         
         // Update config.js with new token addresses
         let configContent = fs.readFileSync('config.js', 'utf8');
@@ -336,11 +336,11 @@ ${constructorBody.join('\n')}
         this.registry.meta.updatedAt = new Date().toISOString();
         fs.writeFileSync('token-registry.json', JSON.stringify(this.registry, null, 2));
         
-        console.log('✅ Configuration updated');
+        console.log(' Configuration updated');
     }
 
     async saveDeploymentReport() {
-        console.log('💾 Saving deployment report...');
+        console.log(' Saving deployment report...');
         
         const report = {
             timestamp: new Date().toISOString(),
@@ -357,12 +357,12 @@ ${constructorBody.join('\n')}
         const reportPath = path.join(process.cwd(), 'deployments', 'token-deployment-report.json');
         fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
         
-        console.log(`✅ Deployment report saved: ${reportPath}`);
+        console.log(` Deployment report saved: ${reportPath}`);
     }
 
     async deploy() {
         const startTime = Date.now();
-        console.log('🚀 Starting comprehensive token registry deployment...\n');
+        console.log(' Starting comprehensive token registry deployment...\n');
         
         try {
             await this.loadRegistry();
@@ -379,20 +379,20 @@ ${constructorBody.join('\n')}
             
             const duration = (Date.now() - startTime) / 1000;
             
-            console.log('\n🎉 Token registry deployment completed successfully!');
-            console.log(`⏱️  Total time: ${duration.toFixed(2)}s`);
-            console.log(`📊 Deployed ${this.deploymentResults.length} tokens`);
+            console.log('\n Token registry deployment completed successfully!');
+            console.log(`  Total time: ${duration.toFixed(2)}s`);
+            console.log(` Deployed ${this.deploymentResults.length} tokens`);
             
-            console.log('\n📋 Deployed Tokens:');
+            console.log('\n Deployed Tokens:');
             this.deploymentResults.forEach(token => {
                 console.log(`  • ${token.name} (${token.symbol}): ${token.address}`);
             });
             
         } catch (error) {
             const duration = (Date.now() - startTime) / 1000;
-            console.error('\n❌ Token registry deployment failed!');
-            console.error(`⏱️  Failed after: ${duration.toFixed(2)}s`);
-            console.error(`💥 Error: ${error.message}`);
+            console.error('\n Token registry deployment failed!');
+            console.error(`  Failed after: ${duration.toFixed(2)}s`);
+            console.error(` Error: ${error.message}`);
             process.exit(1);
         }
     }

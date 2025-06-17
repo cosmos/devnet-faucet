@@ -17,7 +17,7 @@ class ConfigUpdater {
     }
 
     async updateConfigWithDeployments() {
-        console.log('🔧 Updating configuration with deployment addresses...');
+        console.log(' Updating configuration with deployment addresses...');
         
         try {
             // Read latest deployment
@@ -143,7 +143,7 @@ async function main() {
                 break;
                 
             default:
-                console.log('🔧 Configuration Updater');
+                console.log(' Configuration Updater');
                 console.log('');
                 console.log('Usage:');
                 console.log('  node scripts/update-config-with-deployments.js update  - Update config with latest deployments');

@@ -7,7 +7,7 @@ async function main() {
   const [deployer] = await ethers.getSigners();
 
   console.log("=".repeat(60));
-  console.log("🚀 DEPLOYING ATOMIC MULTISEND CONTRACT");
+  console.log(" DEPLOYING ATOMIC MULTISEND CONTRACT");
   console.log("=".repeat(60));
   console.log("Deploying with account:", deployer.address);
   console.log("Account balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
@@ -24,21 +24,21 @@ async function main() {
 
   try {
     // Deploy AtomicMultiSend Contract
-    console.log("\n📍 Deploying AtomicMultiSend...");
+    console.log("\n Deploying AtomicMultiSend...");
     const AtomicMultiSend = await ethers.getContractFactory("AtomicMultiSend");
     const atomicMultiSend = await AtomicMultiSend.deploy();
     await atomicMultiSend.waitForDeployment();
     const atomicMultiSendAddress = await atomicMultiSend.getAddress();
-    console.log("✅ AtomicMultiSend deployed to:", atomicMultiSendAddress);
+    console.log(" AtomicMultiSend deployed to:", atomicMultiSendAddress);
 
     // Transfer ownership to faucet address
-    console.log("\n🔐 Transferring ownership to faucet address...");
+    console.log("\n Transferring ownership to faucet address...");
     await atomicMultiSend.transferOwnership(faucetAddress);
-    console.log("✅ Ownership transferred to:", faucetAddress);
+    console.log(" Ownership transferred to:", faucetAddress);
 
     // Verify ownership transfer
     const newOwner = await atomicMultiSend.owner();
-    console.log("✅ Verified new owner:", newOwner);
+    console.log(" Verified new owner:", newOwner);
 
     // Get contract ABI for storage
     const contractABI = AtomicMultiSend.interface.format('json');
@@ -68,12 +68,12 @@ async function main() {
     // Save deployment info
     const deploymentPath = './deployments/atomic-multisend-deployment.json';
     fs.writeFileSync(deploymentPath, JSON.stringify(deploymentInfo, null, 2));
-    console.log("💾 Deployment info saved to:", deploymentPath);
+    console.log(" Deployment info saved to:", deploymentPath);
 
     // Save ABI separately for easy access
     const abiPath = './deployments/AtomicMultiSend.abi.json';
     fs.writeFileSync(abiPath, JSON.stringify(JSON.parse(contractABI), null, 2));
-    console.log("📋 ABI saved to:", abiPath);
+    console.log(" ABI saved to:", abiPath);
 
     // Update latest addresses file
     const latestAddresses = {
@@ -87,10 +87,10 @@ async function main() {
     };
     
     fs.writeFileSync('./deployments/latest-addresses.json', JSON.stringify(latestAddresses, null, 2));
-    console.log("📍 Latest addresses updated");
+    console.log(" Latest addresses updated");
 
     console.log("\n" + "=".repeat(60));
-    console.log("🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!");
+    console.log(" DEPLOYMENT COMPLETED SUCCESSFULLY!");
     console.log("=".repeat(60));
     console.log("AtomicMultiSend Address:", atomicMultiSendAddress);
     console.log("Owner Address:", faucetAddress);
@@ -98,7 +98,7 @@ async function main() {
     console.log("Chain ID:", config.blockchain.ids.chainId);
 
     // Display next steps
-    console.log("\n📋 NEXT STEPS:");
+    console.log("\n NEXT STEPS:");
     console.log("1. Fund the AtomicMultiSend contract with tokens");
     console.log("2. Update config.js with new contract address");
     console.log("3. Update faucet.js to use atomicMultiSend function");
@@ -111,7 +111,7 @@ async function main() {
     };
 
   } catch (error) {
-    console.error("\n💥 Deployment failed:");
+    console.error("\n Deployment failed:");
     console.error(error);
     process.exit(1);
   }

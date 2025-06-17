@@ -16,7 +16,7 @@ import path from 'path';
  * @param {string} mnemonic - The mnemonic phrase (optional, will use env var if not provided)
  */
 export async function deriveAndCacheAddresses(mnemonic = null) {
-    console.log('🔐 Starting secure address derivation...');
+    console.log(' Starting secure address derivation...');
     
     try {
         // If mnemonic is provided, temporarily set it in process.env
@@ -30,9 +30,9 @@ export async function deriveAndCacheAddresses(mnemonic = null) {
         // Get derived addresses
         const addresses = secureKeyManager.getAddresses();
         
-        console.log('✅ Addresses derived successfully:');
-        console.log(`📍 EVM Address: ${addresses.evm.address}`);
-        console.log(`📍 Cosmos Address: ${addresses.cosmos.address}`);
+        console.log(' Addresses derived successfully:');
+        console.log(` EVM Address: ${addresses.evm.address}`);
+        console.log(` Cosmos Address: ${addresses.cosmos.address}`);
         
         // Update config.js file
         const configPath = path.join(process.cwd(), 'config.js');
@@ -55,13 +55,13 @@ export async function deriveAndCacheAddresses(mnemonic = null) {
         // Write updated config
         fs.writeFileSync(configPath, updatedContent, 'utf8');
         
-        console.log('✅ Addresses cached in config.js');
-        console.log('🔒 Secure key derivation completed');
+        console.log(' Addresses cached in config.js');
+        console.log(' Secure key derivation completed');
         
         return addresses;
         
     } catch (error) {
-        console.error('❌ Failed to derive and cache addresses:', error.message);
+        console.error(' Failed to derive and cache addresses:', error.message);
         throw error;
     }
 }
@@ -71,7 +71,7 @@ if (process.argv[1] === import.meta.url.replace('file://', '')) {
     const mnemonic = process.argv[2] || process.env.MNEMONIC;
     
     if (!mnemonic) {
-        console.error('❌ MNEMONIC required as environment variable or command line argument');
+        console.error(' MNEMONIC required as environment variable or command line argument');
         console.error('Usage: node derive-and-cache-addresses.js [mnemonic]');
         console.error('   or: MNEMONIC="..." node derive-and-cache-addresses.js');
         process.exit(1);
@@ -79,11 +79,11 @@ if (process.argv[1] === import.meta.url.replace('file://', '')) {
     
     deriveAndCacheAddresses(mnemonic)
         .then(() => {
-            console.log('🎉 Address derivation completed successfully');
+            console.log(' Address derivation completed successfully');
             process.exit(0);
         })
         .catch((error) => {
-            console.error('💥 Address derivation failed:', error.message);
+            console.error(' Address derivation failed:', error.message);
             process.exit(1);
         });
 }

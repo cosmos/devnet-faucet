@@ -14,7 +14,7 @@ const CONTRACT_NAME = 'AtomicMultiSend';
 
 async function extractABI() {
     try {
-        console.log('🔧 Extracting ABI from Foundry artifacts...');
+        console.log(' Extracting ABI from Foundry artifacts...');
         
         // Read the Foundry build artifact
         const artifactPath = path.join(FOUNDRY_OUT_DIR, `${CONTRACT_NAME}.sol`, `${CONTRACT_NAME}.json`);
@@ -39,12 +39,12 @@ async function extractABI() {
         const abiPath = path.join(DEPLOYMENTS_DIR, `${CONTRACT_NAME}.abi.json`);
         fs.writeFileSync(abiPath, JSON.stringify(abi, null, 2));
         
-        console.log(`✅ ABI extracted to: ${abiPath}`);
-        console.log(`📊 ABI contains ${abi.length} items`);
+        console.log(` ABI extracted to: ${abiPath}`);
+        console.log(` ABI contains ${abi.length} items`);
         
         return abiPath;
     } catch (error) {
-        console.error('❌ ABI extraction failed:', error.message);
+        console.error(' ABI extraction failed:', error.message);
         process.exit(1);
     }
 }

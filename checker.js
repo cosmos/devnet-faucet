@@ -41,10 +41,10 @@ export class FrequencyChecker {
                 const data = fs.readFileSync(this.dbPath, 'utf8');
                 const parsed = JSON.parse(data);
                 this.requests = new Map(parsed.requests || []);
-                console.log(`📊 Loaded ${this.requests.size} rate limit entries`);
+                console.log(` Loaded ${this.requests.size} rate limit entries`);
             }
         } catch (error) {
-            console.warn('⚠️  Could not load rate limit data:', error.message);
+            console.warn('  Could not load rate limit data:', error.message);
             this.requests = new Map();
         }
     }
@@ -60,7 +60,7 @@ export class FrequencyChecker {
             };
             fs.writeFileSync(this.dbPath, JSON.stringify(data, null, 2));
         } catch (error) {
-            console.warn('⚠️  Could not save rate limit data:', error.message);
+            console.warn('  Could not save rate limit data:', error.message);
         }
     }
     
@@ -82,7 +82,7 @@ export class FrequencyChecker {
         }
         
         if (cleaned > 0) {
-            console.log(`🧹 Cleaned ${cleaned} old rate limit entries`);
+            console.log(` Cleaned ${cleaned} old rate limit entries`);
             this.saveData();
         }
     }
@@ -121,9 +121,9 @@ export class FrequencyChecker {
         const allowed = currentCount < limit;
         
         if (!allowed) {
-            console.log(`🚫 Rate limit exceeded for ${description}: ${currentCount}/${limit} in last ${this.windowHours}h`);
+            console.log(` Rate limit exceeded for ${description}: ${currentCount}/${limit} in last ${this.windowHours}h`);
         } else {
-            console.log(`✅ Rate limit OK for ${description}: ${currentCount}/${limit} in last ${this.windowHours}h`);
+            console.log(` Rate limit OK for ${description}: ${currentCount}/${limit} in last ${this.windowHours}h`);
         }
         
         return allowed;
@@ -143,7 +143,7 @@ export class FrequencyChecker {
             this.saveData();
         }
         
-        console.log(`📝 Updated rate limit for ${key}`);
+        console.log(` Updated rate limit for ${key}`);
     }
     
     /**

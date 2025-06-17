@@ -171,7 +171,7 @@ async function wrapAtomForFaucet() {
     }
 
     // Wrap ATOM by calling deposit function with value
-    console.log('\n📝 Wrapping ATOM to WATOM...');
+    console.log('\n Wrapping ATOM to WATOM...');
     
     // Use a direct transaction since the precompile may not work with the standard ABI
     const depositTx = await wallet.sendTransaction({
@@ -181,21 +181,21 @@ async function wrapAtomForFaucet() {
       gasLimit: 300000
     });
     
-    console.log('⏳ Transaction hash:', depositTx.hash);
+    console.log(' Transaction hash:', depositTx.hash);
     const receipt = await depositTx.wait();
-    console.log('✅ Wrap confirmed in block:', receipt.blockNumber);
-    console.log('⛽ Gas used:', receipt.gasUsed.toString());
+    console.log(' Wrap confirmed in block:', receipt.blockNumber);
+    console.log(' Gas used:', receipt.gasUsed.toString());
 
     // Check new balance
     try {
       const newWatomBalance = await werc20.balanceOf(wallet.address);
-      console.log('✅ New WATOM Balance:', ethers.formatUnits(newWatomBalance, 6), 'WATOM');
+      console.log(' New WATOM Balance:', ethers.formatUnits(newWatomBalance, 6), 'WATOM');
     } catch (error) {
       console.log('Could not verify new WATOM balance');
     }
 
     // Now approve AtomicMultiSend to spend WATOM
-    console.log('\n📝 Approving AtomicMultiSend to spend WATOM...');
+    console.log('\n Approving AtomicMultiSend to spend WATOM...');
     const atomicMultiSendAddress = config.blockchain.contracts.atomicMultiSend;
     const approvalAmount = ethers.parseUnits('1000000', 6); // 1M WATOM approval
 
@@ -210,21 +210,21 @@ async function wrapAtomForFaucet() {
       gasLimit: 100000
     });
     
-    console.log('⏳ Approval transaction hash:', approveTx.hash);
+    console.log(' Approval transaction hash:', approveTx.hash);
     const approvalReceipt = await approveTx.wait();
-    console.log('✅ Approval confirmed in block:', approvalReceipt.blockNumber);
+    console.log(' Approval confirmed in block:', approvalReceipt.blockNumber);
 
     // Verify approval
     try {
       const allowance = await werc20.allowance(wallet.address, atomicMultiSendAddress);
-      console.log('✅ WATOM Allowance for AtomicMultiSend:', ethers.formatUnits(allowance, 6), 'WATOM');
+      console.log(' WATOM Allowance for AtomicMultiSend:', ethers.formatUnits(allowance, 6), 'WATOM');
     } catch (error) {
       console.log('Could not verify allowance');
     }
 
-    console.log('\n🎉 WATOM wrapping and approval completed successfully!');
+    console.log('\n WATOM wrapping and approval completed successfully!');
     console.log('The faucet can now distribute WATOM tokens.');
-    console.log('\n📋 Next Steps:');
+    console.log('\n Next Steps:');
     console.log('1. Add WATOM contract to config.js token amounts');
     console.log('2. Update AtomicMultiSend to handle WATOM transfers');
     console.log('3. Test end-to-end faucet distribution');
@@ -236,7 +236,7 @@ async function wrapAtomForFaucet() {
     };
 
   } catch (error) {
-    console.error('❌ Error wrapping ATOM:', error.message);
+    console.error(' Error wrapping ATOM:', error.message);
     throw error;
   }
 }

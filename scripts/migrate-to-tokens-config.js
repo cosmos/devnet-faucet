@@ -28,7 +28,7 @@ class TokenConfigMigrator {
      * Load the comprehensive tokens configuration
      */
     loadTokensConfig() {
-        console.log('📋 Loading tokens.json configuration...');
+        console.log(' Loading tokens.json configuration...');
         
         if (!fs.existsSync(this.tokensPath)) {
             throw new Error('tokens.json not found. Please create it first.');
@@ -37,14 +37,14 @@ class TokenConfigMigrator {
         const tokensContent = fs.readFileSync(this.tokensPath, 'utf8');
         this.tokensConfig = JSON.parse(tokensContent);
         
-        console.log(`✅ Loaded ${this.tokensConfig.tokens.length} ERC20 tokens and ${this.tokensConfig.nativeTokens.length} native tokens`);
+        console.log(` Loaded ${this.tokensConfig.tokens.length} ERC20 tokens and ${this.tokensConfig.nativeTokens.length} native tokens`);
     }
 
     /**
      * Generate config.js compatible token amounts array
      */
     generateConfigAmounts() {
-        console.log('🔧 Generating config.js compatible amounts array...');
+        console.log(' Generating config.js compatible amounts array...');
         
         const amounts = [];
         
@@ -65,11 +65,11 @@ class TokenConfigMigrator {
         for (const nativeToken of this.tokensConfig.nativeTokens) {
             if (nativeToken.faucet?.enabled) {
                 // Native ATOM doesn't go in the amounts array as it's handled separately
-                console.log(`  ℹ️  Native token ${nativeToken.symbol} configured separately`);
+                console.log(`    Native token ${nativeToken.symbol} configured separately`);
             }
         }
         
-        console.log(`✅ Generated ${amounts.length} token configurations for config.js`);
+        console.log(` Generated ${amounts.length} token configurations for config.js`);
         return amounts;
     }
 
@@ -77,7 +77,7 @@ class TokenConfigMigrator {
      * Generate frontend token information for faucet.js
      */
     generateFrontendTokens() {
-        console.log('🎨 Generating frontend token configurations...');
+        console.log(' Generating frontend token configurations...');
         
         const frontendTokens = [];
         
@@ -121,7 +121,7 @@ class TokenConfigMigrator {
             }
         }
         
-        console.log(`✅ Generated ${frontendTokens.length} frontend token configurations`);
+        console.log(` Generated ${frontendTokens.length} frontend token configurations`);
         return frontendTokens;
     }
 
@@ -129,7 +129,7 @@ class TokenConfigMigrator {
      * Create a helper module for token operations
      */
     createTokenHelper() {
-        console.log('🛠️  Creating token helper module...');
+        console.log('  Creating token helper module...');
         
         const helperContent = `/**
  * Token Configuration Helper
@@ -358,14 +358,14 @@ export default {
         }
         
         fs.writeFileSync(helperPath, helperContent);
-        console.log(`✅ Token helper created: ${helperPath}`);
+        console.log(` Token helper created: ${helperPath}`);
     }
 
     /**
      * Generate example integration code
      */
     generateIntegrationExamples() {
-        console.log('📝 Generating integration examples...');
+        console.log(' Generating integration examples...');
         
         const examples = `/**
  * Integration Examples for tokens.json Configuration
@@ -434,7 +434,7 @@ async function sendTokens(symbol, recipient, amount) {
     
     // Check security warnings
     if (token.security.riskLevel === 'high') {
-        console.warn(\`⚠️  High risk token: \${symbol}\`, token.security.warnings);
+        console.warn(\`  High risk token: \${symbol}\`, token.security.warnings);
     }
     
     // Send tokens...
@@ -542,21 +542,21 @@ const lowRiskTokens = searchTokens('', { riskLevel: 'low' });
 
         const examplesPath = path.join(process.cwd(), 'integration-examples.js');
         fs.writeFileSync(examplesPath, examples);
-        console.log(`✅ Integration examples created: ${examplesPath}`);
+        console.log(` Integration examples created: ${examplesPath}`);
     }
 
     /**
      * Run the complete migration process
      */
     async migrate() {
-        console.log('🚀 Starting Token Configuration Migration...\n');
+        console.log(' Starting Token Configuration Migration...\n');
         
         try {
             // Step 1: Load new configuration
             this.loadTokensConfig();
             
             // Step 2: Validate configuration
-            console.log('🔍 Validating configuration...');
+            console.log(' Validating configuration...');
             // We'll import the validation after creating the helper
             
             // Step 3: Generate compatible structures
@@ -573,7 +573,7 @@ const lowRiskTokens = searchTokens('', { riskLevel: 'low' });
             this.showMigrationSummary(configAmounts, frontendTokens);
             
         } catch (error) {
-            console.error('❌ Migration failed:', error.message);
+            console.error(' Migration failed:', error.message);
             process.exit(1);
         }
     }
@@ -582,26 +582,26 @@ const lowRiskTokens = searchTokens('', { riskLevel: 'low' });
      * Show migration summary
      */
     showMigrationSummary(configAmounts, frontendTokens) {
-        console.log('\n🎉 Migration completed successfully!\n');
+        console.log('\n Migration completed successfully!\n');
         
-        console.log('📊 Summary:');
+        console.log(' Summary:');
         console.log(`  • ${this.tokensConfig.tokens.length} ERC20 tokens configured`);
         console.log(`  • ${this.tokensConfig.nativeTokens.length} native tokens configured`);
         console.log(`  • ${configAmounts.length} tokens enabled for faucet`);
         console.log(`  • ${Object.keys(this.tokensConfig.categories).length} token categories defined`);
         
-        console.log('\n📁 Generated files:');
+        console.log('\n Generated files:');
         console.log('  • src/TokenHelper.js - Utility functions for token operations');
         console.log('  • integration-examples.js - Code examples for integration');
         
-        console.log('\n📋 Next steps:');
+        console.log('\n Next steps:');
         console.log('  1. Update config.js to use TokenHelper.getConfigAmounts()');
         console.log('  2. Update faucet.js to use TokenHelper.getFrontendTokens()');
         console.log('  3. Implement token creator UI using the comprehensive metadata');
         console.log('  4. Set up analytics tracking with TokenHelper.updateTokenAnalytics()');
         console.log('  5. Run validation: node -e "import(\\'./src/TokenHelper.js\\').then(h => console.log(h.validateTokenConfig()))"');
         
-        console.log('\n💡 Benefits of the new system:');
+        console.log('\n Benefits of the new system:');
         console.log('  • Comprehensive token metadata for rich UI experiences');
         console.log('  • Built-in support for token creator functionality');
         console.log('  • Integrated analytics and tracking');
@@ -609,7 +609,7 @@ const lowRiskTokens = searchTokens('', { riskLevel: 'low' });
         console.log('  • Flexible categorization and filtering');
         console.log('  • Future-proof extensible structure');
         
-        console.log('\n🔗 Integration guide:');
+        console.log('\n Integration guide:');
         console.log('  See integration-examples.js for detailed code examples');
     }
 }

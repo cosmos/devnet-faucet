@@ -614,21 +614,21 @@ app.listen(conf.port, async () => {
   
   try {
     // Initialize secure key management
-    console.log('🔐 Initializing secure key management...');
+    console.log(' Initializing secure key management...');
     await initializeSecureKeys();
     
     // Validate addresses if we have cached ones
     if (conf.derivedAddresses && conf.derivedAddresses.evm && conf.derivedAddresses.cosmos) {
-      console.log('🔍 Validating cached addresses against derived keys...');
+      console.log(' Validating cached addresses against derived keys...');
       try {
         validateDerivedAddresses({
           evm: conf.derivedAddresses.evm.address,
           cosmos: conf.derivedAddresses.cosmos.address
         });
-        console.log('✅ Address validation successful - using cached addresses');
+        console.log(' Address validation successful - using cached addresses');
       } catch (error) {
-        console.error('❌ Address validation failed:', error.message);
-        console.log('🔄 This may indicate mnemonic was changed. Please update cached addresses.');
+        console.error(' Address validation failed:', error.message);
+        console.log(' This may indicate mnemonic was changed. Please update cached addresses.');
         process.exit(1);
       }
     }
@@ -637,16 +637,16 @@ app.listen(conf.port, async () => {
     const evmAddress = getEvmAddress();
     const cosmosAddress = getCosmosAddress();
 
-    console.log('✅ Faucet server ready!');
-    console.log(`📍 EVM Address: ${evmAddress}`);
-    console.log(`📍 Cosmos Address: ${cosmosAddress}`);
-    console.log(`🌐 Server listening on http://localhost:${conf.port}`);
+    console.log(' Faucet server ready!');
+    console.log(` EVM Address: ${evmAddress}`);
+    console.log(` Cosmos Address: ${cosmosAddress}`);
+    console.log(` Server listening on http://localhost:${conf.port}`);
     
     // Never log private keys or mnemonic
-    console.log('🔒 Private keys secured in memory (never logged or written to disk)');
+    console.log(' Private keys secured in memory (never logged or written to disk)');
     
   } catch (error) {
-    console.error('❌ Failed to initialize faucet:', error.message);
+    console.error(' Failed to initialize faucet:', error.message);
     process.exit(1);
   }
 })

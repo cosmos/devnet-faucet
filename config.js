@@ -116,7 +116,7 @@ export const initializeSecureKeys = async () => {
     const addresses = secureKeyManager.getAddresses();
     config.derivedAddresses = addresses;
     
-    console.log('✅ Secure keys initialized and cached in config');
+    console.log(' Secure keys initialized and cached in config');
 };
 
 // Secure private key access - only accessible within application
