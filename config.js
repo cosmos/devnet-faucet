@@ -4,16 +4,6 @@ import secureKeyManager from './src/SecureKeyManager.js';
 
 const config = {
     port: 8088, 
-    derivedAddresses: {
-        "evm": {
-            "address": "0x42e6047c5780b103e52265f6483c2d0113aa6b87",
-            "publicKey": "0x031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
-        },
-        "cosmos": {
-            "address": "cosmos1gtnqglzhszcs8efzvhmys0pdqyf656u8wmfcuz",
-            "publicKey": "031574a63348311b1d3e7738a1a2d1328404368b34fd99b4ab656625c0943c2d16"
-        }
-    },
     // http port
     db: {
         path: ".faucet/history.db" // save request states
@@ -42,10 +32,7 @@ const config = {
         },
         // Contract addresses - loaded from environment variables for security
         contracts: {
-            atomicMultiSend: process.env.ATOMIC_MULTISEND_CONTRACT || (() => {
-                console.error('ATOMIC_MULTISEND_CONTRACT environment variable not set');
-                process.exit(1);
-            })(),
+            atomicMultiSend: "0xbd6D34F5B21bbF706b99fC7AD1d7a936125A4f0c", // Will be set after deployment
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments
@@ -62,30 +49,21 @@ const config = {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: process.env.WBTC_CONTRACT || (() => {
-                        console.error('WBTC_CONTRACT environment variable not set');
-                        process.exit(1);
-                    })(),
+                    erc20_contract: "0xa9f2644d613a1466fb06d84Be03EDD04EC98b5C4", // Will be set after token deployment
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: process.env.PEPE_CONTRACT || (() => {
-                        console.error('PEPE_CONTRACT environment variable not set');
-                        process.exit(1);
-                    })(),
+                    erc20_contract: "0xEd2278587974d0dF4049b1Fe23d30FA9A35Ee282", // Will be set after token deployment
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: process.env.USDT_CONTRACT || (() => {
-                        console.error('USDT_CONTRACT environment variable not set');
-                        process.exit(1);
-                    })(),
+                    erc20_contract: "0x814500eB7ab9BA14e829915D8A7973E2492C1750", // Will be set after token deployment
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }
@@ -143,9 +121,9 @@ export const validateDerivedAddresses = (expectedAddresses) => {
     return secureKeyManager.validateAddresses(expectedAddresses);
 };
 
-// Legacy exports for backward compatibility
-export const DERIVED_ADDRESS = null; // Will be set after initialization
-export const DERIVED_PUBLIC_KEY = null; // Will be set after initialization
-export const DERIVED_COSMOS_ADDRESS = null; // Will be set after initialization
+// Legacy exports for backward compatibility - deprecated, use getEvmAddress() instead
+export const DERIVED_ADDRESS = null; // Deprecated: use getEvmAddress()
+export const DERIVED_PUBLIC_KEY = null; // Deprecated: use getEvmPublicKey()  
+export const DERIVED_COSMOS_ADDRESS = null; // Deprecated: use getCosmosAddress()
 
 export default config;
