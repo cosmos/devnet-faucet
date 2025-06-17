@@ -1,7 +1,8 @@
-// Configuration auto-updated on 2025-06-17T20:28:32.973Z
+// Configuration auto-updated on 2025-06-17T21:40:00.000Z
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 import secureKeyManager from './src/SecureKeyManager.js';
+import TokenConfigLoader from './src/TokenConfigLoader.js';
 
 const config = {
     port: 8088, 
@@ -34,7 +35,7 @@ const config = {
         },
         // Contract addresses - will be set after deployment
         contracts: {
-            atomicMultiSend: "0xb98Ef904d788F35555968fCf212590E7cB12F8a8", // AtomicMultiSend contract
+            atomicMultiSend: "0x8dfFd28aB4B62cee9f210C55ced53f418c20fDb6", // AtomicMultiSend contract
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments
@@ -44,32 +45,8 @@ const config = {
             }
         },
         tx: {
-            // Multi-token amounts - target balance of 1000 tokens each
-            amounts: [
-                // Note: Removed WATOM due to precompile issues
-                // Will send 1 ATOM via cosmos for gas fees separately
-                {
-                    denom: "wbtc", // Wrapped Bitcoin
-                    amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0x8dfFd28aB4B62cee9f210C55ced53f418c20fDb6", // WBTC token address
-                    decimals: 8,
-                    target_balance: "100000000000" // 1000 tokens target
-                },
-                {
-                    denom: "pepe", // Pepe Token
-                    amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xFb1644b6e23077B949033f2Ce7fF92B38c8e7a5E", // PEPE token address
-                    decimals: 18,
-                    target_balance: "1000000000000000000000" // 1000 tokens target
-                },
-                {
-                    denom: "usdt", // Tether USD
-                    amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0xE4B7B51A0b38D68d30C4106c2C73bCD785598F51", // USDT token address
-                    decimals: 6,
-                    target_balance: "1000000000" // 1000 tokens target
-                }
-            ],
+            // Multi-token amounts - will be loaded from tokens.json below
+            amounts: [], // Will be populated after TokenConfigLoader initialization
             fee: {
                 // Cosmos fee
                 cosmos: {
@@ -96,6 +73,23 @@ const config = {
         }
     }
 }
+
+// Initialize TokenConfigLoader with network config from above
+const networkConfig = {
+    name: config.blockchain.name,
+    chainId: config.blockchain.ids.chainId,
+    cosmosChainId: config.blockchain.ids.cosmosChainId,
+    type: config.blockchain.type
+};
+
+const tokenLoader = new TokenConfigLoader(networkConfig);
+
+// Populate token amounts from tokens.json
+config.blockchain.tx.amounts = tokenLoader.getAllTokensForConfig();
+
+// Update contract addresses from tokens.json
+const faucetConfig = tokenLoader.getFaucetConfig();
+config.blockchain.contracts.atomicMultiSend = faucetConfig.atomicMultiSend;
 
 // Secure key management functions
 export const initializeSecureKeys = async () => {
