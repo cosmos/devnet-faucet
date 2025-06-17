@@ -404,7 +404,8 @@ app.get('/config.json', async (req, res) => {
       chainId: chainConf.ids.chainId,
       chainIdHex: '0x' + chainConf.ids.chainId.toString(16),
       rpc: chainConf.endpoints.evm_endpoint,
-      websocket: chainConf.endpoints.evm_websocket
+      websocket: chainConf.endpoints.evm_websocket,
+      explorer: chainConf.endpoints.evm_explorer
     },
     contracts: {
       ...chainConf.contracts,
@@ -909,8 +910,8 @@ async function sendCosmosTransactionWithCosmJS(recipient, neededAmounts) {
   }
 
   try {
-    // Create simple eth_secp256k1 compatible wallet
-    const wallet = await createSimpleEthSecp256k1Wallet(chainConf.sender.mnemonic, chainConf.sender.option);
+    // Create simple eth_secp256k1 compatible wallet using secure key manager
+    const wallet = await createSimpleEthSecp256k1Wallet(MNEMONIC, chainConf.sender.option);
     const [account] = await wallet.getAccounts();
     console.log("Simple ETH-compatible wallet account:", account.address);
 
@@ -1062,8 +1063,8 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
     throw new Error(`Invalid recipient address: ${cosmosRecipient}`);
   }
 
-  // Create wallet and get account info
-  const wallet = await createEthCompatibleCosmosWallet(chainConf.sender.mnemonic, chainConf.sender.option);
+  // Create wallet and get account info using secure key manager
+  const wallet = await createEthCompatibleCosmosWallet(MNEMONIC, chainConf.sender.option);
   const [firstAccount] = await wallet.getAccounts();
 
   // Prepare amounts from all needed tokens
@@ -1379,56 +1380,102 @@ async function verifyTransaction(txResult, addressType) {
           const rest = conf.blockchain.endpoints.rest_endpoint;
           const detailResp = await fetch(`${rest}/cosmos/tx/v1beta1/txs/${txResult.transactionHash}`);
           const detailJson = await detailResp.json();
+          
           return {
             code: 0,
             message: "Tokens sent successfully!",
+            network_type: "cosmos",
             transaction_hash: txResult.transactionHash,
             block_height: txResult.height,
             gas_used: txResult.gasUsed,
-            tx_response: detailJson.tx_response || null
+            gas_wanted: txResult.gasWanted,
+            tx_response: detailJson.tx_response || null,
+            explorer_url: `https://explorer.skip.build/transactions/${txResult.transactionHash}`, // Cosmos explorer
+            transfers: txResult.transfers || []
           };
         } catch (_) {
           // if REST lookup fails, fall back to minimal info
           return {
             code: 0,
             message: "Tokens sent successfully!",
+            network_type: "cosmos",
             transaction_hash: txResult.transactionHash,
             block_height: txResult.height,
-            gas_used: txResult.gasUsed
+            gas_used: txResult.gasUsed,
+            gas_wanted: txResult.gasWanted,
+            explorer_url: `https://explorer.skip.build/transactions/${txResult.transactionHash}`,
+            transfers: txResult.transfers || []
           };
         }
       } else {
         return {
           code: txResult.code,
           message: `Transaction failed: ${txResult.rawLog}`,
-          transaction_hash: txResult.transactionHash
+          network_type: "cosmos",
+          transaction_hash: txResult.transactionHash,
+          explorer_url: `https://explorer.skip.build/transactions/${txResult.transactionHash}`
         };
       }
     } else if (addressType === 'evm') {
       // EVM transaction verification
       if (txResult.code === 0) {
+        const explorerUrl = `${conf.blockchain.endpoints.evm_explorer}/tx/${txResult.hash}`;
+        
         return {
           code: 0,
           message: "Tokens sent successfully!",
+          network_type: "evm",
           transaction_hash: txResult.hash,
           block_number: txResult.blockNumber,
+          block_hash: txResult.blockHash,
           gas_used: txResult.gasUsed,
-          transfers: txResult.transfers
+          gas_price: txResult.gasPrice,
+          transaction_index: txResult.transactionIndex,
+          from_address: txResult.from,
+          to_address: txResult.to,
+          value: txResult.value,
+          status: txResult.status,
+          explorer_url: explorerUrl,
+          transfers: txResult.transfers || [],
+          evm_tx_data: {
+            hash: txResult.hash,
+            blockNumber: txResult.blockNumber,
+            blockHash: txResult.blockHash,
+            transactionIndex: txResult.transactionIndex,
+            from: txResult.from,
+            to: txResult.to,
+            value: txResult.value,
+            gasUsed: txResult.gasUsed,
+            gasPrice: txResult.gasPrice,
+            status: txResult.status,
+            logs: txResult.logs || []
+          }
         };
       } else {
+        const explorerUrl = txResult.hash ? `${conf.blockchain.endpoints.evm_explorer}/tx/${txResult.hash}` : null;
+        
         return {
           code: 1,
           message: "Transaction failed",
-          transaction_hash: txResult.hash || "unknown"
+          network_type: "evm",
+          transaction_hash: txResult.hash || "unknown",
+          explorer_url: explorerUrl
         };
       }
     }
   } catch (error) {
     console.error('Transaction verification error:', error);
+    const hash = txResult.hash || txResult.transactionHash || "unknown";
+    const explorerUrl = addressType === 'evm' && hash !== "unknown" ? 
+      `${conf.blockchain.endpoints.evm_explorer}/tx/${hash}` : 
+      (addressType === 'cosmos' && hash !== "unknown" ? `https://explorer.skip.build/transactions/${hash}` : null);
+    
     return {
       code: 1,
       message: `Verification failed: ${error.message}`,
-      transaction_hash: txResult.hash || txResult.transactionHash || "unknown"
+      network_type: addressType,
+      transaction_hash: hash,
+      explorer_url: explorerUrl
     };
   }
 }

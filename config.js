@@ -29,6 +29,7 @@ const config = {
             // EVM environment
             evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
             evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
+            evm_explorer: "https://evm-devnet-1.cloud.blockscout.com",
         },
         // Contract addresses - loaded from environment variables for security
         contracts: {

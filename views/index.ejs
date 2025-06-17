@@ -937,41 +937,42 @@
     <!-- Transaction Details Modal -->
     <div class="modal fade" id="transactionModal" tabindex="-1" aria-labelledby="transactionModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="transactionModalLabel">
+        <div class="modal-content" style="background: var(--bg-secondary); border: 1px solid var(--border-color);">
+          <div class="modal-header" style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+            <h5 class="modal-title" id="transactionModalLabel" style="color: var(--text-primary);">
               <i class="fas fa-info-circle me-2"></i>Transaction Details
             </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body" style="background: var(--bg-secondary);">
             <div v-if="selectedTransaction">
               <!-- Transaction Summary -->
               <div class="row mb-3">
                 <div class="col-md-6">
-                  <strong>Status:</strong>
+                  <strong style="color: var(--text-primary);">Status:</strong>
                   <span class="ms-2 badge" :class="selectedTransaction.success ? 'bg-success' : 'bg-danger'">
                     {{selectedTransaction.success ? 'Success' : 'Failed'}}
                   </span>
                 </div>
                 <div class="col-md-6">
-                  <strong>Address Type:</strong> {{selectedTransaction.addressType}}
+                  <strong style="color: var(--text-primary);">Address Type:</strong> 
+                  <span style="color: var(--text-primary);">{{selectedTransaction.addressType}}</span>
                 </div>
               </div>
               
               <div class="row mb-3">
                 <div class="col-12">
-                  <strong>Address:</strong> 
-                  <code class="small ms-2">{{selectedTransaction.address}}</code>
+                  <strong style="color: var(--text-primary);">Address:</strong> 
+                  <code class="small ms-2" style="color: var(--cosmos-accent); background: var(--bg-primary); padding: 2px 4px; border-radius: 4px;">{{selectedTransaction.address}}</code>
                 </div>
               </div>
               
               <!-- Transaction Hash -->
               <div v-if="selectedTransaction.hash" class="mb-3">
-                <strong>Transaction Hash:</strong>
+                <strong style="color: var(--text-primary);">Transaction Hash:</strong>
                 <div class="mt-1">
-                  <code class="small">{{selectedTransaction.hash}}</code>
-                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" :href="getTransactionExplorerUrl(selectedTransaction)" target="_blank" class="btn btn-outline-primary btn-sm ms-2">
+                  <code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; word-break: break-all;">{{selectedTransaction.hash}}</code>
+                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" :href="getTransactionExplorerUrl(selectedTransaction)" target="_blank" class="btn btn-outline-primary btn-sm ms-2 mt-1">
                     <i class="fas fa-external-link-alt me-1"></i>View on Explorer
                   </a>
                 </div>
@@ -979,35 +980,35 @@
               
               <!-- Blockchain Data -->
               <div v-if="getBlockchainData(selectedTransaction)" class="mb-3">
-                <h6>Blockchain Transaction Data</h6>
-                <div class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">
-                  <pre class="mb-0"><code>{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
+                <h6 class="text-primary mb-2">Blockchain Transaction Data</h6>
+                <div class="p-3 rounded border" style="max-height: 400px; overflow-y: auto; background: var(--bg-primary); border-color: var(--border-color) !important;">
+                  <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
                 </div>
               </div>
               
               <!-- Transfer Details -->
               <div v-if="getTransferData(selectedTransaction)" class="mb-3">
-                <h6>Token Transfers</h6>
+                <h6 class="text-success mb-2">Token Transfers</h6>
                 <div class="table-responsive">
-                  <table class="table table-sm">
+                  <table class="table table-sm table-dark">
                     <thead>
                       <tr>
-                        <th>Token</th>
-                        <th>Amount</th>
-                        <th>Type</th>
-                        <th>Contract</th>
+                        <th style="color: var(--text-primary);">Token</th>
+                        <th style="color: var(--text-primary);">Amount</th>
+                        <th style="color: var(--text-primary);">Type</th>
+                        <th style="color: var(--text-primary);">Contract</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="transfer in getTransferData(selectedTransaction)" :key="transfer.hash + transfer.token">
-                        <td>{{transfer.denom || 'Unknown'}}</td>
-                        <td>{{transfer.amount}}</td>
+                        <td style="color: var(--text-primary);">{{transfer.denom || 'Unknown'}}</td>
+                        <td style="color: var(--text-primary);">{{transfer.amount}}</td>
                         <td>
                           <span class="badge" :class="transfer.type === 'native' ? 'bg-primary' : 'bg-success'">
                             {{transfer.type}}
                           </span>
                         </td>
-                        <td><code class="small">{{transfer.token}}</code></td>
+                        <td><code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 2px 4px; border-radius: 4px;">{{transfer.token}}</code></td>
                       </tr>
                     </tbody>
                   </table>
@@ -1015,7 +1016,7 @@
               </div>
             </div>
           </div>
-          <div class="modal-footer">
+          <div class="modal-footer" style="background: var(--bg-secondary); border-top: 1px solid var(--border-color);">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
@@ -1895,7 +1896,7 @@
           */
 
           getExplorerUrl(txHash) {
-            return `${this.networkConfig.evm.explorer || 'https://cevm-01-explorer.dev.skip.build'}/tx/${txHash}`;
+            return `${this.networkConfig.evm.explorer || 'https://evm-devnet-1.cloud.blockscout.com'}/tx/${txHash}`;
           },
 
           // Token classification helpers
