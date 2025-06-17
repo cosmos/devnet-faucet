@@ -20,7 +20,7 @@ const { MNEMONIC } = process.env;
 
 // Configuration
 const CONFIG = {
-    rpcUrl: 'https://cevm-01-evmrpc.dev.skip.build',
+    rpcUrl: 'https://devnet-1-evmrpc.ib.skip.build',
     contractName: 'AtomicMultiSend',
     configFile: 'config.js',
     requiredEnvVars: ['MNEMONIC'] // Only mnemonic needed, private key derived
