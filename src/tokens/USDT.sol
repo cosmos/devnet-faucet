@@ -22,11 +22,12 @@ contract USDT is ERC20, ERC20Burnable, Ownable, AccessControl {
         _transferOwnership(msg.sender);
 
         // Grant roles
-        _grantRole(MINTER_ROLE, 0xc252ae330a12321a1bf7e962564acf3a1fe1fdda);
+        _grantRole(MINTER_ROLE, 0x42e6047c5780B103E52265F6483C2d0113aA6B87);
 
         // Initial token distribution
-        _mint(0xc252ae330a12321a1bf7e962564acf3a1fe1fdda, 100000000000000);
+        _mint(0x42e6047c5780B103E52265F6483C2d0113aA6B87, 100000000000000);
     }
+
 
     function decimals() public view virtual override returns (uint8) {
         return 6;

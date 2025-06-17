@@ -33,7 +33,7 @@ const config = {
         },
         // Contract addresses - will be set after deployment
         contracts: {
-            atomicMultiSend: null, // Will be set after deployment
+            atomicMultiSend: "0x3c084F35C6c183b4F6ae56681BBbFEfcE5DD8d32", // Will be set after deployment - conflicted with PEPE token
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments
@@ -50,21 +50,21 @@ const config = {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: null, // Will be set after token deployment
+                    erc20_contract: "0x89244Ac15bE3F556d5a1C9eFb657D660DCf72a8F", // Will be set after token deployment
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: null, // Will be set after token deployment
+                    erc20_contract: "0xc85FBf1a2f54227d64dAa9f13dA74367dA7f3462", // Will be set after token deployment
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: null, // Will be set after token deployment
+                    erc20_contract: "0x1B942C0f5C4EE2728C35ddB32313026583F92437", // Will be set after token deployment
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }
