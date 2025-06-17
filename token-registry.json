@@ -4,7 +4,7 @@
     "description": "Cosmos EVM Faucet Token Registry",
     "network": "cosmos-evm-testnet",
     "createdAt": "2025-06-16T19:30:00.000Z",
-    "updatedAt": "2025-06-16T19:38:54.653Z"
+    "updatedAt": "2025-06-17T18:31:39.339Z"
   },
   "tokens": [
     {
@@ -37,9 +37,9 @@
         "amount": "100000000000",
         "targetBalance": "100000000000"
       },
-      "contractAddress": "0x921c48F521329cF6187D1De1D0Ca5181B47FF946",
-      "deploymentBlock": "620411",
-      "deployer": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+      "contractAddress": "0x88dBBf6317DbfCB3C864E7649Af9B025701001fF",
+      "deploymentBlock": "636789",
+      "deployer": "0x42e6047c5780b103e52265f6483c2d0113aa6b87"
     },
     {
       "name": "Pepe Token",
@@ -71,9 +71,9 @@
         "amount": "1000000000000000000000",
         "targetBalance": "1000000000000000000000"
       },
-      "contractAddress": "0xD15E993afA1ee82FF0B47dc8Bb601C2747f24Be9",
-      "deploymentBlock": "620412",
-      "deployer": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+      "contractAddress": "0xA89AA3F574a05D078c1521eB0B4D17850D785c08",
+      "deploymentBlock": "636790",
+      "deployer": "0x42e6047c5780b103e52265f6483c2d0113aa6b87"
     },
     {
       "name": "Tether USD",
@@ -105,9 +105,9 @@
         "amount": "1000000000",
         "targetBalance": "1000000000"
       },
-      "contractAddress": "0x480f8F25d13D523e89E9aaC518A5674A305ff687",
-      "deploymentBlock": "620413",
-      "deployer": "0x42e6047c5780B103E52265F6483C2d0113aA6B87"
+      "contractAddress": "0x630068102472358F721df69c01b35C3Ed56A3908",
+      "deploymentBlock": "636791",
+      "deployer": "0x42e6047c5780b103e52265f6483c2d0113aa6b87"
     }
   ]
 }
