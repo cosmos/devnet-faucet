@@ -71,7 +71,9 @@ class EnvironmentValidator {
     }
 
     async checkNetworkConnectivity() {
-        const rpcUrl = process.env.RPC_URL || 'https://cevm-01-evmrpc.dev.skip.build';
+        // Import config to get the correct RPC URL
+        const config = await import('../config.js');
+        const rpcUrl = process.env.RPC_URL || config.default.blockchain.endpoints.evm_endpoint;
         
         try {
             const { stdout } = await execAsync(
