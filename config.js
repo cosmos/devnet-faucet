@@ -19,7 +19,7 @@ const config = {
         type: "DualEnvironment", // New type for dual environment support
         ids: {
             chainId: 4231, // EVM chain ID 
-            cosmosChainId: 'cosmos_4321-1', // Cosmos chain ID
+            cosmosChainId: '4321', // Cosmos chain ID
         },
         endpoints: {
             // Cosmos environment
