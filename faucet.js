@@ -382,7 +382,7 @@ app.get('/config.json', async (req, res) => {
   const chainConf = conf.blockchain
 
   // Create EVM wallet to get the correct addresses
-  const evmWallet = { address: DERIVED_ADDRESS, privateKey: getPrivateKey() };
+  const evmWallet = { address: getEvmAddress(), privateKey: getPrivateKey() };
   sample.evm = evmWallet.address;
   sample.cosmos = evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
 
@@ -462,7 +462,7 @@ app.get('/balance/:type', async (req, res) => {
       if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
         targetAddress = address;
       } else {
-        const wallet = { address: DERIVED_ADDRESS, privateKey: getPrivateKey() };
+        const wallet = { address: getEvmAddress(), privateKey: getPrivateKey() };
         targetAddress = wallet.address;
       }
 
@@ -509,9 +509,7 @@ app.get('/balance/:type', async (req, res) => {
       if (address && address.startsWith('cosmos')) {
         targetAddress = address;
       } else {
-        const wallet = await DirectSecp256k1HdWallet.fromMnemonic(chainConf.sender.mnemonic, { prefix: chainConf.sender.option.prefix });
-        const accounts = await wallet.getAccounts();
-        targetAddress = accounts[0].address;
+        targetAddress = getCosmosAddress();
       }
 
       // Fetch cosmos balances from REST API
