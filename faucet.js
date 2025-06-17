@@ -33,6 +33,8 @@ import conf, {
 } from './config.js'
 import { FrequencyChecker } from './checker.js';
 
+const { MNEMONIC } = process.env;
+
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
 
