@@ -4,7 +4,7 @@
     "description": "Cosmos EVM Faucet Token Registry",
     "network": "cosmos-evm-testnet",
     "createdAt": "2025-06-16T19:30:00.000Z",
-    "updatedAt": "2025-06-17T19:24:04.137Z"
+    "updatedAt": "2025-06-17T21:13:36.548Z"
   },
   "tokens": [
     {
@@ -37,8 +37,8 @@
         "amount": "100000000000",
         "targetBalance": "100000000000"
       },
-      "contractAddress": "0x3c084F35C6c183b4F6ae56681BBbFEfcE5DD8d32",
-      "deploymentBlock": "637415",
+      "contractAddress": "0x8dfFd28aB4B62cee9f210C55ced53f418c20fDb6",
+      "deploymentBlock": "638722",
       "deployer": "0xc252ae330a12321a1bf7e962564acf3a1fe1fdda"
     },
     {
@@ -71,8 +71,8 @@
         "amount": "1000000000000000000000",
         "targetBalance": "1000000000000000000000"
       },
-      "contractAddress": "0x895A2CB5b9328bf44AC3a695953D2232dB901B21",
-      "deploymentBlock": "637416",
+      "contractAddress": "0xFb1644b6e23077B949033f2Ce7fF92B38c8e7a5E",
+      "deploymentBlock": "638723",
       "deployer": "0xc252ae330a12321a1bf7e962564acf3a1fe1fdda"
     },
     {
@@ -105,8 +105,8 @@
         "amount": "1000000000",
         "targetBalance": "1000000000"
       },
-      "contractAddress": "0x0BBD392C3B35C0ebCE7FAe2293146Cb578426936",
-      "deploymentBlock": "637417",
+      "contractAddress": "0xE4B7B51A0b38D68d30C4106c2C73bCD785598F51",
+      "deploymentBlock": "638724",
       "deployer": "0xc252ae330a12321a1bf7e962564acf3a1fe1fdda"
     }
   ]

@@ -32,6 +32,8 @@ import conf, {
   validateDerivedAddresses 
 } from './config.js'
 import { FrequencyChecker } from './checker.js';
+import { ContractValidator } from './src/ContractValidator.js';
+import secureKeyManager from './src/SecureKeyManager.js';
 
 const { MNEMONIC } = process.env;
 
@@ -633,6 +635,24 @@ app.listen(conf.port, async () => {
         process.exit(1);
       }
     }
+
+    // Validate contract addresses before starting
+    console.log('\n🔍 Validating contract addresses...');
+    const validator = new ContractValidator(conf, secureKeyManager);
+    await validator.initialize();
+    
+    const validationResults = await validator.validateAllContracts();
+    console.log(validator.generateValidationReport());
+    
+    if (!validationResults.allValid) {
+      console.error('\n❌ CONTRACT VALIDATION FAILED!');
+      console.error('Some contract addresses are invalid or not accessible.');
+      console.error('Run: node scripts/validate-contracts.js --interactive');
+      console.error('Or manually update config.js with correct addresses.');
+      process.exit(1);
+    }
+    
+    console.log('\n✅ All contracts validated successfully!');
 
     // Get secure addresses
     const evmAddress = getEvmAddress();

@@ -1,3 +1,4 @@
+// Configuration auto-updated on 2025-06-17T20:28:32.973Z
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 import secureKeyManager from './src/SecureKeyManager.js';
@@ -33,7 +34,7 @@ const config = {
         },
         // Contract addresses - will be set after deployment
         contracts: {
-            atomicMultiSend: "0x3c084F35C6c183b4F6ae56681BBbFEfcE5DD8d32", // Will be set after deployment - conflicted with PEPE token
+            atomicMultiSend: "0xb98Ef904d788F35555968fCf212590E7cB12F8a8", // AtomicMultiSend contract
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments
@@ -50,21 +51,21 @@ const config = {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0x89244Ac15bE3F556d5a1C9eFb657D660DCf72a8F", // Will be set after token deployment
+                    erc20_contract: "0x8dfFd28aB4B62cee9f210C55ced53f418c20fDb6", // WBTC token address
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xc85FBf1a2f54227d64dAa9f13dA74367dA7f3462", // Will be set after token deployment
+                    erc20_contract: "0xFb1644b6e23077B949033f2Ce7fF92B38c8e7a5E", // PEPE token address
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0x1B942C0f5C4EE2728C35ddB32313026583F92437", // Will be set after token deployment
+                    erc20_contract: "0xE4B7B51A0b38D68d30C4106c2C73bCD785598F51", // USDT token address
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }

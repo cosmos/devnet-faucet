@@ -29,10 +29,96 @@ const CONFIG = {
 class DeploymentManager {
     constructor(options = {}) {
         this.deploymentData = null;
+        this.tokenDeployments = {};
         this.runTests = options.test || false;
         this.verbose = options.verbose || false;
     }
 
+    parseTokenDeploymentOutput(output) {
+        try {
+            // Look for deployment report JSON in the output
+            const reportMatch = output.match(/DEPLOYMENT REPORT:\s*(\{[\s\S]*?\n\})/);
+            if (reportMatch) {
+                return JSON.parse(reportMatch[1]);
+            }
+            
+            // Fallback: Look for token deployment report file
+            const deploymentReportPath = './deployments/token-deployment-report.json';
+            if (fs.existsSync(deploymentReportPath)) {
+                const reportContent = fs.readFileSync(deploymentReportPath, 'utf8');
+                const report = JSON.parse(reportContent);
+                
+                // Convert to the format we expect
+                const deployments = {};
+                if (report.deployments && Array.isArray(report.deployments)) {
+                    for (const deployment of report.deployments) {
+                        deployments[deployment.symbol] = {
+                            address: deployment.address,
+                            decimals: deployment.decimals,
+                            name: deployment.name
+                        };
+                    }
+                }
+                
+                return { deployments };
+            }
+            
+            console.warn(' Could not parse token deployment addresses from output');
+            return null;
+        } catch (error) {
+            console.warn(' Error parsing token deployment output:', error.message);
+            return null;
+        }
+    }
+
+    async saveComprehensiveDeploymentRecord() {
+        console.log(' Saving comprehensive deployment record...');
+        
+        try {
+            const deploymentRecord = {
+                timestamp: new Date().toISOString(),
+                network: 'cosmos-evm-testnet',
+                chainId: 4231,
+                cosmosChainId: '4321',
+                rpcUrl: CONFIG.rpcUrl,
+                deployer: this.deploymentData?.deployer,
+                contracts: {
+                    AtomicMultiSend: this.deploymentData?.contractAddress,
+                    tokens: this.tokenDeployments || {}
+                },
+                deploymentData: this.deploymentData
+            };
+            
+            // Save to deployments directory
+            const deploymentsDir = './deployments';
+            if (!fs.existsSync(deploymentsDir)) {
+                fs.mkdirSync(deploymentsDir, { recursive: true });
+            }
+            
+            // Save comprehensive record
+            const recordPath = path.join(deploymentsDir, 'latest-deployment.json');
+            fs.writeFileSync(recordPath, JSON.stringify(deploymentRecord, null, 2));
+            
+            // Save latest addresses for quick access
+            const addressesPath = path.join(deploymentsDir, 'latest-addresses.json');
+            const addresses = {
+                AtomicMultiSend: deploymentRecord.contracts.AtomicMultiSend,
+                ...deploymentRecord.contracts.tokens,
+                lastUpdated: deploymentRecord.timestamp,
+                network: deploymentRecord.network,
+                chainId: deploymentRecord.chainId
+            };
+            fs.writeFileSync(addressesPath, JSON.stringify(addresses, null, 2));
+            
+            console.log(` Deployment record saved to: ${recordPath}`);
+            console.log(` Latest addresses saved to: ${addressesPath}`);
+            
+            return deploymentRecord;
+        } catch (error) {
+            console.error(' Error saving deployment record:', error.message);
+            throw error;
+        }
+    }
 
     async validateEnvironment() {
         console.log(' Validating environment...');
@@ -89,6 +175,14 @@ class DeploymentManager {
         try {
             const { stdout } = await execAsync('node scripts/deploy-token-registry.js');
             console.log(' Token registry deployment successful');
+            
+            // Parse deployment output to extract token addresses
+            const deploymentReport = this.parseTokenDeploymentOutput(stdout);
+            if (deploymentReport && deploymentReport.deployments) {
+                this.tokenDeployments = deploymentReport.deployments;
+                console.log(` Captured ${Object.keys(this.tokenDeployments).length} token addresses`);
+            }
+            
             console.log(stdout);
         } catch (error) {
             throw new Error(`Token registry deployment failed: ${error.message}`);
@@ -164,19 +258,55 @@ class DeploymentManager {
             const configPath = CONFIG.configFile;
             let configContent = fs.readFileSync(configPath, 'utf8');
             
-            // Replace contract address using regex (handles both env var and direct address patterns)
-            const addressRegex = /atomicMultiSend:\s*(?:process\.env\.ATOMIC_MULTISEND_CONTRACT\s*\|\|\s*)?(?:"0x[a-fA-F0-9]{40}"|null)/;
-            const newAddressLine = `atomicMultiSend: "${contractAddress}"`;
+            // Update AtomicMultiSend contract address
+            const atomicMultiSendRegex = /atomicMultiSend:\s*(?:process\.env\.ATOMIC_MULTISEND_CONTRACT\s*\|\|\s*)?(?:"0x[a-fA-F0-9]{40}"|null)/;
+            const newAtomicMultiSendLine = `atomicMultiSend: "${contractAddress}"`;
             
-            if (addressRegex.test(configContent)) {
-                configContent = configContent.replace(addressRegex, newAddressLine);
+            if (atomicMultiSendRegex.test(configContent)) {
+                configContent = configContent.replace(atomicMultiSendRegex, newAtomicMultiSendLine);
+                console.log(` AtomicMultiSend address updated: ${contractAddress}`);
             } else {
                 throw new Error('Could not find atomicMultiSend address pattern in config');
             }
             
+            // Update token contract addresses if we have token deployments
+            if (this.tokenDeployments && Object.keys(this.tokenDeployments).length > 0) {
+                console.log(' Updating token contract addresses...');
+                
+                // Update each token's erc20_contract address
+                for (const [symbol, deploymentData] of Object.entries(this.tokenDeployments)) {
+                    const tokenName = symbol.toLowerCase();
+                    const tokenRegex = new RegExp(
+                        `(denom:\\s*"${tokenName}"[\\s\\S]*?erc20_contract:\\s*)"[^"]*"`,
+                        'g'
+                    );
+                    
+                    if (tokenRegex.test(configContent)) {
+                        configContent = configContent.replace(
+                            tokenRegex,
+                            `$1"${deploymentData.address}"`
+                        );
+                        console.log(`  Updated ${symbol}: ${deploymentData.address}`);
+                    }
+                }
+            }
+            
+            // Add deployment timestamp comment
+            const timestamp = new Date().toISOString();
+            const deploymentComment = `// Configuration auto-updated on ${timestamp}\n`;
+            
+            if (!configContent.includes('// Configuration auto-updated on')) {
+                configContent = deploymentComment + configContent;
+            } else {
+                configContent = configContent.replace(
+                    /\/\/ Configuration auto-updated on [^\n]+\n/,
+                    deploymentComment
+                );
+            }
+            
             // Write updated config
             fs.writeFileSync(configPath, configContent);
-            console.log(` Configuration updated with new contract address: ${contractAddress}`);
+            console.log(` Configuration file updated successfully`);
         } catch (error) {
             throw new Error(`Configuration update failed: ${error.message}`);
         }
@@ -344,7 +474,7 @@ class DeploymentManager {
             await this.updateConfiguration(contractAddress);
             await this.setTokenApprovals();
             await this.verifyDeployment();
-            await this.saveDeploymentRecord();
+            await this.saveComprehensiveDeploymentRecord();
             
             const duration = (Date.now() - startTime) / 1000;
             console.log('\n Deployment completed successfully!');
