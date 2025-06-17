@@ -176,10 +176,14 @@ class EnvironmentValidator {
         }
         
         try {
-            // Import the cached derived address from config
-            const { DERIVED_ADDRESS } = await import('../config.js');
+            // Import secure key manager functions from config
+            const { getEvmAddress, initializeSecureKeys } = await import('../config.js');
             
-            this.log('pass', 'Wallet address (cached)', `${DERIVED_ADDRESS.slice(0, 8)}...${DERIVED_ADDRESS.slice(-6)}`);
+            // Initialize secure keys if needed
+            await initializeSecureKeys();
+            const address = getEvmAddress();
+            
+            this.log('pass', 'Wallet address (derived)', `${address.slice(0, 8)}...${address.slice(-6)}`);
             this.log('info', 'Wallet balance check', '(should be verified manually on-chain)');
         } catch (error) {
             this.log('warn', 'Wallet derivation failed', error.message);

@@ -10,10 +10,18 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { ethers } from 'ethers';
-import config from '../config.js';
 import secureKeyManager from '../src/SecureKeyManager.js';
 
 const execAsync = promisify(exec);
+
+// Minimal config for token deployment
+const config = {
+    blockchain: {
+        endpoints: {
+            evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build"
+        }
+    }
+};
 
 class TokenRegistryDeployer {
     constructor() {
@@ -24,10 +32,8 @@ class TokenRegistryDeployer {
     }
 
     async initializeWallet() {
-        // Initialize secure key manager if not already done
-        if (!secureKeyManager.isInitialized()) {
-            await secureKeyManager.initialize();
-        }
+        // Initialize secure key manager (it handles re-initialization safely)
+        await secureKeyManager.initialize();
         
         // Create wallet with private key from secure manager
         const privateKey = secureKeyManager.getPrivateKeyHex();
@@ -172,9 +178,12 @@ ${features}
 
         if (token.features.permit) allConstructorCalls.push('ERC20Permit("' + token.name + '")');
         if (token.features.capped && token.maxSupply) allConstructorCalls.push(`ERC20Capped(${token.maxSupply})`);
-        allConstructorCalls.push(`Ownable(${token.roles.owner})`);
+        allConstructorCalls.push('Ownable()');
 
         const constructorBody = [
+            '        // Transfer ownership to deployer',
+            '        _transferOwnership(msg.sender);',
+            '',
             '        // Grant roles',
             ...(token.features.mintable ? ['        _grantRole(MINTER_ROLE, ' + token.roles.minter + ');'] : []),
             ...(token.features.pausable ? ['        _grantRole(PAUSER_ROLE, ' + token.roles.pauser + ');'] : []),
@@ -275,7 +284,7 @@ ${constructorBody.join('\n')}
                 this.wallet
             );
             
-            const ownerAddress = config.derivedAddresses.evm.address;
+            const ownerAddress = secureKeyManager.getEvmAddress();
             console.log(`   Deploying with owner: ${ownerAddress}`);
             const contract = await contractFactory.deploy(ownerAddress);
             await contract.waitForDeployment();
@@ -317,19 +326,15 @@ ${constructorBody.join('\n')}
         // Update config.js with new token addresses
         let configContent = fs.readFileSync('config.js', 'utf8');
         
-        // Update the amounts array with deployed addresses
-        const updatedAmounts = this.registry.tokens
-            .filter(token => token.faucet?.enabled)
-            .map((token, index) => {
-                const deployment = this.deploymentResults.find(d => d.symbol === token.symbol);
-                return {
-                    denom: token.symbol.toLowerCase(),
-                    amount: token.faucet.amount,
-                    erc20_contract: deployment?.address || "0x0000000000000000000000000000000000000000",
-                    decimals: token.decimals,
-                    target_balance: token.faucet.targetBalance
-                };
-            });
+        // Update each token contract address in config.js
+        for (const deployment of this.deploymentResults) {
+            const denom = deployment.symbol.toLowerCase();
+            const addressPattern = new RegExp(`(denom:\\s*"${denom}"[\\s\\S]*?erc20_contract:\\s*)(?:process\\.env\\.\\w+_CONTRACT\\s*\\|\\|\\s*)?null`, 'g');
+            configContent = configContent.replace(addressPattern, `$1"${deployment.address}"`);
+        }
+        
+        // Write updated config.js
+        fs.writeFileSync('config.js', configContent);
         
         // Write updated registry with addresses
         this.registry.tokens.forEach(token => {
@@ -337,7 +342,7 @@ ${constructorBody.join('\n')}
             if (deployment) {
                 token.contractAddress = deployment.address;
                 token.deploymentBlock = deployment.deploymentBlock;
-                token.deployer = config.derivedAddresses.evm.address;
+                token.deployer = secureKeyManager.getEvmAddress();
             }
         });
         
@@ -353,7 +358,7 @@ ${constructorBody.join('\n')}
         const report = {
             timestamp: new Date().toISOString(),
             network: this.registry.meta.network,
-            deployer: config.derivedAddresses.evm.address,
+            deployer: secureKeyManager.getEvmAddress(),
             deployments: this.deploymentResults,
             summary: {
                 totalTokens: this.deploymentResults.length,
