@@ -139,17 +139,22 @@ export class ContractValidator {
 
                 result.contractData = { name, symbol, decimals: Number(decimals) };
                 
-                // Validate expected properties
-                if (symbol.toUpperCase() !== tokenConfig.denom.toUpperCase()) {
+                // Validate expected properties (skip symbol check for native tokens)
+                const isNativeToken = tokenConfig.denom === 'uatom' && tokenConfig.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+                if (!isNativeToken && symbol.toUpperCase() !== tokenConfig.denom.toUpperCase()) {
                     result.reason = `Symbol mismatch: expected ${tokenConfig.denom.toUpperCase()}, got ${symbol}`;
                     console.log(`    Symbol mismatch: expected ${tokenConfig.denom.toUpperCase()}, got ${symbol}`);
                     return result;
+                } else if (isNativeToken) {
+                    console.log(`    Native token wrapper detected - symbol validation skipped`);
                 }
 
-                if (Number(decimals) !== tokenConfig.decimals) {
+                if (!isNativeToken && Number(decimals) !== tokenConfig.decimals) {
                     result.reason = `Decimals mismatch: expected ${tokenConfig.decimals}, got ${decimals}`;
                     console.log(`    Decimals mismatch: expected ${tokenConfig.decimals}, got ${decimals}`);
                     return result;
+                } else if (isNativeToken) {
+                    console.log(`    Native token wrapper - decimals validation skipped (expected ${tokenConfig.decimals}, got ${decimals})`);
                 }
 
                 // Check ownership if possible
