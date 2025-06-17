@@ -31,9 +31,9 @@ const config = {
             evm_websocket: "wss://devnet-1-evmws.ib.skip.build",
             evm_explorer: "https://evm-devnet-1.cloud.blockscout.com",
         },
-        // Contract addresses - loaded from environment variables for security
+        // Contract addresses - will be set after deployment
         contracts: {
-            atomicMultiSend: "0xbd6D34F5B21bbF706b99fC7AD1d7a936125A4f0c", // Will be set after deployment
+            atomicMultiSend: null, // Will be set after deployment
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments
@@ -50,21 +50,21 @@ const config = {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0xa9f2644d613a1466fb06d84Be03EDD04EC98b5C4", // Will be set after token deployment
+                    erc20_contract: null, // Will be set after token deployment
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xEd2278587974d0dF4049b1Fe23d30FA9A35Ee282", // Will be set after token deployment
+                    erc20_contract: null, // Will be set after token deployment
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0x814500eB7ab9BA14e829915D8A7973E2492C1750", // Will be set after token deployment
+                    erc20_contract: null, // Will be set after token deployment
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }
