@@ -21,10 +21,17 @@ import { mnemonicToSeedSync, validateMnemonic } from 'bip39';
 import { BIP32Factory } from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 
-import conf, { DERIVED_ADDRESS, getPrivateKey, DERIVED_PUBLIC_KEY, DERIVED_COSMOS_ADDRESS } from './config.js'
+import conf, { 
+  initializeSecureKeys, 
+  getPrivateKey, 
+  getPrivateKeyBytes,
+  getPublicKeyBytes,
+  getEvmAddress, 
+  getCosmosAddress, 
+  getEvmPublicKey,
+  validateDerivedAddresses 
+} from './config.js'
 import { FrequencyChecker } from './checker.js';
-
-const { MNEMONIC } = process.env;
 
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
@@ -603,31 +610,45 @@ app.get('/send/:address', async (req, res) => {
 })
 
 app.listen(conf.port, async () => {
-  console.log(`[START] Faucet server running on port ${conf.port}`);
+  console.log(`[START] Faucet server starting on port ${conf.port}...`);
   
-  // Check if addresses are cached, derive if not
-  if (!conf.derivedAddresses) {
-    console.log('⚠️  No cached addresses found - deriving and caching addresses...');
-    try {
-      const { deriveAndCacheAddresses } = await import('./scripts/derive-and-cache-addresses.js');
-      await deriveAndCacheAddresses(process.env.MNEMONIC);
-      console.log('✅ Addresses derived and cached successfully');
-      
-      // Restart the server to use cached addresses
-      console.log('🔄 Restarting to use cached addresses...');
-      process.exit(0); // PM2 or similar will restart
-    } catch (error) {
-      console.error('❌ Failed to derive addresses:', error.message);
-      process.exit(1);
+  try {
+    // Initialize secure key management
+    console.log('🔐 Initializing secure key management...');
+    await initializeSecureKeys();
+    
+    // Validate addresses if we have cached ones
+    if (conf.derivedAddresses && conf.derivedAddresses.evm && conf.derivedAddresses.cosmos) {
+      console.log('🔍 Validating cached addresses against derived keys...');
+      try {
+        validateDerivedAddresses({
+          evm: conf.derivedAddresses.evm.address,
+          cosmos: conf.derivedAddresses.cosmos.address
+        });
+        console.log('✅ Address validation successful - using cached addresses');
+      } catch (error) {
+        console.error('❌ Address validation failed:', error.message);
+        console.log('🔄 This may indicate mnemonic was changed. Please update cached addresses.');
+        process.exit(1);
+      }
     }
+
+    // Get secure addresses
+    const evmAddress = getEvmAddress();
+    const cosmosAddress = getCosmosAddress();
+
+    console.log('✅ Faucet server ready!');
+    console.log(`📍 EVM Address: ${evmAddress}`);
+    console.log(`📍 Cosmos Address: ${cosmosAddress}`);
+    console.log(`🌐 Server listening on http://localhost:${conf.port}`);
+    
+    // Never log private keys or mnemonic
+    console.log('🔒 Private keys secured in memory (never logged or written to disk)');
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize faucet:', error.message);
+    process.exit(1);
   }
-
-  // Initialize wallet addresses
-  const chainConf = conf.blockchain;
-  const evmWallet = { address: DERIVED_ADDRESS, privateKey: getPrivateKey() };
-  const cosmosAddress = DERIVED_COSMOS_ADDRESS || evmToCosmosAddress(evmWallet, chainConf.sender.option.prefix);
-
-  console.log(`Wallet ready - Cosmos: ${cosmosAddress} | EVM: ${evmWallet.address}`);
 })
 
 // Legacy functions removed - replaced by smart faucet functions above
@@ -1084,9 +1105,9 @@ async function sendCosmosTransactionInternal(recipient, neededAmounts, pubkeyVar
   const txBodyBytes = TxBody.encode(txBodyValue).finish();
 
   // 4. Get our manually derived keys for consistency
-  // Use cached private key bytes
-  const privateKeyBytes = Buffer.from(getPrivateKey().slice(2), 'hex');
-  const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes, true); // compressed
+  // Use secure key manager for private key bytes
+  const privateKeyBytes = getPrivateKeyBytes();
+  const publicKeyBytes = getPublicKeyBytes();
 
   // Verify key consistency
   const keysMatch = Buffer.from(publicKeyBytes).equals(Buffer.from(firstAccount.pubkey));
@@ -1169,7 +1190,7 @@ async function sendSmartEvmTx(recipient, neededAmounts) {
   try {
     const chainConf = conf.blockchain;
     const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
-    // Use cached private key to create wallet instance (still need full wallet for provider connection)
+    // Use secure private key to create wallet instance (still need full wallet for provider connection)
     const walletInstance = new Wallet(getPrivateKey());
     const wallet = walletInstance.connect(ethProvider);
 

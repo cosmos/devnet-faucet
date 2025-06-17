@@ -1,14 +1,6 @@
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
-import { Wallet, HDNodeWallet, randomBytes } from 'ethers';
-
-// Load mnemonic from environment variable for security
-const mnemonic = process.env.MNEMONIC || (() => {
-    console.error('MNEMONIC environment variable not set');
-    console.error('For Vercel: Add MNEMONIC to environment variables');
-    console.error('For local: export MNEMONIC="your twelve word mnemonic phrase here"');
-    process.exit(1);
-})()
+import secureKeyManager from './src/SecureKeyManager.js';
 
 const config = {
     port: 8088, 
@@ -39,12 +31,14 @@ const config = {
             evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
             evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
         },
-        // Contract addresses - centralized for all components
+        // Contract addresses - loaded from environment variables for security
         contracts: {
-            atomicMultiSend: "0x7526f84B6dEcAb19ad1523a0011325C13Bdf7085", // New AtomicMultiSend contract for reliable token distribution
+            atomicMultiSend: process.env.ATOMIC_MULTISEND_CONTRACT || (() => {
+                console.error('ATOMIC_MULTISEND_CONTRACT environment variable not set');
+                process.exit(1);
+            })(),
         },
         sender: {
-            mnemonic,
             // Using eth_secp256k1 derivation path for both environments
             option: {
                 hdPaths: [stringToPath("m/44'/60'/0'/0/0")], // Ethereum derivation path
@@ -59,21 +53,30 @@ const config = {
                 {
                     denom: "wbtc", // Wrapped Bitcoin
                     amount: "100000000000", // 1000 WBTC (8 decimals)
-                    erc20_contract: "0x921c48F521329cF6187D1De1D0Ca5181B47FF946", // New deployed WBTC contract
+                    erc20_contract: process.env.WBTC_CONTRACT || (() => {
+                        console.error('WBTC_CONTRACT environment variable not set');
+                        process.exit(1);
+                    })(),
                     decimals: 8,
                     target_balance: "100000000000" // 1000 tokens target
                 },
                 {
                     denom: "pepe", // Pepe Token
                     amount: "1000000000000000000000", // 1000 PEPE (18 decimals)
-                    erc20_contract: "0xD15E993afA1ee82FF0B47dc8Bb601C2747f24Be9", // New deployed PEPE contract
+                    erc20_contract: process.env.PEPE_CONTRACT || (() => {
+                        console.error('PEPE_CONTRACT environment variable not set');
+                        process.exit(1);
+                    })(),
                     decimals: 18,
                     target_balance: "1000000000000000000000" // 1000 tokens target
                 },
                 {
                     denom: "usdt", // Tether USD
                     amount: "1000000000", // 1000 USDT (6 decimals)
-                    erc20_contract: "0x480f8F25d13D523e89E9aaC518A5674A305ff687", // New deployed USDT contract
+                    erc20_contract: process.env.USDT_CONTRACT || (() => {
+                        console.error('USDT_CONTRACT environment variable not set');
+                        process.exit(1);
+                    })(),
                     decimals: 6,
                     target_balance: "1000000000" // 1000 tokens target
                 }
@@ -105,49 +108,35 @@ const config = {
     }
 }
 
-// Secure private key derivation - kept in memory only
-let _secureWallet = null;
-
-const getSecureWallet = () => {
-    if (!_secureWallet) {
-        const hdPath = "m/44'/60'/0'/0/0"; // Ethereum derivation path
-        _secureWallet = HDNodeWallet.fromPhrase(mnemonic, undefined, hdPath);
-        // Clear mnemonic reference after use for additional security
-        Object.freeze(_secureWallet);
-    }
-    return _secureWallet;
+// Secure key management functions
+export const initializeSecureKeys = async () => {
+    await secureKeyManager.initialize();
+    
+    // Update config with derived addresses for caching
+    const addresses = secureKeyManager.getAddresses();
+    config.derivedAddresses = addresses;
+    
+    console.log('✅ Secure keys initialized and cached in config');
 };
 
-// Function to get cached addresses or derive if missing
-const getWalletAddresses = () => {
-    if (config.derivedAddresses) {
-        console.log('Using cached wallet addresses');
-        return {
-            address: config.derivedAddresses.evm.address,
-            publicKey: config.derivedAddresses.evm.publicKey,
-            cosmosAddress: config.derivedAddresses.cosmos.address
-        };
-    } else {
-        console.log('WARNING: No cached addresses found - deriving from mnemonic...');
-        const wallet = getSecureWallet();
-        return {
-            address: wallet.address,
-            publicKey: wallet.publicKey,
-            cosmosAddress: null // Will need to be derived separately
-        };
-    }
-}
-
-// Get wallet addresses (cached or derived)
-const WALLET_ADDRESSES = getWalletAddresses();
-
-// Export derived values for use throughout the application
-export const DERIVED_ADDRESS = WALLET_ADDRESSES.address;
-export const DERIVED_PUBLIC_KEY = WALLET_ADDRESSES.publicKey;
-export const DERIVED_COSMOS_ADDRESS = WALLET_ADDRESSES.cosmosAddress;
-
 // Secure private key access - only accessible within application
-export const getPrivateKey = () => getSecureWallet().privateKey;
-export const getSecureWalletInstance = () => getSecureWallet();
+export const getPrivateKey = () => secureKeyManager.getPrivateKeyHex();
+export const getPrivateKeyBytes = () => secureKeyManager.getPrivateKeyBytes();
+export const getPublicKeyBytes = () => secureKeyManager.getPublicKeyBytes();
+
+// Address getters
+export const getEvmAddress = () => secureKeyManager.getEvmAddress();
+export const getCosmosAddress = () => secureKeyManager.getCosmosAddress();
+export const getEvmPublicKey = () => secureKeyManager.getEvmPublicKey();
+
+// Validation function for startup checks
+export const validateDerivedAddresses = (expectedAddresses) => {
+    return secureKeyManager.validateAddresses(expectedAddresses);
+};
+
+// Legacy exports for backward compatibility
+export const DERIVED_ADDRESS = null; // Will be set after initialization
+export const DERIVED_PUBLIC_KEY = null; // Will be set after initialization
+export const DERIVED_COSMOS_ADDRESS = null; // Will be set after initialization
 
 export default config;
