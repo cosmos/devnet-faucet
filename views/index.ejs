@@ -302,13 +302,12 @@
               <span v-if="recentTransactions.length" class="badge bg-primary ms-1">{{recentTransactions.length}}</span>
             </button>
           </li>
-          <!-- WATOM Wrap/Unwrap Tab - Hidden for production
-          <li class="nav-item" role="presentation">
+          <!-- WATOM Wrap/Unwrap Tab - Hidden for production -->
+          <li class="nav-item" role="presentation" style="display: none;">
             <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
               <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
             </button>
           </li>
-          -->
         </ul>
 
         <div class="tab-content">
@@ -595,8 +594,8 @@
             </div>
           </div>
 
-          <!-- WATOM Wrap/Unwrap Tab - Hidden for production
-          <div class="tab-pane fade" id="watom" role="tabpanel">
+          <!-- WATOM Wrap/Unwrap Tab - Hidden for production -->
+          <div class="tab-pane fade" id="watom" role="tabpanel" style="display: none;">
             <div class="card">
               <div class="card-header">
                 <i class="fas fa-exchange-alt me-2"></i>
@@ -772,7 +771,6 @@
               </div>
             </div>
           </div>
-          -->
 
           <!-- Recent Transactions Tab -->
           <div class="tab-pane fade" id="recent" role="tabpanel">
@@ -1052,7 +1050,7 @@
             // watomBalance: '0',
             // isWrapping: false,
             // isUnwrapping: false,
-            // watomTransactions: [],
+            watomTransactions: [], // Keep as empty array to avoid template errors
             // watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
             // Wallet connection state
             cosmosWallet: {
@@ -1081,7 +1079,7 @@
             }
             this.loadFaucetBalances();
             this.loadRecentTransactions();
-            this.loadWatomTransactions();
+            // this.loadWatomTransactions(); // Hidden for production
             // loadWatomBalances will be called when EVM wallet connects
           }).catch(error => {
             console.error('Failed to load config:', error);
@@ -1109,10 +1107,10 @@
             handler(connected) {
               if (connected && this.evmWallet.address) {
                 // Only load WATOM balances if we have a connected address
-                this.loadWatomBalances();
+                // this.loadWatomBalances(); // Hidden for production
               } else {
-                this.nativeBalance = '0';
-                this.watomBalance = '0';
+                // this.nativeBalance = '0'; // Hidden for production
+                // this.watomBalance = '0'; // Hidden for production
               }
             },
             immediate: false
@@ -1888,12 +1886,12 @@
             localStorage.setItem('watomTransactions', JSON.stringify(this.watomTransactions));
           },
 
-          loadWatomTransactions() {
-            const stored = localStorage.getItem('watomTransactions');
-            if (stored) {
-              this.watomTransactions = JSON.parse(stored);
-            }
-          },
+          // loadWatomTransactions() { // Hidden for production
+          //   const stored = localStorage.getItem('watomTransactions');
+          //   if (stored) {
+          //     this.watomTransactions = JSON.parse(stored);
+          //   }
+          // },
           */
 
           getExplorerUrl(txHash) {
