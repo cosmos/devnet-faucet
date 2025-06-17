@@ -1,4 +1,16 @@
-# Cosmos EVM Faucet - Setup & Operations
+# Cosmos EVM Devnet Faucet
+
+A dual-chain faucet system for distributing both Cosmos native tokens (ATOM) and ERC-20 tokens on the Cosmos EVM environment. Built for frequently-resetting devnets with flexible, centralized configuration management.
+
+## Features
+
+- **Dual Environment Support**: Cosmos SDK + EVM compatibility layer
+- **Multi-Token Distribution**: Distributes ATOM, WBTC, PEPE, and USDT tokens
+- **Centralized Configuration**: Network settings in `config.js`, token details in `tokens.json`
+- **Secure Key Management**: Mnemonic-based address derivation with caching
+- **Contract Validation**: Automatic validation and deployment on startup
+- **Rate Limiting**: Per-address and per-IP limits with persistent storage
+- **Modern UI**: Vue.js interface with MetaMask integration and transaction history
 
 ## Prerequisites
 
@@ -22,7 +34,7 @@ forge --version
 ### 1. Install Dependencies
 ```bash
 git clone <repository-url>
-cd cdev-faucet
+cd devnet-faucet
 npm install
 ```
 
@@ -31,129 +43,246 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env`:
+Edit `.env` - only mnemonic is required:
 ```bash
-# Required
+# Required: 12-word mnemonic phrase for address derivation
 MNEMONIC="your twelve word mnemonic phrase here"
 
-# Contract addresses (set after deployment)
-ATOMIC_MULTISEND_CONTRACT="0x..."
-WBTC_CONTRACT="0x..."
-PEPE_CONTRACT="0x..."
-USDT_CONTRACT="0x..."
+# Optional: Override network endpoints (defaults in config.js)
+# RPC_URL="https://your-custom-rpc.example.com"
 ```
 
 ### 3. Network Configuration
-Edit `config.js`:
+
+**Primary Configuration**: Edit `config.js` for network settings:
 ```javascript
 blockchain: {
+    name: "cosmos-evm-chain",
     ids: {
-        chainId: 262144,
-        cosmosChainId: 'cosmos_262144-1',
+        chainId: 4231,              // EVM chain ID (current: devnet-1)
+        cosmosChainId: '4321',      // Cosmos chain ID
     },
     endpoints: {
-        rpc_endpoint: "https://cevm-01-rpc.dev.skip.build",
-        grpc_endpoint: "https://cevm-01-grpc.dev.skip.build", 
-        rest_endpoint: "https://cevm-01-lcd.dev.skip.build",
-        evm_endpoint: "https://cevm-01-evmrpc.dev.skip.build",
-        evm_websocket: "wss://cevm-01-evmws.dev.skip.build",
+        rpc_endpoint: "https://devnet-1-rpc.ib.skip.build",
+        rest_endpoint: "https://devnet-1-lcd.ib.skip.build", 
+        evm_endpoint: "https://devnet-1-evmrpc.ib.skip.build",
+        evm_explorer: "https://evm-devnet-1.cloud.blockscout.com",
     }
 }
 ```
+
+**Token Configuration**: `tokens.json` contains comprehensive token metadata:
+- Contract addresses and deployment info
+- Faucet distribution amounts and limits
+- Token features (mintable, burnable, etc.)
+- Governance roles and permissions
+- UI metadata (logos, descriptions, categories)
 
 ## Deployment
 
 ### Automated (Recommended)
 ```bash
-npm run deploy  # Deploy contracts and configure system
-npm start       # Start faucet server
+# Complete deployment pipeline
+npm run deploy     # Deploy contracts, set approvals, validate
+npm start          # Start faucet server
 ```
+
+This will:
+1. Validate environment and dependencies
+2. Deploy ERC-20 tokens from `tokens.json` configuration
+3. Deploy AtomicMultiSend contract for batch transfers
+4. Set token approvals for the faucet wallet
+5. Verify all contracts are accessible
+6. Update configuration files with deployed addresses
 
 ### Manual Steps
 ```bash
-npm run validate              # Validate environment
-forge build                   # Compile contracts
-npm run approve-tokens        # Set token approvals
+npm run validate                    # Environment validation
+forge build                        # Compile Solidity contracts
+node scripts/deploy-token-registry.js  # Deploy tokens
+node scripts/automated-deploy.js   # Deploy & configure system
 ```
 
-## Token Configuration
+### Custom Token Deployment
 
-**Current Tokens:**
-| Token | Symbol | Decimals | Target Balance |
-|-------|---------|-----------|----------------|
-| Wrapped Bitcoin | WBTC | 8 | 1,000 |
-| Pepe Token | PEPE | 18 | 1,000 |
-| Tether USD | USDT | 6 | 1,000 |
+To add new tokens, edit `tokens.json`:
+```json
+{
+  "tokens": [
+    {
+      "symbol": "NEWTOKEN",
+      "name": "New Token",
+      "decimals": 18,
+      "faucet": {
+        "enabled": true,
+        "configuration": {
+          "amountPerRequest": "1000000000000000000000",
+          "targetBalance": "1000000000000000000000"
+        }
+      }
+    }
+  ]
+}
+```
 
-**Adding Tokens:**
-1. Create contract in `src/tokens/`
-2. Add to `script/DeployAll.s.sol`
-3. Update `config.js` amounts array
-4. Add environment variable
+## Architecture
 
-## Operations
+### Configuration System
+- **`config.js`**: Central authority for network parameters (chain IDs, RPC endpoints, gas settings)
+- **`tokens.json`**: Token-specific configuration (contracts, amounts, metadata)
+- **`TokenConfigLoader`**: Bridges configuration files and validates consistency
 
-### Server Startup
-1. Derives addresses from mnemonic
-2. Validates cached addresses
-3. Connects to contracts
-4. Initializes rate limiting database
+### Contract System
+- **AtomicMultiSend**: Batch ERC-20 token distribution contract
+- **ERC-20 Tokens**: Auto-generated from `tokens.json` with custom features
+- **ContractValidator**: Validates contract addresses on startup
 
-### API Endpoints
-- `GET /` - Web interface
-- `GET /send/:address` - Request tokens (Cosmos or EVM address)
-- `GET /config.json` - Network configuration
-- `GET /balance/:type` - Balance queries
+### Key Management
+- **SecureKeyManager**: Derives addresses from mnemonic with caching
+- **Address Validation**: Ensures consistency between deployments
+- **Multi-Environment**: Same private key for both Cosmos and EVM
+
+## API Reference
+
+### Endpoints
+- `GET /` - Web interface with Vue.js frontend
+- `GET /send/:address` - Request tokens (accepts Cosmos or EVM addresses)
+- `GET /config.json` - Network configuration for frontend
+- `GET /balance/cosmos` - Cosmos token balances
+- `GET /balance/evm` - EVM token balances
+
+### Address Formats
+- **Cosmos**: `cosmos1...` (bech32 format)
+- **EVM**: `0x...` (40 hex characters)
 
 ### Rate Limiting
-- 1 request per address per 24 hours
-- 10 requests per IP per 24 hours
-- Database: `.faucet/history.db`
+- **Per Address**: 1 request per 24 hours
+- **Per IP**: 10 requests per 24 hours  
+- **Database**: SQLite at `.faucet/history.db`
+
+## Token Distribution
+
+### Current Tokens (Devnet-1)
+| Token | Symbol | Decimals | Amount/Request | Contract |
+|-------|---------|-----------|----------------|----------|
+| Wrapped Bitcoin | WBTC | 8 | 1,000 | `0xB259846bb...` |
+| Pepe Token | PEPE | 18 | 1,000 | `0xe2D7606B6...` |
+| Tether USD | USDT | 6 | 1,000 | `0x21065d53D...` |
+| Cosmos Atom | ATOM | 6 | 1 | Native transfer |
+
+### Distribution Process
+1. **Address Type Detection**: Automatically detects Cosmos vs EVM format
+2. **EVM Distribution**: Uses AtomicMultiSend for batch ERC-20 transfers
+3. **Cosmos Distribution**: Direct bank send for native ATOM
+4. **Transaction Tracking**: Full transaction history with explorer links
 
 ## Production Deployment
 
-### Vercel
-1. Connect repository to Vercel
-2. Set environment variables:
-   ```
-   MNEMONIC=<mnemonic_phrase>
-   ATOMIC_MULTISEND_CONTRACT=0x...
-   WBTC_CONTRACT=0x...
-   PEPE_CONTRACT=0x...
-   USDT_CONTRACT=0x...
-   NODE_ENV=production
-   ```
-3. Deploy
+### Vercel Configuration
+```bash
+# Environment Variables
+MNEMONIC=<mnemonic_phrase>
+NODE_ENV=production
+
+# Optional overrides
+RPC_URL=<custom_rpc_endpoint>
+```
+
+### Server Requirements
+- Node.js 18+ runtime
+- Persistent storage for rate limiting database
+- Funded faucet wallet (native tokens for gas + ERC-20 tokens)
+
+## Monitoring & Maintenance
+
+### Health Checks
+```bash
+# Validate all systems
+npm run validate
+
+# Check contract addresses
+node scripts/validate-contracts.js
+
+# View faucet balances
+curl localhost:8088/balance/evm
+```
+
+### Required Monitoring
+- **Faucet Balances**: Monitor token levels for distribution
+- **Gas Balance**: Ensure native tokens for transaction fees
+- **RPC Connectivity**: Validate endpoint accessibility
+- **Contract Validity**: Verify contracts after network resets
+
+### Devnet Reset Recovery
+Since devnets reset frequently:
+1. Update network endpoints in `config.js` if changed
+2. Run `npm run deploy` to redeploy contracts
+3. Update `tokens.json` with new contract addresses
+4. Restart faucet service
 
 ## Troubleshooting
 
-### Deployment Issues
+### Common Issues
+
+**Contract Validation Failed**
 ```bash
-npm run validate                    # Check environment
-export MNEMONIC="valid phrase"      # Set mnemonic
-forge install && forge build       # Rebuild contracts
+# Redeploy contracts
+npm run deploy
+
+# Or manually validate
+node scripts/validate-contracts.js --interactive
 ```
 
-### Runtime Issues
-- **Address Validation Failed**: Mnemonic changed since deployment
-- **Contract Not Found**: Update environment variables
-- **RPC Connection**: Verify endpoint URLs
-- **Gas Issues**: Fund faucet wallet with native tokens
+**Address Derivation Mismatch**
+```bash
+# Verify mnemonic is correct
+echo $MNEMONIC
 
-### Token Transfer Issues
-- **Insufficient Allowance**: Run `npm run approve-tokens`
-- **Insufficient Balance**: Fund faucet wallet
-- **Network Issues**: Check RPC connectivity
+# Clear cached addresses (forces re-derivation)
+rm -rf .faucet/cached-addresses.json
+```
 
-## Monitoring
+**Token Transfer Failures**
+```bash
+# Check approvals
+node scripts/approve-tokens.js
 
-**Required Checks:**
-- Faucet token balances
-- RPC endpoint connectivity
-- Rate limit database size
-- Log files for errors
+# Verify faucet has tokens
+curl localhost:8088/balance/evm
+```
 
-**Log Locations:**
-- Server logs: console output
-- Rate limiting: `.faucet/history.db`
-- All sensitive data sanitized from logs
+**Network Connection Issues**
+- Verify RPC endpoints in `config.js`
+- Check if devnet has reset
+- Validate chain IDs match network
+
+### Log Analysis
+- **Server logs**: Console output with sanitized sensitive data
+- **Transaction history**: Stored in browser localStorage
+- **Rate limiting**: SQLite database in `.faucet/history.db`
+
+## Development
+
+### File Structure
+```
+├── config.js                 # Central network configuration
+├── tokens.json               # Token definitions and metadata
+├── faucet.js                 # Main server application
+├── src/
+│   ├── TokenConfigLoader.js  # Configuration bridge
+│   ├── SecureKeyManager.js   # Key derivation and caching
+│   ├── ContractValidator.js  # Contract validation
+│   └── tokens/               # Generated token contracts
+├── scripts/
+│   ├── automated-deploy.js   # Full deployment pipeline
+│   ├── deploy-token-registry.js # Token deployment
+│   └── validate-*.js         # Validation utilities
+└── views/
+    └── index.ejs             # Vue.js frontend
+```
+
+### Adding Features
+1. **New Tokens**: Add to `tokens.json` with full metadata
+2. **Network Support**: Update endpoints in `config.js`
+3. **UI Changes**: Modify `views/index.ejs` Vue components
+4. **Validation**: Add checks to `ContractValidator.js`

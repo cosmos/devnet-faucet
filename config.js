@@ -1,4 +1,4 @@
-// Configuration auto-updated on 2025-06-17T21:40:00.000Z
+// Configuration auto-updated on 2025-06-17T22:27:16.805Z
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 import secureKeyManager from './src/SecureKeyManager.js';
@@ -35,7 +35,7 @@ const config = {
         },
         // Contract addresses - will be set after deployment
         contracts: {
-            atomicMultiSend: "0x8dfFd28aB4B62cee9f210C55ced53f418c20fDb6", // AtomicMultiSend contract
+            atomicMultiSend: "0x7392C85B40914B005EcF62dfA80eDe9f10a2f8A4", // AtomicMultiSend contract
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments

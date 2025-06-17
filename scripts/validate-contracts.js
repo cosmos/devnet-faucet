@@ -28,7 +28,7 @@ class ValidationRunner {
     }
 
     async run() {
-        console.log('🔍 COSMOS EVM FAUCET - CONTRACT VALIDATION');
+        console.log(' COSMOS EVM FAUCET - CONTRACT VALIDATION');
         console.log('==========================================');
         
         try {
@@ -48,44 +48,44 @@ class ValidationRunner {
             // Handle failures if needed
             if (!results.allValid) {
                 if (this.options.fix || this.options.interactive) {
-                    console.log('\n🔧 ATTEMPTING TO RESOLVE ISSUES...');
+                    console.log('\n ATTEMPTING TO RESOLVE ISSUES...');
                     const resolved = await this.validator.resolveValidationFailures();
                     
                     if (resolved) {
-                        console.log('\n✅ All issues resolved! Faucet ready to start.');
+                        console.log('\n All issues resolved! Faucet ready to start.');
                         process.exit(0);
                     } else {
-                        console.log('\n❌ Some issues remain unresolved.');
+                        console.log('\n Some issues remain unresolved.');
                         process.exit(1);
                     }
                 } else {
-                    console.log('\n❌ VALIDATION FAILED');
+                    console.log('\n VALIDATION FAILED');
                     console.log('Run with --fix or --interactive to resolve issues');
                     console.log('Or manually update config.js with correct addresses');
                     process.exit(1);
                 }
             } else {
-                console.log('\n✅ ALL CONTRACTS VALIDATED SUCCESSFULLY!');
+                console.log('\n ALL CONTRACTS VALIDATED SUCCESSFULLY!');
                 console.log('Faucet is ready to start.');
                 process.exit(0);
             }
             
         } catch (error) {
-            console.error('\n💥 VALIDATION ERROR:', error.message);
+            console.error('\n VALIDATION ERROR:', error.message);
             console.error('Stack:', error.stack);
             process.exit(1);
         }
     }
 
     async validateNetwork() {
-        console.log('\n🌐 Validating network connectivity...');
+        console.log('\n Validating network connectivity...');
         
         try {
             const provider = this.validator.provider;
             
             // Check network connection
             const network = await provider.getNetwork();
-            console.log(`   ✅ Connected to network: Chain ID ${network.chainId}`);
+            console.log(`    Connected to network: Chain ID ${network.chainId}`);
             
             // Verify chain ID matches config
             const expectedChainId = BigInt(config.blockchain.ids.chainId);
@@ -96,10 +96,10 @@ class ValidationRunner {
             // Check faucet balance
             const balance = await provider.getBalance(this.validator.faucetAddress);
             const balanceEth = Number(balance) / 1e18;
-            console.log(`   💰 Faucet balance: ${balanceEth.toFixed(4)} ETH`);
+            console.log(`    Faucet balance: ${balanceEth.toFixed(4)} ETH`);
             
             if (balanceEth < 0.01) {
-                console.warn('   ⚠️  Low faucet balance - may not be able to send transactions');
+                console.warn('     Low faucet balance - may not be able to send transactions');
             }
             
         } catch (error) {

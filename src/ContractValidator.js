@@ -46,14 +46,14 @@ export class ContractValidator {
     async initialize() {
         await this.keyManager.initialize();
         this.faucetAddress = this.keyManager.getEvmAddress();
-        console.log(`🔑 Faucet Address: ${this.faucetAddress}`);
+        console.log(` Faucet Address: ${this.faucetAddress}`);
     }
 
     /**
      * Main validation entry point
      */
     async validateAllContracts() {
-        console.log('\n🔍 VALIDATING CONTRACT ADDRESSES');
+        console.log('\n VALIDATING CONTRACT ADDRESSES');
         console.log('=====================================');
         
         const results = {
@@ -66,7 +66,7 @@ export class ContractValidator {
 
         // Validate token contracts
         for (const token of this.config.blockchain.tx.amounts) {
-            console.log(`\n📋 Validating ${token.denom.toUpperCase()} token...`);
+            console.log(`\n Validating ${token.denom.toUpperCase()} token...`);
             const result = await this.validateTokenContract(token);
             results.tokens[token.denom] = result;
             
@@ -81,7 +81,7 @@ export class ContractValidator {
         }
 
         // Validate AtomicMultiSend contract
-        console.log(`\n🚀 Validating AtomicMultiSend contract...`);
+        console.log(`\n Validating AtomicMultiSend contract...`);
         const atomicResult = await this.validateAtomicMultiSendContract();
         results.atomicMultiSend = atomicResult;
         
@@ -114,7 +114,7 @@ export class ContractValidator {
             if (!address || address === "0x0000000000000000000000000000000000000000") {
                 result.reason = 'No address configured';
                 result.shouldRedeploy = true;
-                console.log(`  ❌ No address configured`);
+                console.log(`   No address configured`);
                 return result;
             }
 
@@ -123,7 +123,7 @@ export class ContractValidator {
             if (code === '0x') {
                 result.reason = 'No contract deployed at address';
                 result.shouldRedeploy = true;
-                console.log(`  ❌ No contract at ${address}`);
+                console.log(`   No contract at ${address}`);
                 return result;
             }
 
@@ -142,13 +142,13 @@ export class ContractValidator {
                 // Validate expected properties
                 if (symbol.toUpperCase() !== tokenConfig.denom.toUpperCase()) {
                     result.reason = `Symbol mismatch: expected ${tokenConfig.denom.toUpperCase()}, got ${symbol}`;
-                    console.log(`  ⚠️  Symbol mismatch: expected ${tokenConfig.denom.toUpperCase()}, got ${symbol}`);
+                    console.log(`    Symbol mismatch: expected ${tokenConfig.denom.toUpperCase()}, got ${symbol}`);
                     return result;
                 }
 
                 if (Number(decimals) !== tokenConfig.decimals) {
                     result.reason = `Decimals mismatch: expected ${tokenConfig.decimals}, got ${decimals}`;
-                    console.log(`  ⚠️  Decimals mismatch: expected ${tokenConfig.decimals}, got ${decimals}`);
+                    console.log(`    Decimals mismatch: expected ${tokenConfig.decimals}, got ${decimals}`);
                     return result;
                 }
 
@@ -156,24 +156,24 @@ export class ContractValidator {
                 try {
                     const owner = await contract.owner();
                     result.ownedByFaucet = (owner.toLowerCase() === this.faucetAddress.toLowerCase());
-                    console.log(`  👤 Owner: ${owner} ${result.ownedByFaucet ? '(Faucet ✅)' : '(External ⚠️)'}`);
+                    console.log(`   Owner: ${owner} ${result.ownedByFaucet ? '(Faucet )' : '(External )'}`);
                 } catch (e) {
-                    console.log(`  👤 No owner() function - may not be Ownable`);
+                    console.log(`   No owner() function - may not be Ownable`);
                 }
 
                 result.valid = true;
-                console.log(`  ✅ Valid ${symbol} token at ${address}`);
+                console.log(`   Valid ${symbol} token at ${address}`);
                 console.log(`     Name: ${name}, Decimals: ${decimals}`);
                 
             } catch (contractError) {
                 result.reason = `Contract call failed: ${contractError.message}`;
-                console.log(`  ❌ Contract calls failed: ${contractError.message}`);
+                console.log(`   Contract calls failed: ${contractError.message}`);
                 return result;
             }
 
         } catch (error) {
             result.reason = `Validation error: ${error.message}`;
-            console.log(`  ❌ Validation failed: ${error.message}`);
+            console.log(`   Validation failed: ${error.message}`);
         }
 
         return result;
@@ -195,7 +195,7 @@ export class ContractValidator {
             if (!address) {
                 result.reason = 'No address configured';
                 result.shouldRedeploy = true;
-                console.log(`  ❌ No address configured`);
+                console.log(`   No address configured`);
                 return result;
             }
 
@@ -204,7 +204,7 @@ export class ContractValidator {
             if (code === '0x') {
                 result.reason = 'No contract deployed at address';
                 result.shouldRedeploy = true;
-                console.log(`  ❌ No contract at ${address}`);
+                console.log(`   No contract at ${address}`);
                 return result;
             }
 
@@ -216,26 +216,26 @@ export class ContractValidator {
                 result.ownedByFaucet = (owner.toLowerCase() === this.faucetAddress.toLowerCase());
                 result.contractData = { owner };
                 
-                console.log(`  👤 Owner: ${owner} ${result.ownedByFaucet ? '(Faucet ✅)' : '(External ⚠️)'}`);
+                console.log(`   Owner: ${owner} ${result.ownedByFaucet ? '(Faucet )' : '(External )'}`);
                 
                 if (!result.ownedByFaucet) {
                     result.reason = `Contract owned by ${owner}, not faucet (${this.faucetAddress})`;
-                    console.log(`  ⚠️  Contract not owned by faucet`);
+                    console.log(`    Contract not owned by faucet`);
                     return result;
                 }
 
                 result.valid = true;
-                console.log(`  ✅ Valid AtomicMultiSend contract at ${address}`);
+                console.log(`   Valid AtomicMultiSend contract at ${address}`);
                 
             } catch (contractError) {
                 result.reason = `Contract call failed: ${contractError.message}`;
-                console.log(`  ❌ Contract calls failed: ${contractError.message}`);
+                console.log(`   Contract calls failed: ${contractError.message}`);
                 return result;
             }
 
         } catch (error) {
             result.reason = `Validation error: ${error.message}`;
-            console.log(`  ❌ Validation failed: ${error.message}`);
+            console.log(`   Validation failed: ${error.message}`);
         }
 
         return result;
@@ -246,11 +246,11 @@ export class ContractValidator {
      */
     async resolveValidationFailures() {
         if (this.validationResults.allValid) {
-            console.log('\n✅ All contracts validated successfully!');
+            console.log('\n All contracts validated successfully!');
             return true;
         }
 
-        console.log('\n⚠️  VALIDATION FAILURES DETECTED');
+        console.log('\n  VALIDATION FAILURES DETECTED');
         console.log('=====================================');
         
         const rl = readline.createInterface({
@@ -263,7 +263,7 @@ export class ContractValidator {
         try {
             // Handle contracts that need manual input
             for (const item of this.validationResults.needsManualInput) {
-                console.log(`\n❌ ${item.type === 'token' ? item.denom.toUpperCase() + ' token' : 'AtomicMultiSend'} validation failed`);
+                console.log(`\n ${item.type === 'token' ? item.denom.toUpperCase() + ' token' : 'AtomicMultiSend'} validation failed`);
                 console.log(`   Reason: ${this.validationResults[item.type === 'token' ? 'tokens' : 'atomicMultiSend'][item.denom || 0]?.reason || 'Unknown'}`);
                 
                 const action = await question(
@@ -283,7 +283,7 @@ export class ContractValidator {
                         await this.deployContract(item);
                         break;
                     case '3':
-                        console.log(`   ⚠️  Skipping ${item.type === 'token' ? item.denom.toUpperCase() : 'AtomicMultiSend'} - may cause errors`);
+                        console.log(`     Skipping ${item.type === 'token' ? item.denom.toUpperCase() : 'AtomicMultiSend'} - may cause errors`);
                         break;
                     default:
                         console.log(`   Invalid choice, skipping...`);
@@ -292,7 +292,7 @@ export class ContractValidator {
 
             // Handle contracts that need deployment
             if (this.validationResults.needsDeployment.length > 0) {
-                console.log(`\n🚀 ${this.validationResults.needsDeployment.length} contracts need deployment`);
+                console.log(`\n ${this.validationResults.needsDeployment.length} contracts need deployment`);
                 const deploy = await question(`   Deploy all missing contracts? (y/n): `);
                 
                 if (deploy.toLowerCase() === 'y' || deploy.toLowerCase() === 'yes') {
@@ -307,14 +307,14 @@ export class ContractValidator {
         }
 
         // Re-validate after changes
-        console.log('\n🔄 Re-validating contracts...');
+        console.log('\n Re-validating contracts...');
         const newResults = await this.validateAllContracts();
         return newResults.allValid;
     }
 
     async updateConfigAddress(item, address) {
         try {
-            console.log(`   📝 Updating config with ${item.type === 'token' ? item.denom.toUpperCase() : 'AtomicMultiSend'}: ${address}`);
+            console.log(`    Updating config with ${item.type === 'token' ? item.denom.toUpperCase() : 'AtomicMultiSend'}: ${address}`);
             
             const configPath = './config.js';
             let configContent = await fs.readFile(configPath, 'utf8');
@@ -333,15 +333,15 @@ export class ContractValidator {
             }
             
             await fs.writeFile(configPath, configContent);
-            console.log(`   ✅ Config updated`);
+            console.log(`    Config updated`);
             
         } catch (error) {
-            console.error(`   ❌ Failed to update config: ${error.message}`);
+            console.error(`    Failed to update config: ${error.message}`);
         }
     }
 
     async deployContract(item) {
-        console.log(`   🚀 Deploying ${item.type === 'token' ? item.denom.toUpperCase() + ' token' : 'AtomicMultiSend'}...`);
+        console.log(`    Deploying ${item.type === 'token' ? item.denom.toUpperCase() + ' token' : 'AtomicMultiSend'}...`);
         
         try {
             if (item.type === 'token') {
@@ -363,7 +363,7 @@ export class ContractValidator {
                 await fs.writeFile('./temp-token-registry.json', JSON.stringify(tempRegistry, null, 2));
                 
                 const { stdout } = await exec('REGISTRY_FILE=temp-token-registry.json node scripts/deploy-token-registry.js');
-                console.log(`   ✅ Token deployed successfully`);
+                console.log(`    Token deployed successfully`);
                 
                 // Parse deployment output for address
                 const report = JSON.parse(await fs.readFile('./deployments/token-deployment-report.json', 'utf8'));
@@ -390,12 +390,12 @@ export class ContractValidator {
                 const addressMatch = stdout.match(/AtomicMultiSend deployed at: (0x[a-fA-F0-9]{40})/);
                 if (addressMatch) {
                     await this.updateConfigAddress(item, addressMatch[1]);
-                    console.log(`   ✅ AtomicMultiSend deployed at ${addressMatch[1]}`);
+                    console.log(`    AtomicMultiSend deployed at ${addressMatch[1]}`);
                 }
             }
             
         } catch (error) {
-            console.error(`   ❌ Deployment failed: ${error.message}`);
+            console.error(`    Deployment failed: ${error.message}`);
         }
     }
 
@@ -446,43 +446,43 @@ export class ContractValidator {
     generateValidationReport() {
         if (!this.validationResults) return "No validation performed yet";
         
-        let report = "\n📊 CONTRACT VALIDATION REPORT\n";
+        let report = "\n CONTRACT VALIDATION REPORT\n";
         report += "=====================================\n";
         
         // Token status
-        report += "\n📋 Token Contracts:\n";
+        report += "\n Token Contracts:\n";
         for (const [denom, result] of Object.entries(this.validationResults.tokens)) {
-            const status = result.valid ? "✅" : "❌";
-            const ownership = result.ownedByFaucet ? "👤 Owned" : "👤 External";
+            const status = result.valid ? "" : "";
+            const ownership = result.ownedByFaucet ? " Owned" : " External";
             report += `   ${status} ${denom.toUpperCase()}: ${result.address || 'Not configured'}\n`;
             if (result.contractData) {
                 report += `      ${result.contractData.name} (${result.contractData.decimals} decimals) ${ownership}\n`;
             }
             if (!result.valid) {
-                report += `      ⚠️  ${result.reason}\n`;
+                report += `        ${result.reason}\n`;
             }
         }
         
         // AtomicMultiSend status
-        report += "\n🚀 AtomicMultiSend Contract:\n";
+        report += "\n AtomicMultiSend Contract:\n";
         const atomic = this.validationResults.atomicMultiSend;
-        const atomicStatus = atomic.valid ? "✅" : "❌";
-        const atomicOwnership = atomic.ownedByFaucet ? "👤 Owned" : "👤 External";
+        const atomicStatus = atomic.valid ? "" : "";
+        const atomicOwnership = atomic.ownedByFaucet ? " Owned" : " External";
         report += `   ${atomicStatus} AtomicMultiSend: ${atomic.address || 'Not configured'}\n`;
         if (atomic.contractData) {
             report += `      ${atomicOwnership}\n`;
         }
         if (!atomic.valid) {
-            report += `      ⚠️  ${atomic.reason}\n`;
+            report += `        ${atomic.reason}\n`;
         }
         
         // Summary
-        report += `\n📈 Summary:\n`;
+        report += `\n Summary:\n`;
         report += `   Total Contracts: ${Object.keys(this.validationResults.tokens).length + 1}\n`;
         report += `   Valid: ${Object.values(this.validationResults.tokens).filter(r => r.valid).length + (atomic.valid ? 1 : 0)}\n`;
         report += `   Need Deployment: ${this.validationResults.needsDeployment.length}\n`;
         report += `   Need Manual Input: ${this.validationResults.needsManualInput.length}\n`;
-        report += `   Overall Status: ${this.validationResults.allValid ? "✅ ALL VALID" : "❌ VALIDATION REQUIRED"}\n`;
+        report += `   Overall Status: ${this.validationResults.allValid ? " ALL VALID" : " VALIDATION REQUIRED"}\n`;
         
         return report;
     }
