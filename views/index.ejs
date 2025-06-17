@@ -1029,10 +1029,62 @@
               </div>
 
               <!-- EVM Transaction Data -->
-              <div v-else-if="getBlockchainData(selectedTransaction)" class="mb-3">
-                <h6 class="text-primary mb-2">EVM Transaction Data</h6>
-                <div class="p-3 rounded border" style="max-height: 400px; overflow-y: auto; background: var(--bg-primary); border-color: var(--border-color) !important;">
-                  <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
+              <div v-else-if="getEvmTransactionData(selectedTransaction)" class="mb-3">
+                <h6 class="text-primary mb-2">EVM Transaction Details</h6>
+                
+                <div class="table-responsive">
+                  <table class="table table-sm table-dark">
+                    <tbody>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).transaction_hash">
+                        <td style="color: var(--text-secondary);">Transaction Hash:</td>
+                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).transaction_hash}}</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).block_number">
+                        <td style="color: var(--text-secondary);">Block Number:</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).block_number}}</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).gas_used">
+                        <td style="color: var(--text-secondary);">Gas Used:</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gas_used}}</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).gas_price">
+                        <td style="color: var(--text-secondary);">Gas Price:</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gas_price}} wei</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).from">
+                        <td style="color: var(--text-secondary);">From:</td>
+                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).from}}</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).to">
+                        <td style="color: var(--text-secondary);">To:</td>
+                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).to}}</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).value">
+                        <td style="color: var(--text-secondary);">Value:</td>
+                        <td style="color: var(--text-primary);">{{formatEthValue(getEvmTransactionData(selectedTransaction).value)}} ETH</td>
+                      </tr>
+                      <tr v-if="getEvmTransactionData(selectedTransaction).status !== undefined">
+                        <td style="color: var(--text-secondary);">Status:</td>
+                        <td>
+                          <span class="badge" :class="getEvmTransactionData(selectedTransaction).status === '0x1' ? 'bg-success' : 'bg-danger'">
+                            {{getEvmTransactionData(selectedTransaction).status === '0x1' ? 'Success' : 'Failed'}}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                <!-- Advanced details toggle -->
+                <div class="mt-3">
+                  <button class="btn btn-sm btn-outline-secondary" @click="showAdvancedEvmData = !showAdvancedEvmData">
+                    <i class="fas" :class="showAdvancedEvmData ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                    {{showAdvancedEvmData ? 'Hide' : 'Show'}} Advanced Data
+                  </button>
+                  
+                  <div v-if="showAdvancedEvmData" class="mt-3 p-3 rounded border" style="background: var(--bg-primary); border-color: var(--border-color) !important;">
+                    <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
+                  </div>
                 </div>
               </div>
               
@@ -1095,6 +1147,7 @@
             isLoading: false,
             selectedTransaction: null,
             showFullCosmosJson: false,
+            showAdvancedEvmData: false,
             // WATOM related data - Hidden for production
             // wrapAmount: '',
             // unwrapAmount: '',
@@ -1345,13 +1398,19 @@
             // Try EIP-6963 first, fallback to window.ethereum
             let provider = null;
             
-            if (this.detectedWallets.length > 0) {
+            if (this.detectedWallets && this.detectedWallets.length > 0) {
               // Use first detected wallet or show selection
               provider = this.detectedWallets[0].provider;
-            } else if (window.ethereum) {
+            } else if (typeof window !== 'undefined' && window.ethereum) {
               provider = window.ethereum;
             } else {
               alert('Please install a compatible EVM wallet (MetaMask, Coinbase Wallet, etc.)');
+              return;
+            }
+            
+            // Ensure provider has request method
+            if (!provider || typeof provider.request !== 'function') {
+              alert('Invalid wallet provider detected. Please try refreshing the page.');
               return;
             }
             
@@ -1363,7 +1422,7 @@
                 method: 'eth_requestAccounts' 
               });
               
-              if (accounts.length === 0) {
+              if (!accounts || accounts.length === 0) {
                 throw new Error('No accounts found');
               }
               
@@ -1372,7 +1431,7 @@
                 method: 'eth_chainId' 
               });
               
-              const expectedChainId = this.networkConfig.evm?.chainIdHex || '0x40000';
+              const expectedChainId = this.networkConfig.evm?.chainIdHex || '0x1087'; // Update to correct devnet-1 chain ID
               
               // Check if we're on the right chain
               if (chainId !== expectedChainId) {
@@ -1389,14 +1448,14 @@
                       method: 'wallet_addEthereumChain',
                       params: [{
                         chainId: expectedChainId,
-                        chainName: 'Cosmos EVM Devnet',
-                        rpcUrls: [this.networkConfig.evm?.rpc || 'https://cevm-01-evmrpc.dev.skip.build'],
+                        chainName: 'Cosmos EVM Devnet-1',
+                        rpcUrls: [this.networkConfig.evm?.rpc || 'https://devnet-1-evmrpc.ib.skip.build'],
                         nativeCurrency: {
                           name: 'ATOM',
                           symbol: 'ATOM',
                           decimals: 18
                         },
-                        blockExplorerUrls: [this.networkConfig.evm?.explorer || 'https://cevm-01-explorer.dev.skip.build']
+                        blockExplorerUrls: [this.networkConfig.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com']
                       }],
                     });
                   } else {
@@ -1411,7 +1470,8 @@
               
             } catch (error) {
               console.error('Error connecting to EVM wallet:', error);
-              alert('Failed to connect to EVM wallet: ' + error.message);
+              const errorMessage = error.message || 'Unknown error occurred while connecting to wallet';
+              alert('Failed to connect to EVM wallet: ' + errorMessage);
             } finally {
               this.evmWallet.connecting = false;
             }
@@ -1440,11 +1500,17 @@
           
           getEvmProvider() {
             // Try EIP-6963 first, fallback to window.ethereum
-            if (this.detectedWallets.length > 0) {
-              return this.detectedWallets[0].provider;
-            } else if (window.ethereum) {
+            if (this.detectedWallets && this.detectedWallets.length > 0) {
+              const provider = this.detectedWallets[0].provider;
+              if (provider && typeof provider.request === 'function') {
+                return provider;
+              }
+            }
+            
+            if (typeof window !== 'undefined' && window.ethereum && typeof window.ethereum.request === 'function') {
               return window.ethereum;
             }
+            
             return null;
           },
           
@@ -1760,13 +1826,46 @@
 
           getTransactionExplorerUrl(tx) {
             if (!tx || !tx.data || !tx.data.result) return null;
-            return tx.data.result.explorer_url || tx.data.result.rest_api_url || null;
+            
+            const result = tx.data.result;
+            
+            // Use provided explorer URL first
+            if (result.explorer_url) return result.explorer_url;
+            if (result.rest_api_url) return result.rest_api_url;
+            
+            // Generate URL based on transaction type and hash
+            if (tx.hash) {
+              if (result.network_type === 'evm' || tx.addressType === 'EVM') {
+                // EVM transaction - use blockscout explorer
+                const explorerBase = this.networkConfig.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com';
+                return `${explorerBase}/tx/${tx.hash}`;
+              } else if (result.network_type === 'cosmos' || tx.addressType === 'Cosmos') {
+                // Cosmos transaction - use REST API endpoint
+                const restBase = this.networkConfig.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build';
+                return `${restBase}/cosmos/tx/v1beta1/txs/${tx.hash}`;
+              }
+            }
+            
+            return null;
           },
 
           getTransactionExplorerLabel(tx) {
             if (!tx || !tx.data || !tx.data.result) return 'View';
-            if (tx.data.result.explorer_url) return 'View on Explorer';
-            if (tx.data.result.rest_api_url) return 'View REST API';
+            
+            const result = tx.data.result;
+            
+            if (result.explorer_url) return 'View on Explorer';
+            if (result.rest_api_url) return 'View REST API';
+            
+            // Generate label based on transaction type
+            if (tx.hash) {
+              if (result.network_type === 'evm' || tx.addressType === 'EVM') {
+                return 'View on Blockscout';
+              } else if (result.network_type === 'cosmos' || tx.addressType === 'Cosmos') {
+                return 'View REST API';
+              }
+            }
+            
             return 'View';
           },
 
@@ -1991,6 +2090,39 @@
 
           getExplorerUrl(txHash) {
             return `${this.networkConfig.evm.explorer || 'https://evm-devnet-1.cloud.blockscout.com'}/tx/${txHash}`;
+          },
+
+          // EVM Transaction Details
+          getEvmTransactionData(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            const result = tx.data.result;
+            
+            // Check if this is an EVM transaction
+            if (result.network_type === 'evm' && result.evm_tx_data) {
+              return result.evm_tx_data;
+            }
+            
+            return null;
+          },
+
+          formatEthValue(value, decimals = 18) {
+            if (!value) return '0';
+            try {
+              const bigValue = BigInt(value);
+              const divisor = BigInt(10 ** decimals);
+              const whole = bigValue / divisor;
+              const fraction = bigValue % divisor;
+              
+              if (fraction === 0n) {
+                return whole.toString();
+              } else {
+                const fractionStr = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+                return `${whole.toString()}.${fractionStr}`;
+              }
+            } catch (error) {
+              console.error('Error formatting ETH value:', error);
+              return value.toString();
+            }
           },
 
           // Token classification helpers
