@@ -40,6 +40,27 @@ const { MNEMONIC } = process.env;
 // Initialize BIP32 with ECC
 const bip32 = BIP32Factory(ecc);
 
+// Check if testing mode is enabled
+const TESTING_MODE = process.env.TESTING_MODE === 'true' || process.env.NODE_ENV === 'test';
+
+// Token approval management constants
+const APPROVAL_AMOUNT = "20000000000000000000000"; // 20,000 tokens with 18 decimals
+const MIN_APPROVAL_THRESHOLD = "10000000000000000000000"; // 10,000 tokens with 18 decimals
+const APPROVAL_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// ERC20 ABI for approval operations
+const ERC20_APPROVAL_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function balanceOf(address owner) external view returns (uint256)",
+  "function decimals() external view returns (uint8)",
+  "function symbol() external view returns (string)"
+];
+
+// Token approval tracking
+let approvalMonitoringInterval = null;
+const tokenApprovalStatus = new Map();
+
 // protobuf encoding for cosmos.evm.crypto.v1.ethsecp256k1.PubKey
 // Based on the protobuf definition: message PubKey { bytes key = 1; }
 function encodeEthSecp256k1PubKey(publicKeyBytes) {
@@ -364,8 +385,281 @@ async function createEthCompatibleCosmosWallet(mnemonic, options) {
     };
 }
 
+// Token Approval Management Functions
+
+/**
+ * Check token approval for a specific token
+ * @param {string} tokenAddress - ERC20 token address
+ * @param {string} spenderAddress - Address that needs approval (AtomicMultiSend)
+ * @returns {Promise<{allowance: string, needsApproval: boolean, symbol: string, decimals: number}>}
+ */
+async function checkTokenApproval(tokenAddress, spenderAddress) {
+  const chainConf = conf.blockchain;
+  const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
+  const ownerAddress = getEvmAddress();
+  
+  try {
+    const tokenContract = new Contract(tokenAddress, ERC20_APPROVAL_ABI, ethProvider);
+    
+    // Get token info
+    const [allowance, symbol, decimals] = await Promise.all([
+      tokenContract.allowance(ownerAddress, spenderAddress),
+      tokenContract.symbol(),
+      tokenContract.decimals()
+    ]);
+    
+    // Calculate approval amount based on decimals
+    const approvalAmount = BigInt("20000") * BigInt(10) ** BigInt(decimals);
+    const minThreshold = BigInt("10000") * BigInt(10) ** BigInt(decimals);
+    
+    const needsApproval = BigInt(allowance) < minThreshold;
+    
+    return {
+      allowance: allowance.toString(),
+      needsApproval,
+      symbol,
+      decimals,
+      approvalAmount: approvalAmount.toString(),
+      minThreshold: minThreshold.toString()
+    };
+  } catch (error) {
+    console.error(`Error checking approval for token ${tokenAddress}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Approve token for AtomicMultiSend contract
+ * @param {string} tokenAddress - ERC20 token address
+ * @param {string} spenderAddress - AtomicMultiSend contract address
+ * @param {string} amount - Amount to approve
+ * @returns {Promise<{hash: string, status: number}>}
+ */
+async function approveToken(tokenAddress, spenderAddress, amount) {
+  const chainConf = conf.blockchain;
+  const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
+  const walletInstance = new Wallet(getPrivateKey());
+  const wallet = walletInstance.connect(ethProvider);
+  
+  try {
+    const tokenContract = new Contract(tokenAddress, ERC20_APPROVAL_ABI, wallet);
+    
+    console.log(`Approving ${amount} tokens for ${spenderAddress} on token ${tokenAddress}`);
+    
+    // Get current nonce
+    const nonce = await wallet.getNonce();
+    
+    // Send approval transaction
+    const tx = await tokenContract.approve(spenderAddress, amount, {
+      gasLimit: 100000,
+      gasPrice: chainConf.tx.fee.evm.gasPrice,
+      nonce: nonce
+    });
+    
+    console.log(`Approval transaction sent: ${tx.hash}`);
+    
+    // Wait for confirmation
+    const receipt = await tx.wait();
+    
+    console.log(`Approval confirmed in block ${receipt.blockNumber}`);
+    
+    return {
+      hash: tx.hash,
+      status: receipt.status,
+      blockNumber: receipt.blockNumber
+    };
+  } catch (error) {
+    console.error(`Error approving token ${tokenAddress}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Check and setup all token approvals on startup
+ */
+async function checkAndSetupApprovals() {
+  console.log('\n Checking and setting up token approvals...');
+  
+  const chainConf = conf.blockchain;
+  const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
+  
+  if (!atomicMultiSendAddress) {
+    console.error(' AtomicMultiSend contract address not configured!');
+    return;
+  }
+  
+  const approvalPromises = [];
+  
+  // Check all configured tokens
+  for (const token of chainConf.tx.amounts) {
+    // Skip native token (special marker address)
+    if (token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" || 
+        token.erc20_contract === "0x0000000000000000000000000000000000000000") {
+      continue;
+    }
+    
+    try {
+      const approvalStatus = await checkTokenApproval(token.erc20_contract, atomicMultiSendAddress);
+      
+      // Store approval status
+      tokenApprovalStatus.set(token.erc20_contract, {
+        ...approvalStatus,
+        lastChecked: Date.now(),
+        denom: token.denom
+      });
+      
+      if (approvalStatus.needsApproval) {
+        console.log(`  Token ${approvalStatus.symbol} (${token.denom}) needs approval`);
+        console.log(`  Current allowance: ${approvalStatus.allowance}`);
+        console.log(`  Approving amount: ${approvalStatus.approvalAmount}`);
+        
+        // Queue approval transaction
+        approvalPromises.push(
+          approveToken(token.erc20_contract, atomicMultiSendAddress, approvalStatus.approvalAmount)
+            .then(result => {
+              console.log(`  ✓ ${approvalStatus.symbol} approved successfully (tx: ${result.hash})`);
+              // Update status
+              tokenApprovalStatus.get(token.erc20_contract).allowance = approvalStatus.approvalAmount;
+              tokenApprovalStatus.get(token.erc20_contract).needsApproval = false;
+            })
+            .catch(error => {
+              console.error(`  ✗ Failed to approve ${approvalStatus.symbol}:`, error.message);
+            })
+        );
+      } else {
+        console.log(`  ✓ Token ${approvalStatus.symbol} (${token.denom}) already approved`);
+        console.log(`    Allowance: ${approvalStatus.allowance}`);
+      }
+    } catch (error) {
+      console.error(`  Error checking token ${token.denom}:`, error.message);
+    }
+  }
+  
+  // Wait for all approvals to complete
+  if (approvalPromises.length > 0) {
+    console.log(`\n Processing ${approvalPromises.length} approval transactions...`);
+    await Promise.all(approvalPromises);
+  }
+  
+  console.log(' Token approval setup complete!\n');
+}
+
+/**
+ * Start periodic approval monitoring
+ */
+function startApprovalMonitoring() {
+  console.log(' Starting token approval monitoring (checking every 5 minutes)...');
+  
+  // Clear any existing interval
+  if (approvalMonitoringInterval) {
+    clearInterval(approvalMonitoringInterval);
+  }
+  
+  // Set up periodic check
+  approvalMonitoringInterval = setInterval(async () => {
+    console.log('\n[APPROVAL CHECK] Running periodic approval check...');
+    
+    const chainConf = conf.blockchain;
+    const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
+    
+    for (const token of chainConf.tx.amounts) {
+      // Skip native token
+      if (token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" || 
+          token.erc20_contract === "0x0000000000000000000000000000000000000000") {
+        continue;
+      }
+      
+      try {
+        const approvalStatus = await checkTokenApproval(token.erc20_contract, atomicMultiSendAddress);
+        
+        // Update stored status
+        tokenApprovalStatus.set(token.erc20_contract, {
+          ...approvalStatus,
+          lastChecked: Date.now(),
+          denom: token.denom
+        });
+        
+        if (approvalStatus.needsApproval) {
+          console.log(`[APPROVAL CHECK] Token ${approvalStatus.symbol} needs re-approval`);
+          console.log(`  Current allowance: ${approvalStatus.allowance}`);
+          console.log(`  Min threshold: ${approvalStatus.minThreshold}`);
+          
+          // Re-approve
+          try {
+            const result = await approveToken(
+              token.erc20_contract, 
+              atomicMultiSendAddress, 
+              approvalStatus.approvalAmount
+            );
+            console.log(`[APPROVAL CHECK] ✓ ${approvalStatus.symbol} re-approved (tx: ${result.hash})`);
+          } catch (error) {
+            console.error(`[APPROVAL CHECK] ✗ Failed to re-approve ${approvalStatus.symbol}:`, error.message);
+          }
+        }
+      } catch (error) {
+        console.error(`[APPROVAL CHECK] Error checking ${token.denom}:`, error.message);
+      }
+    }
+    
+    console.log('[APPROVAL CHECK] Periodic check complete\n');
+  }, APPROVAL_CHECK_INTERVAL);
+}
+
+/**
+ * Pre-transaction approval check
+ * Ensures all tokens have sufficient approval before attempting transfer
+ */
+async function ensureTokenApprovals(neededAmounts) {
+  const chainConf = conf.blockchain;
+  const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
+  
+  for (const token of neededAmounts) {
+    // Skip native token
+    if (token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+      continue;
+    }
+    
+    try {
+      // Check current approval
+      const approvalStatus = await checkTokenApproval(token.erc20_contract, atomicMultiSendAddress);
+      
+      // Check if current allowance covers the needed amount
+      const neededAmount = BigInt(token.amount);
+      const currentAllowance = BigInt(approvalStatus.allowance);
+      
+      if (currentAllowance < neededAmount) {
+        console.log(`Insufficient approval for ${approvalStatus.symbol}. Need: ${neededAmount}, Have: ${currentAllowance}`);
+        console.log(`Approving ${approvalStatus.approvalAmount} tokens...`);
+        
+        // Approve more tokens
+        const result = await approveToken(
+          token.erc20_contract,
+          atomicMultiSendAddress,
+          approvalStatus.approvalAmount
+        );
+        
+        console.log(`Approval successful: ${result.hash}`);
+        
+        // Update cached status
+        tokenApprovalStatus.set(token.erc20_contract, {
+          ...approvalStatus,
+          allowance: approvalStatus.approvalAmount,
+          needsApproval: false,
+          lastChecked: Date.now()
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to ensure approval for token ${token.erc20_contract}:`, error);
+      throw new Error(`Token approval failed: ${error.message}`);
+    }
+  }
+}
+
 // load config
     console.log("[SUCCESS] Faucet configuration loaded")
+    if (TESTING_MODE) {
+        console.log("[INFO] Running in TESTING MODE - will always send 1 token regardless of balance");
+    }
 
 const app = express()
 
@@ -393,6 +687,7 @@ app.get('/config.json', async (req, res) => {
   const project = conf.project
   project.sample = sample
   project.blockchain = chainConf.name
+  project.testingMode = TESTING_MODE
   
   // Add network configuration for frontend
   project.network = {
@@ -560,39 +855,86 @@ app.get('/send/:address', async (req, res) => {
           console.log('Current balances:', currentBalances);
 
           // Step 2: Calculate needed amounts
-          const neededAmounts = calculateNeededAmounts(currentBalances, chainConf.tx.amounts);
-          console.log('Needed amounts:', neededAmounts);
+          let neededAmounts;
+          if (TESTING_MODE) {
+            // In testing mode, always send 1 of each token
+            neededAmounts = getTestingModeAmounts(chainConf.tx.amounts);
+            console.log('Testing mode: sending 1 of each token');
+          } else {
+            // Normal mode: calculate based on target balance
+            neededAmounts = calculateNeededAmounts(currentBalances, chainConf.tx.amounts);
+            console.log('Needed amounts:', neededAmounts);
+          }
 
           // Step 3: Check if any tokens are needed
           if (neededAmounts.length === 0) {
-            res.send({
+            console.log(`\n✅ No tokens needed - wallet already has sufficient balance`);
+            console.log(`Current balances meet all target amounts`);
+            
+            const response = {
               result: {
                 code: 0,
-                message: "Wallet already has sufficient balance (1000+ tokens each)",
+                message: "Wallet already has sufficient balance. Each token balance meets or exceeds the target amount.",
                 current_balances: currentBalances,
-                tokens_sent: []
+                tokens_sent: [],
+                target_balances: chainConf.tx.amounts.map(token => ({
+                  denom: token.denom,
+                  target: token.target_balance,
+                  decimals: token.decimals
+                }))
               }
-            });
+            };
+            
+            res.send(response);
             return;
           }
+          
+          // Step 3.5: Ensure token approvals before sending
+          console.log('Checking token approvals...');
+          await ensureTokenApprovals(neededAmounts);
 
           // Step 4: Send tokens
+          console.log(`\n📤 Sending tokens to ${address} (${addressType})...`);
+          console.log(`Tokens to send: ${neededAmounts.map(t => `${t.denom}: ${t.amount}`).join(', ')}`);
           const txResult = await sendSmartFaucetTx(address, addressType, neededAmounts);
+          console.log(`✅ Transaction sent successfully`);
 
           // Step 5: Update rate limiting only on successful send
           checker.update(`dual${ip}`);
           checker.update(address);
 
           // Step 6: Verify transaction and return detailed result
+          console.log(`\n🔍 Verifying transaction...`);
           const verificationResult = await verifyTransaction(txResult, addressType);
+          console.log(`✅ Transaction verified:`, {
+            hash: verificationResult.transaction_hash || verificationResult.hash,
+            network: verificationResult.network_type,
+            status: verificationResult.code === 0 ? 'SUCCESS' : 'FAILED'
+          });
 
-          res.send({
+          // Add information about what was sent
+          const sentTokensInfo = neededAmounts.map(token => ({
+            denom: token.denom,
+            amount: token.amount,
+            decimals: token.decimals,
+            type: token.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ? 'native' : 'erc20'
+          }));
+
+          const response = {
             result: {
               ...verificationResult,
               current_balances: currentBalances,
-              tokens_sent: neededAmounts
+              tokens_sent: sentTokensInfo,
+              testing_mode: TESTING_MODE
             }
-          });
+          };
+          
+          console.log(`\n✅ Request completed successfully:`);
+          console.log(`  - Transaction Hash: ${verificationResult.transaction_hash || verificationResult.hash || 'N/A'}`);
+          console.log(`  - Tokens Sent: ${sentTokensInfo.map(t => `${t.denom}: ${t.amount}`).join(', ')}`);
+          console.log(`  - Explorer URL: ${verificationResult.explorer_url || verificationResult.rest_api_url || 'N/A'}`);
+          
+          res.send(response);
 
         } catch (err) {
           console.error('Smart faucet error:', err);
@@ -600,7 +942,17 @@ app.get('/send/:address', async (req, res) => {
         }
 
       } else {
-        res.send({ result: "You can only request tokens once every 12 hours" })
+        const remainingTime = await checker.getRemainingTime(address, 'dual');
+        const hoursRemaining = Math.ceil(remainingTime / 3600000); // Convert to hours
+        res.send({ 
+          result: `Rate limit exceeded. You can request tokens again in approximately ${hoursRemaining} hours.`,
+          rate_limit_info: {
+            address_limit: chainConf.limit.address,
+            ip_limit: chainConf.limit.ip,
+            window: "24 hours",
+            remaining_time_ms: remainingTime
+          }
+        })
       }
     } catch (err) {
       console.error(err);
@@ -653,6 +1005,12 @@ app.listen(conf.port, async () => {
     }
     
     console.log('\n All contracts validated successfully!');
+    
+    // Check and setup token approvals
+    await checkAndSetupApprovals();
+    
+    // Start approval monitoring
+    startApprovalMonitoring();
 
     // Get secure addresses
     const evmAddress = getEvmAddress();
@@ -662,6 +1020,7 @@ app.listen(conf.port, async () => {
     console.log(` EVM Address: ${evmAddress}`);
     console.log(` Cosmos Address: ${cosmosAddress}`);
     console.log(` Server listening on http://localhost:${conf.port}`);
+    console.log(` Testing Mode: ${TESTING_MODE ? 'ENABLED' : 'DISABLED'}`);
     
     // Never log private keys or mnemonic
     console.log(' Private keys secured in memory (never logged or written to disk)');
@@ -675,6 +1034,31 @@ app.listen(conf.port, async () => {
 // Legacy functions removed - replaced by smart faucet functions above
 
 // Smart Faucet Helper Functions
+
+// Get testing mode amounts (1 of each token)
+function getTestingModeAmounts(tokenConfigs) {
+  const testAmounts = [];
+  
+  // Add 1 of each configured token
+  for (const config of tokenConfigs) {
+    testAmounts.push({
+      denom: config.denom,
+      amount: "1", // Just 1 unit
+      erc20_contract: config.erc20_contract,
+      decimals: config.decimals
+    });
+  }
+  
+  // Also add 1 uatom for native token
+  testAmounts.push({
+    denom: "uatom",
+    amount: "1", // 1 uatom
+    erc20_contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+    decimals: 6
+  });
+  
+  return testAmounts;
+}
 
 // Check recipient's current token balances
 async function checkRecipientBalances(address, addressType) {
@@ -800,6 +1184,11 @@ async function sendSmartFaucetTx(recipient, addressType, neededAmounts) {
     try {
       console.log('Sending ALL tokens via EVM (hex recipient)...');
       const evmResult = await sendSmartEvmTx(recipient, neededAmounts);
+      console.log('EVM transaction result:', {
+        hash: evmResult.transaction_hash || evmResult.hash,
+        success: evmResult.success || evmResult.status === '0x1',
+        blockNumber: evmResult.blockNumber
+      });
       results.push({ type: 'evm', result: evmResult });
     } catch (error) {
       console.error('EVM send failed:', error);
