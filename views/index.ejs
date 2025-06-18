@@ -302,8 +302,8 @@
               <span v-if="recentTransactions.length" class="badge bg-primary ms-1">{{recentTransactions.length}}</span>
             </button>
           </li>
-          <!-- WATOM Wrap/Unwrap Tab - Hidden for production -->
-          <li class="nav-item" role="presentation" style="display: none;">
+          <!-- WATOM Wrap/Unwrap Tab -->
+          <li class="nav-item" role="presentation">
             <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
               <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
             </button>
@@ -498,15 +498,26 @@
                 <!-- Token Information -->
                 <div v-if="tokenInfo && tokenInfo.length" class="mb-3">
                   <h6 class="text-muted mb-2"><i class="fas fa-coins me-2"></i>Available Tokens:</h6>
+                  <div v-if="addressType === 'Cosmos'" class="alert alert-info mb-2">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Cosmos addresses can only receive ATOM tokens. For ERC20 tokens, please use an EVM address.
+                  </div>
                   <div class="row">
                     <div v-for="token in tokenInfo" :key="token.denom" class="col-md-4 mb-2">
-                      <div class="card card-body p-2 small" :class="getTokenCardClass(token)">
+                      <div class="card card-body p-2 small" :class="[getTokenCardClass(token), addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' ? 'opacity-50' : '']">
                         <div class="d-flex justify-content-between align-items-start">
                           <div class="fw-bold">{{token.name}}</div>
                           <span class="badge" :class="getTokenTypeBadge(token)">{{getTokenType(token)}}</span>
                         </div>
                         <div class="text-muted small mt-1" style="font-family: monospace; word-break: break-all;">{{token.contract}}</div>
-                        <div class="text-muted small">{{formatBalance(token.target_amount, token.decimals)}} tokens</div>
+                        <div class="text-muted small">
+                          <span v-if="addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
+                            <i class="fas fa-times-circle"></i> Not available for Cosmos
+                          </span>
+                          <span v-else>
+                            {{formatBalance(token.target_amount, token.decimals)}} tokens
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <!-- Add native ATOM info -->
@@ -594,8 +605,8 @@
             </div>
           </div>
 
-          <!-- WATOM Wrap/Unwrap Tab - Hidden for production -->
-          <div class="tab-pane fade" id="watom" role="tabpanel" style="display: none;">
+          <!-- WATOM Wrap/Unwrap Tab -->
+          <div class="tab-pane fade" id="watom" role="tabpanel">
             <div class="card">
               <div class="card-header">
                 <i class="fas fa-exchange-alt me-2"></i>
@@ -800,7 +811,7 @@
                     </div>
                   </div>
                   <div class="text-end">
-                    <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)" data-bs-toggle="modal" data-bs-target="#transactionModal">
+                    <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)">
                       <i class="fas fa-eye me-1"></i>Details
                     </button>
                     <a v-if="tx.hash && tx.data.result && tx.data.result.explorer_url" :href="tx.data.result.explorer_url" target="_blank" class="btn btn-outline-success btn-sm ms-1">
@@ -968,11 +979,16 @@
               </div>
               
               <!-- Transaction Hash -->
-              <div v-if="selectedTransaction.hash" class="mb-3">
+              <div v-if="selectedTransaction.hash || getActualTransactionHash(selectedTransaction)" class="mb-3">
                 <strong style="color: var(--text-primary);">Transaction Hash:</strong>
                 <div class="mt-1">
-                  <code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; word-break: break-all;">{{selectedTransaction.hash}}</code>
-                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" :href="getTransactionExplorerUrl(selectedTransaction)" target="_blank" class="btn btn-outline-primary btn-sm ms-2 mt-1">
+                  <code class="small" style="color: var(--cosmos-accent); background: var(--bg-primary); padding: 4px 8px; border-radius: 4px; word-break: break-all;">
+                    {{selectedTransaction.hash || getActualTransactionHash(selectedTransaction)}}
+                  </code>
+                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" 
+                     :href="getTransactionExplorerUrl(selectedTransaction)" 
+                     target="_blank" 
+                     class="btn btn-outline-primary btn-sm ms-2 mt-1">
                     <i class="fas fa-external-link-alt me-1"></i>{{getTransactionExplorerLabel(selectedTransaction)}}
                   </a>
                 </div>
@@ -1089,7 +1105,7 @@
               </div>
               
               <!-- Transfer Details -->
-              <div v-if="getTransferData(selectedTransaction)" class="mb-3">
+              <div v-if="getTransferData(selectedTransaction) && getTransferData(selectedTransaction).length > 0" class="mb-3">
                 <h6 class="text-success mb-2">Token Transfers</h6>
                 <div class="table-responsive">
                   <table class="table table-sm table-dark">
@@ -1098,19 +1114,21 @@
                         <th style="color: var(--text-primary);">Token</th>
                         <th style="color: var(--text-primary);">Amount</th>
                         <th style="color: var(--text-primary);">Type</th>
-                        <th style="color: var(--text-primary);">Contract</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="transfer in getTransferData(selectedTransaction)" :key="transfer.hash + transfer.token">
-                        <td style="color: var(--text-primary);">{{transfer.denom || 'Unknown'}}</td>
-                        <td style="color: var(--text-primary);">{{transfer.amount}}</td>
+                      <tr v-for="(transfer, index) in getTransferData(selectedTransaction)" :key="index">
+                        <td style="color: var(--text-primary);">
+                          {{transfer.denom ? transfer.denom.toUpperCase() : 'Unknown'}}
+                        </td>
+                        <td style="color: var(--text-primary);">
+                          {{formatTokenAmount(transfer.amount, transfer.decimals || 18)}}
+                        </td>
                         <td>
-                          <span class="badge" :class="transfer.type === 'native' ? 'bg-primary' : 'bg-success'">
-                            {{transfer.type}}
+                          <span class="badge" :class="getTransferTypeBadgeClass(transfer.type)">
+                            {{transfer.type || 'unknown'}}
                           </span>
                         </td>
-                        <td><code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 2px 4px; border-radius: 4px;">{{transfer.token}}</code></td>
                       </tr>
                     </tbody>
                   </table>
@@ -1138,7 +1156,7 @@
             sampleAddresses: { cosmos: '', evm: '' },
             networkConfig: { 
               cosmos: { chainId: '', rpc: '', grpc: '', rest: '' }, 
-              evm: { chainId: '', chainIdHex: '', rpc: '', websocket: '' }, 
+              evm: { chainId: '', chainIdHex: '', rpc: '', websocket: '', explorer: '' }, 
               contracts: {} 
             },
             tokenInfo: [],
@@ -1149,15 +1167,15 @@
             selectedTransaction: null,
             showFullCosmosJson: false,
             showAdvancedEvmData: false,
-            // WATOM related data - Hidden for production
-            // wrapAmount: '',
-            // unwrapAmount: '',
-            // nativeBalance: '0',
-            // watomBalance: '0',
-            // isWrapping: false,
-            // isUnwrapping: false,
-            watomTransactions: [], // Keep as empty array to avoid template errors
-            // watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
+            // WATOM related data
+            wrapAmount: '',
+            unwrapAmount: '',
+            nativeBalance: '0',
+            watomBalance: '0',
+            isWrapping: false,
+            isUnwrapping: false,
+            watomTransactions: [],
+            watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
             // Wallet connection state
             cosmosWallet: {
               connected: false,
@@ -1182,13 +1200,17 @@
             this.tokenInfo = data.tokens || []
             if (data.network) {
               this.networkConfig = data.network
+              console.log('Network config loaded:', this.networkConfig);
+            } else {
+              console.warn('No network configuration in response');
             }
             this.loadFaucetBalances();
             this.loadRecentTransactions();
-            // this.loadWatomTransactions(); // Hidden for production
+            this.loadWatomTransactions();
             // loadWatomBalances will be called when EVM wallet connects
           }).catch(error => {
             console.error('Failed to load config:', error);
+            alert('Failed to load configuration. Please refresh the page.');
           });
           
           // Detect EIP-6963 wallets
@@ -1213,10 +1235,10 @@
             handler(connected) {
               if (connected && this.evmWallet.address) {
                 // Only load WATOM balances if we have a connected address
-                // this.loadWatomBalances(); // Hidden for production
+                this.loadWatomBalances();
               } else {
-                // this.nativeBalance = '0'; // Hidden for production
-                // this.watomBalance = '0'; // Hidden for production
+                this.nativeBalance = '0';
+                this.watomBalance = '0';
               }
             },
             immediate: false
@@ -1269,7 +1291,7 @@
           
           async checkExistingConnections() {
             // Wait for network config to be loaded
-            if (!this.networkConfig.cosmos?.chainId) {
+            if (!this.networkConfig || !this.networkConfig.cosmos?.chainId || !this.networkConfig.evm?.chainId) {
               setTimeout(() => this.checkExistingConnections(), 100);
               return;
             }
@@ -1418,6 +1440,11 @@
             this.evmWallet.connecting = true;
             
             try {
+              // Ensure network config is loaded
+              if (!this.networkConfig || !this.networkConfig.evm) {
+                throw new Error('Network configuration not loaded. Please refresh the page.');
+              }
+              
               // Request account access
               const accounts = await provider.request({ 
                 method: 'eth_requestAccounts' 
@@ -1432,7 +1459,15 @@
                 method: 'eth_chainId' 
               });
               
-              const expectedChainId = this.networkConfig.evm?.chainIdHex || '0x1087'; // Update to correct devnet-1 chain ID
+              // Ensure we have the expected chain ID
+              let expectedChainId = this.networkConfig.evm.chainIdHex;
+              if (!expectedChainId && this.networkConfig.evm.chainId) {
+                // If chainIdHex is missing but chainId exists, convert it
+                expectedChainId = '0x' + this.networkConfig.evm.chainId.toString(16);
+              }
+              if (!expectedChainId) {
+                throw new Error('Chain ID not configured');
+              }
               
               // Check if we're on the right chain
               if (chainId !== expectedChainId) {
@@ -1445,19 +1480,34 @@
                 } catch (switchError) {
                   // If switching fails, try to add the chain
                   if (switchError.code === 4902) {
+                    // Ensure all required properties are present
+                    const rpcUrl = this.networkConfig.evm.rpc;
+                    const explorerUrl = this.networkConfig.evm.explorer;
+                    
+                    if (!rpcUrl) {
+                      throw new Error('RPC URL not configured');
+                    }
+                    
+                    const chainParams = {
+                      chainId: expectedChainId,
+                      chainName: 'Cosmos EVM Devnet-1',
+                      rpcUrls: [rpcUrl],
+                      nativeCurrency: {
+                        name: 'ATOM',
+                        symbol: 'ATOM',
+                        decimals: 18
+                      }
+                    };
+                    
+                    // Only add blockExplorerUrls if explorer URL is defined
+                    if (explorerUrl) {
+                      chainParams.blockExplorerUrls = [explorerUrl];
+                    }
+                    
+                    console.log('Adding chain with params:', chainParams);
                     await provider.request({
                       method: 'wallet_addEthereumChain',
-                      params: [{
-                        chainId: expectedChainId,
-                        chainName: 'Cosmos EVM Devnet-1',
-                        rpcUrls: [this.networkConfig.evm?.rpc || 'https://devnet-1-evmrpc.ib.skip.build'],
-                        nativeCurrency: {
-                          name: 'ATOM',
-                          symbol: 'ATOM',
-                          decimals: 18
-                        },
-                        blockExplorerUrls: [this.networkConfig.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com']
-                      }],
+                      params: [chainParams],
                     });
                   } else {
                     throw switchError;
@@ -1471,6 +1521,8 @@
               
             } catch (error) {
               console.error('Error connecting to EVM wallet:', error);
+              console.error('Error stack:', error.stack);
+              console.error('Network config state:', this.networkConfig);
               const errorMessage = error.message || 'Unknown error occurred while connecting to wallet';
               alert('Failed to connect to EVM wallet: ' + errorMessage);
             } finally {
@@ -1641,12 +1693,21 @@
               const isSuccess = data.result && (data.result.code === 0 || data.result.transactions);
               
               // Add transaction to recent list
+              // Extract the correct transaction hash
+              let txHash = null;
+              if (isSuccess && data.result) {
+                txHash = data.result.transaction_hash || 
+                         data.result.hash || 
+                         (data.result.transactions && data.result.transactions[0]) || 
+                         null;
+              }
+              
               this.addTransactionToHistory({
                 address: this.address,
                 addressType: this.addressType,
                 success: isSuccess,
                 data: data,
-                hash: isSuccess ? (data.result.hash || data.result.transactions?.[0]) : null,
+                hash: txHash,
                 timestamp: new Date()
               });
               
@@ -1736,6 +1797,12 @@
           showTransactionDetails(tx) {
             this.selectedTransaction = tx;
             this.showFullCosmosJson = false; // Reset JSON view when opening new transaction
+            // Programmatically show the Bootstrap modal
+            const modalElement = document.getElementById('transactionModal');
+            if (modalElement) {
+              const modal = new bootstrap.Modal(modalElement);
+              modal.show();
+            }
           },
 
           getBlockchainData(tx) {
@@ -1822,7 +1889,8 @@
 
           getTransferData(tx) {
             if (!tx || !tx.data || !tx.data.result) return null;
-            return tx.data.result.transfers || null;
+            // Check both possible locations for transfer data
+            return tx.data.result.transfers || tx.data.result.tokens_sent || null;
           },
 
           getTransactionExplorerUrl(tx) {
@@ -1834,16 +1902,19 @@
             if (result.explorer_url) return result.explorer_url;
             if (result.rest_api_url) return result.rest_api_url;
             
+            // Get the actual transaction hash from various possible locations
+            const actualHash = this.getActualTransactionHash(tx);
+            
             // Generate URL based on transaction type and hash
-            if (tx.hash) {
+            if (actualHash) {
               if (result.network_type === 'evm' || tx.addressType === 'EVM') {
                 // EVM transaction - use blockscout explorer
                 const explorerBase = this.networkConfig.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com';
-                return `${explorerBase}/tx/${tx.hash}`;
+                return `${explorerBase}/tx/${actualHash}`;
               } else if (result.network_type === 'cosmos' || tx.addressType === 'Cosmos') {
                 // Cosmos transaction - use REST API endpoint
                 const restBase = this.networkConfig.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build';
-                return `${restBase}/cosmos/tx/v1beta1/txs/${tx.hash}`;
+                return `${restBase}/cosmos/tx/v1beta1/txs/${actualHash}`;
               }
             }
             
@@ -1870,6 +1941,55 @@
             return 'View';
           },
 
+          // Helper method to extract the actual transaction hash from various locations
+          getActualTransactionHash(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            
+            const result = tx.data.result;
+            
+            // Try various locations where the hash might be stored
+            return result.transaction_hash || 
+                   result.hash || 
+                   (result.transactions && result.transactions[0]) ||
+                   tx.hash ||
+                   null;
+          },
+
+          // Helper method to format token amounts with proper decimals
+          formatTokenAmount(amount, decimals = 18) {
+            if (!amount) return '0';
+            
+            try {
+              const bigAmount = BigInt(amount);
+              const divisor = BigInt(10 ** decimals);
+              const whole = bigAmount / divisor;
+              const fraction = bigAmount % divisor;
+              
+              if (fraction === 0n) {
+                return whole.toString();
+              } else {
+                const fractionStr = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+                return `${whole.toString()}.${fractionStr}`;
+              }
+            } catch (error) {
+              // If BigInt conversion fails, return the original amount
+              return amount.toString();
+            }
+          },
+
+          // Helper method to get badge class for transfer types
+          getTransferTypeBadgeClass(type) {
+            switch(type) {
+              case 'native':
+              case 'cosmos_native':
+                return 'bg-primary';
+              case 'erc20':
+                return 'bg-success';
+              default:
+                return 'bg-secondary';
+            }
+          },
+
           formatDate(date) {
             return new Intl.DateTimeFormat('en-US', {
               month: 'short',
@@ -1879,8 +1999,7 @@
             }).format(date);
           },
 
-          // WATOM wrapping/unwrapping methods - Hidden for production
-          /*
+          // WATOM wrapping/unwrapping methods
           async loadWatomBalances() {
             // Use global EVM wallet state
             if (!this.evmWallet.connected || !this.evmWallet.address) {
@@ -2081,13 +2200,12 @@
             localStorage.setItem('watomTransactions', JSON.stringify(this.watomTransactions));
           },
 
-          // loadWatomTransactions() { // Hidden for production
-          //   const stored = localStorage.getItem('watomTransactions');
-          //   if (stored) {
-          //     this.watomTransactions = JSON.parse(stored);
-          //   }
-          // },
-          */
+          loadWatomTransactions() {
+            const stored = localStorage.getItem('watomTransactions');
+            if (stored) {
+              this.watomTransactions = JSON.parse(stored);
+            }
+          },
 
           getExplorerUrl(txHash) {
             return `${this.networkConfig.evm.explorer || 'https://evm-devnet-1.cloud.blockscout.com'}/tx/${txHash}`;
@@ -2149,6 +2267,15 @@
           }
         }
       }).mount('#app')
+      
+      // Add error handler
+      window.addEventListener('error', (e) => {
+        console.error('Global error:', e.error);
+      });
+      
+      // Check if Vue is loaded
+      console.log('Vue loaded:', typeof Vue !== 'undefined');
+      console.log('Bootstrap loaded:', typeof bootstrap !== 'undefined');
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
