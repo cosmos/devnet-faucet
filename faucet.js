@@ -2,10 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import fetch from 'node-fetch';
 
-import { HDNodeWallet, Wallet, JsonRpcProvider, Contract, } from 'ethers'
+import { Wallet, JsonRpcProvider, Contract, } from 'ethers'
 import { bech32 } from 'bech32';
 
-import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
+import { DirectSecp256k1Wallet, decodePubkey, makeAuthInfoBytes, makeSignDoc } from "@cosmjs/proto-signing";
 import { accountFromAny, SigningStargateClient } from "@cosmjs/stargate";
 import { pathToString } from '@cosmjs/crypto';
 import { toHex, toBase64, } from '@cosmjs/encoding';
@@ -32,7 +32,6 @@ import conf, {
   validateDerivedAddresses 
 } from './config.js'
 import { FrequencyChecker } from './checker.js';
-import { ContractValidator } from './src/ContractValidator.js';
 import secureKeyManager from './src/SecureKeyManager.js';
 
 const { MNEMONIC } = process.env;
@@ -475,7 +474,7 @@ async function approveToken(tokenAddress, spenderAddress, amount) {
 }
 
 /**
- * Check and setup all token approvals on startup
+ * Check and setup all token approvals on startup - FIXED VERSION
  */
 async function checkAndSetupApprovals() {
   console.log('\n Checking and setting up token approvals...');
@@ -488,7 +487,7 @@ async function checkAndSetupApprovals() {
     return;
   }
   
-  const approvalPromises = [];
+  const tokensNeedingApproval = [];
   
   // Check all configured tokens
   for (const token of chainConf.tx.amounts) {
@@ -513,21 +512,14 @@ async function checkAndSetupApprovals() {
         console.log(`  Current allowance: ${approvalStatus.allowance}`);
         console.log(`  Approving amount: ${approvalStatus.approvalAmount}`);
         
-        // Queue approval transaction
-        approvalPromises.push(
-          approveToken(token.erc20_contract, atomicMultiSendAddress, approvalStatus.approvalAmount)
-            .then(result => {
-              console.log(`  ✓ ${approvalStatus.symbol} approved successfully (tx: ${result.hash})`);
-              // Update status
-              tokenApprovalStatus.get(token.erc20_contract).allowance = approvalStatus.approvalAmount;
-              tokenApprovalStatus.get(token.erc20_contract).needsApproval = false;
-            })
-            .catch(error => {
-              console.error(`  ✗ Failed to approve ${approvalStatus.symbol}:`, error.message);
-            })
-        );
+        // Add to list of tokens needing approval
+        tokensNeedingApproval.push({
+          token,
+          approvalStatus,
+          tokenAddress: token.erc20_contract
+        });
       } else {
-        console.log(`  ✓ Token ${approvalStatus.symbol} (${token.denom}) already approved`);
+        console.log(`  Success: Token ${approvalStatus.symbol} (${token.denom}) already approved`);
         console.log(`    Allowance: ${approvalStatus.allowance}`);
       }
     } catch (error) {
@@ -535,10 +527,27 @@ async function checkAndSetupApprovals() {
     }
   }
   
-  // Wait for all approvals to complete
-  if (approvalPromises.length > 0) {
-    console.log(`\n Processing ${approvalPromises.length} approval transactions...`);
-    await Promise.all(approvalPromises);
+  // Process approvals sequentially to avoid nonce conflicts
+  if (tokensNeedingApproval.length > 0) {
+    console.log(`\n Processing ${tokensNeedingApproval.length} approval transactions...`);
+    
+    for (const { token, approvalStatus, tokenAddress } of tokensNeedingApproval) {
+      try {
+        const result = await approveToken(
+          tokenAddress, 
+          atomicMultiSendAddress, 
+          approvalStatus.approvalAmount
+        );
+        
+        console.log(`  Success: ${approvalStatus.symbol} approved successfully (tx: ${result.hash})`);
+        
+        // Update status
+        tokenApprovalStatus.get(tokenAddress).allowance = approvalStatus.approvalAmount;
+        tokenApprovalStatus.get(tokenAddress).needsApproval = false;
+      } catch (error) {
+        console.error(`  Failed: Failed to approve ${approvalStatus.symbol}:`, error.message);
+      }
+    }
   }
   
   console.log(' Token approval setup complete!\n');
@@ -591,9 +600,9 @@ function startApprovalMonitoring() {
               atomicMultiSendAddress, 
               approvalStatus.approvalAmount
             );
-            console.log(`[APPROVAL CHECK] ✓ ${approvalStatus.symbol} re-approved (tx: ${result.hash})`);
+            console.log(`[APPROVAL CHECK] Success: ${approvalStatus.symbol} re-approved (tx: ${result.hash})`);
           } catch (error) {
-            console.error(`[APPROVAL CHECK] ✗ Failed to re-approve ${approvalStatus.symbol}:`, error.message);
+            console.error(`[APPROVAL CHECK] Failed: Failed to re-approve ${approvalStatus.symbol}:`, error.message);
           }
         }
       } catch (error) {
@@ -868,7 +877,7 @@ app.get('/send/:address', async (req, res) => {
 
           // Step 3: Check if any tokens are needed
           if (neededAmounts.length === 0) {
-            console.log(`\n✅ No tokens needed - wallet already has sufficient balance`);
+            console.log(`\nSuccess: No tokens needed - wallet already has sufficient balance`);
             console.log(`Current balances meet all target amounts`);
             
             const response = {
@@ -894,19 +903,19 @@ app.get('/send/:address', async (req, res) => {
           await ensureTokenApprovals(neededAmounts);
 
           // Step 4: Send tokens
-          console.log(`\n📤 Sending tokens to ${address} (${addressType})...`);
+          console.log(`\n>> Sending tokens to ${address} (${addressType})...`);
           console.log(`Tokens to send: ${neededAmounts.map(t => `${t.denom}: ${t.amount}`).join(', ')}`);
           const txResult = await sendSmartFaucetTx(address, addressType, neededAmounts);
-          console.log(`✅ Transaction sent successfully`);
+          console.log(`Success: Transaction sent successfully`);
 
           // Step 5: Update rate limiting only on successful send
           checker.update(`dual${ip}`);
           checker.update(address);
 
           // Step 6: Verify transaction and return detailed result
-          console.log(`\n🔍 Verifying transaction...`);
+          console.log(`\n>> Verifying transaction...`);
           const verificationResult = await verifyTransaction(txResult, addressType);
-          console.log(`✅ Transaction verified:`, {
+          console.log(`Success: Transaction verified:`, {
             hash: verificationResult.transaction_hash || verificationResult.hash,
             network: verificationResult.network_type,
             status: verificationResult.code === 0 ? 'SUCCESS' : 'FAILED'
@@ -929,7 +938,7 @@ app.get('/send/:address', async (req, res) => {
             }
           };
           
-          console.log(`\n✅ Request completed successfully:`);
+          console.log(`\nSuccess: Request completed successfully:`);
           console.log(`  - Transaction Hash: ${verificationResult.transaction_hash || verificationResult.hash || 'N/A'}`);
           console.log(`  - Tokens Sent: ${sentTokensInfo.map(t => `${t.denom}: ${t.amount}`).join(', ')}`);
           console.log(`  - Explorer URL: ${verificationResult.explorer_url || verificationResult.rest_api_url || 'N/A'}`);
@@ -988,23 +997,28 @@ app.listen(conf.port, async () => {
       }
     }
 
-    // Validate contract addresses before starting
-    console.log('\n Validating contract addresses...');
-    const validator = new ContractValidator(conf, secureKeyManager);
-    await validator.initialize();
+    // Validate and optionally redeploy contracts
+    console.log('\n Validating and verifying contract addresses...');
     
-    const validationResults = await validator.validateAllContracts();
-    console.log(validator.generateValidationReport());
+    // Import and run the contract verifier
+    const { default: ContractVerifier } = await import('./scripts/verify-contracts.js');
+    const verifier = new ContractVerifier();
     
-    if (!validationResults.allValid) {
-      console.error('\n CONTRACT VALIDATION FAILED!');
-      console.error('Some contract addresses are invalid or not accessible.');
-      console.error('Run: node scripts/validate-contracts.js --interactive');
-      console.error('Or manually update config.js with correct addresses.');
+    // Enable auto-redeployment if specified
+    if (process.env.AUTO_REDEPLOY === 'true') {
+      console.log(' Auto-redeployment enabled');
+    }
+    
+    const contractsValid = await verifier.verify();
+    
+    if (!contractsValid) {
+      console.error('\n CONTRACT VERIFICATION FAILED!');
+      console.error('Some contracts need redeployment or manual intervention.');
+      console.error('To auto-redeploy: AUTO_REDEPLOY=true npm start');
       process.exit(1);
     }
     
-    console.log('\n All contracts validated successfully!');
+    console.log('\n All contracts verified successfully!');
     
     // Check and setup token approvals
     await checkAndSetupApprovals();
@@ -1829,40 +1843,72 @@ async function verifyTransaction(txResult, addressType) {
         };
       }
     } else if (addressType === 'evm') {
-      // EVM transaction verification
+      // EVM transaction verification with enhanced data extraction
       if (txResult.code === 0) {
         const explorerUrl = `${conf.blockchain.endpoints.evm_explorer}/tx/${txResult.hash}`;
         
-        return {
-          code: 0,
-          message: "Tokens sent successfully!",
-          network_type: "evm",
-          transaction_hash: txResult.hash,
-          block_number: txResult.blockNumber,
-          block_hash: txResult.blockHash,
-          gas_used: txResult.gasUsed,
-          gas_price: txResult.gasPrice,
-          transaction_index: txResult.transactionIndex,
-          from_address: txResult.from,
-          to_address: txResult.to,
-          value: txResult.value,
-          status: txResult.status,
-          explorer_url: explorerUrl,
-          transfers: txResult.transfers || [],
-          evm_tx_data: {
-            hash: txResult.hash,
-            blockNumber: txResult.blockNumber,
-            blockHash: txResult.blockHash,
-            transactionIndex: txResult.transactionIndex,
-            from: txResult.from,
-            to: txResult.to,
-            value: txResult.value,
-            gasUsed: txResult.gasUsed,
-            gasPrice: txResult.gasPrice,
-            status: txResult.status,
-            logs: txResult.logs || []
-          }
-        };
+        // Get transaction details from provider for comprehensive data
+        try {
+          const ethProvider = new JsonRpcProvider(conf.blockchain.endpoints.evm_endpoint);
+          const [tx, receipt] = await Promise.all([
+            ethProvider.getTransaction(txResult.hash),
+            ethProvider.getTransactionReceipt(txResult.hash)
+          ]);
+          
+          // Extract comprehensive EVM transaction data
+          const evmTxData = {
+            hash: tx.hash,
+            blockNumber: receipt.blockNumber,
+            blockHash: receipt.blockHash,
+            transactionIndex: receipt.transactionIndex,
+            from: tx.from,
+            to: tx.to,
+            value: tx.value.toString(),
+            gasUsed: receipt.gasUsed.toString(),
+            gasPrice: tx.gasPrice?.toString() || '0',
+            status: receipt.status,
+            logs: receipt.logs || []
+          };
+          
+          return {
+            code: 0,
+            message: "Tokens sent successfully!",
+            network_type: "evm",
+            transaction_hash: txResult.hash,
+            block_number: receipt.blockNumber,
+            block_hash: receipt.blockHash,
+            gas_used: receipt.gasUsed.toString(),
+            gas_price: tx.gasPrice?.toString() || '0',
+            transaction_index: receipt.transactionIndex,
+            from_address: tx.from,
+            to_address: tx.to,
+            value: tx.value.toString(),
+            status: receipt.status,
+            explorer_url: explorerUrl,
+            transfers: txResult.transfers || [],
+            evm_tx_data: evmTxData
+          };
+        } catch (fetchError) {
+          // Fallback to basic data if fetch fails
+          console.warn('Failed to fetch enhanced EVM data:', fetchError);
+          return {
+            code: 0,
+            message: "Tokens sent successfully!",
+            network_type: "evm",
+            transaction_hash: txResult.hash,
+            block_number: txResult.blockNumber,
+            gas_used: txResult.gasUsed,
+            status: 1,
+            explorer_url: explorerUrl,
+            transfers: txResult.transfers || [],
+            evm_tx_data: {
+              hash: txResult.hash,
+              blockNumber: txResult.blockNumber,
+              gasUsed: txResult.gasUsed,
+              status: 1
+            }
+          };
+        }
       } else {
         const explorerUrl = txResult.hash ? `${conf.blockchain.endpoints.evm_explorer}/tx/${txResult.hash}` : null;
         
