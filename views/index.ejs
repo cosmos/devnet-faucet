@@ -302,10 +302,11 @@
               <span v-if="recentTransactions.length" class="badge bg-primary ms-1">{{recentTransactions.length}}</span>
             </button>
           </li>
-          <!-- WATOM Wrap/Unwrap Tab -->
+          <!-- WATOM Wrap/Unwrap Tab (Disabled) -->
           <li class="nav-item" role="presentation">
-            <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
-              <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
+            <button class="nav-link disabled" id="watom-tab" type="button" role="tab" disabled style="cursor: not-allowed; opacity: 0.6;">
+              <i class="fas fa-exchange-alt me-2"></i>WATOM 
+              <span class="badge bg-secondary ms-1" style="font-size: 0.7rem;">Coming Soon</span>
             </button>
           </li>
         </ul>
@@ -809,6 +810,14 @@
                       <strong>Hash:</strong> 
                       <span class="text-monospace small">{{tx.hash}}</span>
                     </div>
+                    <div v-else-if="isNoTokensNeeded(tx)" class="mb-2 text-info">
+                      <i class="fas fa-info-circle me-1"></i>
+                      <span>No tokens sent - wallet already has sufficient balance</span>
+                    </div>
+                    <div v-else-if="!tx.hash && tx.data?.result?.message" class="mb-2 text-muted">
+                      <i class="fas fa-info-circle me-1"></i>
+                      <span>{{tx.data.result.message}}</span>
+                    </div>
                   </div>
                   <div class="text-end">
                     <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)">
@@ -941,6 +950,78 @@
               </div>
             </div>
           </div>
+
+          <!-- WATOM Tab (Coming Soon) -->
+          <div class="tab-pane fade" id="watom" role="tabpanel">
+            <div class="info-card position-relative" style="min-height: 400px;">
+              <!-- Coming Soon Overlay -->
+              <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+                   style="background: rgba(0,0,0,0.7); z-index: 10; border-radius: 12px;">
+                <div class="text-center">
+                  <h3 class="text-white mb-3">
+                    <i class="fas fa-rocket me-2"></i>Coming Soon
+                  </h3>
+                  <p class="text-white-50 mb-0">WATOM wrapping and unwrapping functionality will be available in a future update.</p>
+                </div>
+              </div>
+              
+              <!-- Disabled Content -->
+              <div style="opacity: 0.3; pointer-events: none;">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="info-card">
+                      <h5 class="info-title">
+                        <i class="fas fa-atom"></i>
+                        Wrap ATOM to WATOM
+                      </h5>
+                      <div class="info-item mb-3">
+                        <span class="info-label">Native ATOM Balance:</span>
+                        <span class="info-value">0 ATOM</span>
+                      </div>
+                      <div class="form-group mb-3">
+                        <label for="wrapAmount" class="form-label">Amount to Wrap</label>
+                        <input 
+                          type="number" 
+                          class="form-control" 
+                          placeholder="Enter amount of ATOM to wrap"
+                          disabled
+                        >
+                      </div>
+                      <button class="btn btn-primary w-100" disabled>
+                        <i class="fas fa-box me-2"></i>Wrap ATOM
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-6">
+                    <div class="info-card">
+                      <h5 class="info-title">
+                        <i class="fas fa-box-open"></i>
+                        Unwrap WATOM to ATOM
+                      </h5>
+                      <div class="info-item mb-3">
+                        <span class="info-label">WATOM Balance:</span>
+                        <span class="info-value">0 WATOM</span>
+                      </div>
+                      <div class="form-group mb-3">
+                        <label for="unwrapAmount" class="form-label">Amount to Unwrap</label>
+                        <input 
+                          type="number" 
+                          class="form-control" 
+                          placeholder="Enter amount of WATOM to unwrap"
+                          disabled
+                        >
+                      </div>
+                      <button class="btn btn-secondary w-100" disabled>
+                        <i class="fas fa-box-open me-2"></i>Unwrap WATOM
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
       
@@ -1004,15 +1085,15 @@
                       <tbody>
                         <tr>
                           <td style="color: var(--text-secondary);">Block Height:</td>
-                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).block_height}}</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).block_height || 'N/A'}}</td>
                         </tr>
                         <tr>
                           <td style="color: var(--text-secondary);">Gas Used / Wanted:</td>
-                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).gas_used}} / {{getCosmosImportantData(selectedTransaction).gas_wanted}}</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).gas_used || 'N/A'}} / {{getCosmosImportantData(selectedTransaction).gas_wanted || 'N/A'}}</td>
                         </tr>
                         <tr>
                           <td style="color: var(--text-secondary);">Code:</td>
-                          <td><span class="badge" :class="getCosmosImportantData(selectedTransaction).code === 0 ? 'bg-success' : 'bg-danger'">{{getCosmosImportantData(selectedTransaction).code}}</span></td>
+                          <td><span class="badge" :class="getCosmosImportantData(selectedTransaction).code === 0 ? 'bg-success' : 'bg-danger'">{{getCosmosImportantData(selectedTransaction).code !== undefined ? getCosmosImportantData(selectedTransaction).code : 'N/A'}}</span></td>
                         </tr>
                         <tr v-if="getCosmosImportantData(selectedTransaction).timestamp">
                           <td style="color: var(--text-secondary);">Timestamp:</td>
@@ -1025,6 +1106,32 @@
                       </tbody>
                     </table>
                   </div>
+                  
+                  <!-- Display messages if available -->
+                  <div v-if="getCosmosImportantData(selectedTransaction).messages && getCosmosImportantData(selectedTransaction).messages.length > 0" class="mt-3">
+                    <h6 class="text-info mb-2">Transaction Messages</h6>
+                    <div v-for="(msg, index) in getCosmosImportantData(selectedTransaction).messages" :key="index" class="mb-2 p-2 rounded" style="background: rgba(0, 210, 255, 0.1);">
+                      <div><strong>Type:</strong> {{msg.type}}</div>
+                      <div><strong>From:</strong> <span style="font-family: monospace; font-size: 0.8rem;">{{msg.from}}</span></div>
+                      <div><strong>To:</strong> <span style="font-family: monospace; font-size: 0.8rem;">{{msg.to}}</span></div>
+                      <div v-if="msg.amount && msg.amount.length > 0">
+                        <strong>Amount:</strong> 
+                        <span v-for="(amt, i) in msg.amount" :key="i">
+                          {{formatTokenAmount(amt.amount, 6)}} {{amt.denom.toUpperCase()}}
+                          <span v-if="i < msg.amount.length - 1">, </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- REST API URL Button (Always show for Cosmos transactions) -->
+                <div v-if="selectedTransaction.addressType === 'Cosmos' || (selectedTransaction.data?.result?.network_type === 'cosmos')" class="text-center mb-3">
+                  <a :href="getCosmosRestApiUrl(selectedTransaction)" 
+                     target="_blank" 
+                     class="btn btn-outline-info btn-sm me-2">
+                    <i class="fas fa-external-link-alt me-1"></i>Open REST API Response
+                  </a>
                 </div>
                 
                 <!-- Toggle for Full JSON -->
@@ -1099,6 +1206,70 @@
                   
                   <div v-if="showAdvancedEvmData" class="mt-3 p-3 rounded border" style="background: var(--bg-primary); border-color: var(--border-color) !important;">
                     <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getEvmTransactionData(selectedTransaction), null, 2)}}</code></pre>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Error Details -->
+              <div v-if="!selectedTransaction.success && getErrorData(selectedTransaction)" class="mb-3">
+                <h6 class="text-danger mb-2">Error Details</h6>
+                <div class="alert alert-danger" style="background: rgba(220, 53, 69, 0.1); border: 1px solid #dc3545;">
+                  <div v-if="getErrorData(selectedTransaction).message" class="mb-2">
+                    <strong>Error Message:</strong><br>
+                    <span style="font-family: monospace; font-size: 0.9rem;">{{getErrorData(selectedTransaction).message}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).error" class="mb-2">
+                    <strong>Error Details:</strong><br>
+                    <span style="font-family: monospace; font-size: 0.9rem;">{{getErrorData(selectedTransaction).error}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).cosmos_error" class="mb-2">
+                    <strong>Cosmos Error:</strong><br>
+                    <span style="font-family: monospace; font-size: 0.9rem;">{{getErrorData(selectedTransaction).cosmos_error}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).code && getErrorData(selectedTransaction).code !== 0" class="mb-2">
+                    <strong>Error Code:</strong> <span class="badge bg-danger">{{getErrorData(selectedTransaction).code}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).codespace" class="mb-2">
+                    <strong>Codespace:</strong> {{getErrorData(selectedTransaction).codespace}}
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).rest_api_url" class="mb-2">
+                    <strong>REST API URL:</strong><br>
+                    <a :href="getErrorData(selectedTransaction).rest_api_url" target="_blank" class="text-info" style="word-break: break-all;">
+                      {{getErrorData(selectedTransaction).rest_api_url}}
+                    </a>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).broadcast_result" class="mb-2">
+                    <strong>Broadcast Result:</strong>
+                    <pre class="mt-2 p-2 rounded" style="background: rgba(0,0,0,0.2); font-size: 0.8rem; max-height: 200px; overflow-y: auto;">{{JSON.stringify(getErrorData(selectedTransaction).broadcast_result, null, 2)}}</pre>
+                  </div>
+                </div>
+                
+                <!-- Failed Transfers -->
+                <div v-if="getFailedTransfers(selectedTransaction).length > 0" class="mt-3">
+                  <h6 class="text-warning mb-2">Failed Transfers</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-dark">
+                      <thead>
+                        <tr>
+                          <th style="color: var(--text-primary);">Token</th>
+                          <th style="color: var(--text-primary);">Amount</th>
+                          <th style="color: var(--text-primary);">Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(transfer, index) in getFailedTransfers(selectedTransaction)" :key="index">
+                          <td style="color: var(--text-primary);">
+                            {{transfer.denom ? transfer.denom.toUpperCase() : 'Unknown'}}
+                          </td>
+                          <td style="color: var(--text-primary);">
+                            {{formatTokenAmount(transfer.amount, transfer.decimals || 6)}}
+                          </td>
+                          <td style="color: var(--text-danger); font-size: 0.8rem;">
+                            {{transfer.error || 'Unknown error'}}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -1631,14 +1802,18 @@
               return;
             }
             
+            console.log(`Loading balances for ${this.addressType} address: ${this.address}`);
+            
             try {
               if (this.addressType === 'Cosmos') {
                 const response = await fetch(`/balance/cosmos?address=${this.address}`);
                 const data = await response.json();
+                console.log('Cosmos balance response:', data);
                 this.requesterBalances = data.balances || [];
               } else if (this.addressType === 'EVM') {
                 const response = await fetch(`/balance/evm?address=${this.address}`);
                 const data = await response.json();
+                console.log('EVM balance response:', data);
                 this.requesterBalances = data.balances || [];
               }
             } catch (e) {
@@ -1717,20 +1892,37 @@
               ]);
 
               const explorerUrl = data.result?.explorer_url;
+              const noTokensNeeded = data.result?.message?.includes('sufficient balance') || 
+                                   (data.result?.tokens_sent && data.result.tokens_sent.length === 0);
               
-              this.message = `
-                <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
-                    <h6 class="alert-heading">
-                      <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
-                      ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
-                    </h6>
-                    <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
-                    ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
-                    ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
-                    <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-              `
+              if (noTokensNeeded) {
+                this.message = `
+                  <div class="alert alert-info alert-dismissible show fade" role="alert" style="border: 2px solid #0dcaf0; border-radius: 12px;">
+                      <h6 class="alert-heading">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No Tokens Sent
+                      </h6>
+                      <p class="mb-2"><strong>Wallet already has sufficient balance</strong></p>
+                      <p class="mb-2"><strong>Address:</strong> ${this.address}</p>
+                      <p class="mb-0 small text-muted">The wallet already meets or exceeds all target token amounts.</p>
+                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                `
+              } else {
+                this.message = `
+                  <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
+                      <h6 class="alert-heading">
+                        <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                        ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
+                      </h6>
+                      <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
+                      ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
+                      ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
+                      <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
+                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                `
+              }
             } catch (err) {
               // Add failed transaction to history
               this.addTransactionToHistory({
@@ -1871,20 +2063,35 @@
             const result = tx?.data?.result;
             if (!result || result.network_type !== 'cosmos') return null;
             
+            // Handle both successful and failed transactions
+            const txResponse = result.tx_response || result.cosmos_tx_data?.tx_response || {};
+            const txData = txResponse.tx || {};
+            const body = txData.body || {};
+            const messages = body.messages || [];
+            
             return {
-              block_height: result.block_height,
-              gas_used: result.gas_used,
-              gas_wanted: result.gas_wanted,
-              code: result.tx_response?.code,
-              timestamp: result.tx_response?.timestamp,
-              events_count: (result.tx_response?.events || []).length
+              block_height: result.block_height || result.height || txResponse.height,
+              gas_used: result.gas_used || txResponse.gas_used,
+              gas_wanted: result.gas_wanted || txResponse.gas_wanted,
+              code: result.code !== undefined ? result.code : txResponse.code,
+              timestamp: txResponse.timestamp,
+              events_count: (txResponse.events || []).length,
+              messages: messages.length > 0 ? messages.map(msg => ({
+                type: msg['@type'] ? msg['@type'].split('.').pop() : 'Unknown',
+                from: msg.from_address,
+                to: msg.to_address,
+                amount: msg.amount
+              })) : []
             };
           },
 
           getFullCosmosData(tx) {
             const result = tx?.data?.result;
             if (!result || result.network_type !== 'cosmos') return null;
-            return result.tx_response || null;
+            
+            // Return the full result object if tx_response is not available
+            // This ensures we capture all available data even for failed transactions
+            return result.tx_response || result;
           },
 
           getTransferData(tx) {
@@ -1976,6 +2183,47 @@
               return amount.toString();
             }
           },
+          
+          getErrorData(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            const result = tx.data.result;
+            
+            return {
+              message: result.message,
+              error: result.error || result.error_details,
+              cosmos_error: result.cosmos_error,
+              code: result.code,
+              codespace: result.codespace,
+              raw_log: result.raw_log,
+              failed_transfers: result.failed_transfers,
+              rest_api_url: result.rest_api_url,
+              broadcast_result: result.broadcast_result
+            };
+          },
+          
+          getFailedTransfers(tx) {
+            if (!tx || !tx.data || !tx.data.result) return [];
+            return tx.data.result.failed_transfers || [];
+          },
+          
+          getCosmosRestApiUrl(tx) {
+            if (!tx) return null;
+            
+            // First check if we have a REST API URL already
+            if (tx.data?.result?.rest_api_url) {
+              return tx.data.result.rest_api_url;
+            }
+            
+            // If not, construct one based on the transaction hash
+            const hash = this.getActualTransactionHash(tx);
+            if (hash) {
+              const restBase = this.networkConfig.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build';
+              return `${restBase}/cosmos/tx/v1beta1/txs/${hash}`;
+            }
+            
+            // For failed Cosmos transactions without a hash, we can't generate a URL
+            return null;
+          },
 
           // Helper method to get badge class for transfer types
           getTransferTypeBadgeClass(type) {
@@ -1988,6 +2236,18 @@
               default:
                 return 'bg-secondary';
             }
+          },
+
+          isNoTokensNeeded(tx) {
+            // Check if this is a "sufficient balance" response
+            if (tx.data?.result?.message?.includes('sufficient balance')) {
+              return true;
+            }
+            // Check if tokens_sent is empty
+            if (tx.data?.result?.tokens_sent && tx.data.result.tokens_sent.length === 0) {
+              return true;
+            }
+            return false;
           },
 
           formatDate(date) {
