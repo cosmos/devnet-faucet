@@ -102,17 +102,15 @@ class TokenConfigLoader {
             });
         });
         
-        // Add native tokens (if they should be included in EVM transfers)
+        // Add native tokens
         nativeTokens.forEach(token => {
-            if (token.evmWrapper?.enabled) {
-                amounts.push({
-                    denom: token.denom,
-                    amount: token.amount,
-                    erc20_contract: token.evmWrapper.wrapperContract,
-                    decimals: token.decimals,
-                    target_balance: token.target_balance
-                });
-            }
+            amounts.push({
+                denom: token.denom,
+                amount: token.amount,
+                erc20_contract: token.evmWrapper?.enabled ? token.evmWrapper.wrapperContract : "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                decimals: token.decimals,
+                target_balance: token.target_balance
+            });
         });
         
         return amounts;
