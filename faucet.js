@@ -387,9 +387,24 @@ async function createCosmosTransaction(fromAddress, toAddress, amounts, sequence
     const gasLimit = Long.fromString(chainConf.tx.fee.cosmos.gas);
 
     // Create auth info
-    const pubkey = decodePubkey({
-      typeUrl: "/cosmos.crypto.secp256k1.PubKey",
-      value: toBase64(getPublicKeyBytes())
+    // For eth_secp256k1, we need to properly encode the pubkey
+    // The pubkey value should be the protobuf-encoded PubKey message
+    const pubkeyBytes = getPublicKeyBytes();
+    console.log('Our pubkey (hex):', pubkeyBytes.toString('hex'));
+    console.log('Our pubkey (base64):', toBase64(pubkeyBytes));
+    
+    // Create a simple protobuf encoding for PubKey { key: bytes }
+    // Field 1 (key) with wire type 2 (length-delimited)
+    const fieldTag = (1 << 3) | 2; // field 1, wire type 2
+    const pubkeyProto = Buffer.concat([
+      Buffer.from([fieldTag]), // field tag
+      Buffer.from([pubkeyBytes.length]), // length of key
+      pubkeyBytes // the actual key bytes
+    ]);
+    
+    const pubkey = Any.fromPartial({
+      typeUrl: "/cosmos.evm.crypto.v1.ethsecp256k1.PubKey",
+      value: pubkeyProto
     });
 
     const authInfo = makeAuthInfoBytes(
@@ -408,7 +423,7 @@ async function createCosmosTransaction(fromAddress, toAddress, amounts, sequence
       TxBody.encode(txBody).finish(),
       authInfo,
       chainId,
-      accountNumber
+      Long.fromNumber(accountNumber)
     );
 
     return { txBody, authInfo, signDoc };
@@ -424,15 +439,61 @@ async function getAccountInfo(address) {
     const response = await fetch(`${restEndpoint}/cosmos/auth/v1beta1/accounts/${address}`);
     
     if (!response.ok) {
+      if (response.status === 404) {
+        // Account doesn't exist yet, return defaults
+        console.log('Account not found, using default values');
+        return {
+          accountNumber: 0,
+          sequence: 0
+        };
+      }
       throw new Error(`Failed to get account info: ${response.statusText}`);
     }
     
     const data = await response.json();
-    const account = accountFromAny(data.account);
     
+    // Handle different account types
+    if (data.account && data.account['@type']) {
+      // For eth_secp256k1 accounts, extract the base account info
+      let accountInfo;
+      
+      if (data.account['@type'].includes('EthAccount')) {
+        // EthAccount type
+        accountInfo = {
+          accountNumber: parseInt(data.account.base_account?.account_number || '0'),
+          sequence: parseInt(data.account.base_account?.sequence || '0')
+        };
+      } else if (data.account['@type'].includes('BaseAccount')) {
+        // BaseAccount - parse directly
+        accountInfo = {
+          accountNumber: parseInt(data.account.account_number || '0'),
+          sequence: parseInt(data.account.sequence || '0')
+        };
+      } else {
+        // Try standard parsing
+        try {
+          const account = accountFromAny(data.account);
+          accountInfo = {
+            accountNumber: account.accountNumber,
+            sequence: account.sequence
+          };
+        } catch (e) {
+          // Fallback to manual parsing
+          accountInfo = {
+            accountNumber: parseInt(data.account.account_number || data.account.base_account?.account_number || '0'),
+            sequence: parseInt(data.account.sequence || data.account.base_account?.sequence || '0')
+          };
+        }
+      }
+      
+      console.log('Account info parsed:', accountInfo);
+      return accountInfo;
+    }
+    
+    // Default if no account data
     return {
-      accountNumber: account.accountNumber,
-      sequence: account.sequence
+      accountNumber: 0,
+      sequence: 0
     };
   } catch (error) {
     console.error('Error getting account info:', error);
@@ -533,6 +594,8 @@ app.get('/balance/:type', async (req, res) => {
   const type = req.params.type; // 'cosmos' or 'evm'
   const { address } = req.query; // Optional: check specific address instead of faucet
   
+  console.log(`Balance request: type=${type}, address=${address}`);
+  
   let balances = [];
   
   try {
@@ -587,18 +650,50 @@ app.get('/balance/:type', async (req, res) => {
         targetAddress = getCosmosAddress();
       }
 
-      // Fetch cosmos balances from REST API
+      // Fetch cosmos balances from REST API with timeout
       const restEndpoint = chainConf.endpoints.rest_endpoint;
-      const response = await fetch(`${restEndpoint}/cosmos/bank/v1beta1/balances/${targetAddress}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      if (response.ok) {
-        const data = await response.json();
-        balances = data.balances.map(balance => ({
-          denom: balance.denom === 'uatom' ? 'ATOM' : balance.denom.toUpperCase(),
-          amount: balance.amount,
-          type: 'cosmos',
-          decimals: balance.denom === 'uatom' ? 6 : 0
-        }));
+      const balanceUrl = `${restEndpoint}/cosmos/bank/v1beta1/balances/${targetAddress}`;
+      console.log(`Fetching Cosmos balance from: ${balanceUrl}`);
+      
+      try {
+        const response = await fetch(balanceUrl, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Handle empty balances array
+          if (data.balances && Array.isArray(data.balances)) {
+            balances = data.balances.map(balance => ({
+              denom: balance.denom === 'uatom' ? 'ATOM' : balance.denom.toUpperCase(),
+              amount: balance.amount,
+              type: 'cosmos',
+              decimals: balance.denom === 'uatom' ? 6 : 0
+            }));
+          }
+          // If no balances, return empty ATOM balance
+          if (balances.length === 0) {
+            balances = [{
+              denom: 'ATOM',
+              amount: '0',
+              type: 'cosmos',
+              decimals: 6
+            }];
+          }
+          console.log(`Cosmos balances for ${targetAddress}:`, balances);
+        } else {
+          console.error(`Cosmos balance API returned ${response.status}: ${response.statusText}`);
+        }
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          console.error('Cosmos balance request timed out after 5 seconds');
+        } else {
+          console.error('Cosmos balance fetch error:', fetchError);
+        }
       }
     }
   } catch(err) {
@@ -626,6 +721,7 @@ app.get('/send/:address', async (req, res) => {
       if( await checker.checkAddress(address, 'dual') && await checker.checkIp(`dual${ip}`, 'dual') ) {
         console.log('Processing smart faucet request for', address, 'type:', addressType)
 
+        let txResult = null;
         try {
           // Step 1: Check current balances
           const currentBalances = await checkRecipientBalances(address, addressType);
@@ -681,7 +777,7 @@ app.get('/send/:address', async (req, res) => {
           console.log('Checking token approvals...');
           
           // Step 4: Send tokens
-          const txResult = await sendSmartFaucetTx(address, addressType, neededAmounts);
+          txResult = await sendSmartFaucetTx(address, addressType, neededAmounts);
           
           // Step 5: Build response
           const response = {
@@ -704,11 +800,33 @@ app.get('/send/:address', async (req, res) => {
           
         } catch (error) {
           console.error('Smart faucet error:', error);
+          
+          // Check if txResult contains transaction details even though it failed
+          let failedTxDetails = {};
+          if (txResult && txResult.hash) {
+            failedTxDetails = {
+              transaction_hash: txResult.hash,
+              network_type: txResult.network_type || 'evm',
+              explorer_url: txResult.explorer_url || `${chainConf.endpoints.evm_explorer}/tx/${txResult.hash}`,
+              gas_used: txResult.gas_used || '0',
+              status: 0, // Failed
+              error_details: txResult.error || txResult.revertReason || error.message,
+              current_balances: currentBalances,
+              tokens_attempted: neededAmounts.map(amount => ({
+                denom: amount.denom,
+                amount: amount.amount,
+                decimals: amount.decimals,
+                type: amount.type || (amount.erc20_contract ? 'erc20' : 'native')
+              }))
+            };
+          }
+          
           res.send({ 
             result: {
               code: -1,
               message: error.message || 'Transaction failed',
-              error: error.toString()
+              error: error.toString(),
+              ...failedTxDetails
             }
           });
         }
@@ -804,13 +922,25 @@ async function checkRecipientBalances(address, addressType) {
   try {
     if (addressType === 'cosmos') {
       // Check Cosmos balances via REST API
+      console.log(`Checking balances for Cosmos address ${address}`);
+      console.log(`Available tokens in config:`, chainConf.tx.amounts.map(t => ({ denom: t.denom, target: t.target_balance })));
+      
       const restEndpoint = chainConf.endpoints.rest_endpoint;
       const response = await fetch(`${restEndpoint}/cosmos/bank/v1beta1/balances/${address}`);
       const data = await response.json();
 
       // Map cosmos balances to our token structure
+      // For Cosmos addresses, only check native tokens (not ERC20s)
       for (const token of chainConf.tx.amounts) {
+        // Skip ERC20 tokens for Cosmos addresses
+        if (token.erc20_contract && 
+            token.erc20_contract !== "0x0000000000000000000000000000000000000000" &&
+            token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+          continue;
+        }
+        
         const balance = data.balances?.find(b => b.denom === token.denom);
+        console.log(`Token ${token.denom}: current_amount=${balance ? balance.amount : "0"}, target_amount=${token.target_balance}`);
         balances.push({
           denom: token.denom,
           current_amount: balance ? balance.amount : "0",
@@ -947,32 +1077,42 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
       // Skip ERC20 tokens for Cosmos addresses as they can't easily access them
       
       if (nativeTokens.length > 0) {
-        // Send native tokens via Cosmos
-        console.log('Sending native tokens via Cosmos...');
+        // Send native tokens via Cosmos bank module using manual transaction creation
+        console.log('Sending native tokens to Cosmos address via manual tx creation...');
         try {
           const cosmosResult = await sendCosmosTx(recipientAddress, nativeTokens);
-          results.cosmos_transaction = cosmosResult;
-          results.transaction_hash = cosmosResult.hash;
-          results.block_height = cosmosResult.height;
-          results.gas_used = cosmosResult.gas_used;
-          results.tx_response = cosmosResult.tx_response;
-          results.rest_api_url = cosmosResult.rest_api_url;
           
-          // Add native transfer details
+          results.network_type = 'cosmos';
+          results.transaction_hash = cosmosResult.transactionHash;
+          results.height = cosmosResult.height;
+          results.gas_used = cosmosResult.gasUsed;
+          results.gas_wanted = cosmosResult.gasWanted;
+          results.rest_api_url = cosmosResult.restApiUrl;
+          
+          // Add transfer details
           for (const token of nativeTokens) {
             results.transfers.push({
               token: 'native',
               amount: token.amount,
               denom: token.denom,
-              hash: cosmosResult.hash,
+              hash: cosmosResult.transactionHash,
               status: cosmosResult.code === 0 ? 1 : 0,
               type: 'cosmos_native'
             });
           }
+          
+          results.cosmos_tx_data = cosmosResult;
         } catch (cosmosError) {
-          console.error('Cosmos transaction failed:', cosmosError);
-          // Still return what we can
+          console.error('Cosmos transaction error:', cosmosError);
+          
+          // Return error information
+          results.network_type = 'cosmos';
           results.cosmos_error = cosmosError.message;
+          results.error_details = cosmosError.details || {};
+          results.broadcast_result = cosmosError.broadcastResult || cosmosError.details?.broadcastResult || null;
+          results.rest_api_url = cosmosError.restApiUrl || cosmosError.details?.restApiUrl || null;
+          results.raw_log = cosmosError.raw_log || cosmosError.details?.raw_log || null;
+          
           results.failed_transfers = nativeTokens.map(token => ({
             token: 'native',
             amount: token.amount,
@@ -980,6 +1120,8 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
             error: cosmosError.message,
             type: 'cosmos_native'
           }));
+          
+          throw cosmosError;
         }
       }
     }
@@ -1012,6 +1154,9 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
   const privateKey = getPrivateKey();
   const wallet = new Wallet(privateKey, ethProvider);
 
+  let tx = null;
+  let receipt = null;
+  
   try {
     // If we have multiple ERC20 tokens, use AtomicMultiSend
     if (erc20Tokens.length > 1) {
@@ -1036,7 +1181,7 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
       }));
 
       // Execute atomic transfer
-      const tx = await atomicContract.atomicMultiSend(
+      tx = await atomicContract.atomicMultiSend(
         recipientAddress,
         transfers,
         {
@@ -1045,7 +1190,7 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
       );
 
       console.log('Atomic transaction sent:', tx.hash);
-      const receipt = await tx.wait();
+      receipt = await tx.wait();
       console.log('Atomic transaction confirmed!');
 
       return receipt;
@@ -1056,10 +1201,10 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
       const token = erc20Tokens[0];
       const tokenContract = new Contract(token.erc20_contract, ERC20_BASE_ABI, wallet);
       
-      const tx = await tokenContract.transfer(recipientAddress, token.amount);
+      tx = await tokenContract.transfer(recipientAddress, token.amount);
       console.log('Transaction sent:', tx.hash);
       
-      const receipt = await tx.wait();
+      receipt = await tx.wait();
       console.log('Transaction confirmed!');
       
       return receipt;
@@ -1071,13 +1216,13 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
         sum + BigInt(token.amount), BigInt(0)
       );
       
-      const tx = await wallet.sendTransaction({
+      tx = await wallet.sendTransaction({
         to: recipientAddress,
         value: totalNative
       });
       
       console.log('Native transaction sent:', tx.hash);
-      const receipt = await tx.wait();
+      receipt = await tx.wait();
       console.log('Native transaction confirmed!');
       
       return receipt;
@@ -1086,7 +1231,39 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
     throw new Error('No tokens to send');
     
   } catch (error) {
-    console.error('Atomic EVM transaction error:', error);
+    console.error('EVM transaction error:', error);
+    
+    // If we have a transaction hash but it failed, still return transaction details
+    if (tx && tx.hash) {
+      console.log('Transaction was sent but failed/reverted. Hash:', tx.hash);
+      
+      // Try to get the receipt even if it failed
+      try {
+        receipt = await ethProvider.getTransactionReceipt(tx.hash);
+      } catch (receiptError) {
+        console.error('Could not fetch receipt:', receiptError);
+      }
+      
+      // Return a receipt-like object with failure information
+      return {
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        value: tx.value?.toString() || '0',
+        gasLimit: tx.gasLimit?.toString() || '0',
+        gasPrice: tx.gasPrice?.toString() || '0',
+        nonce: tx.nonce,
+        blockNumber: receipt?.blockNumber || null,
+        blockHash: receipt?.blockHash || null,
+        transactionIndex: receipt?.transactionIndex || null,
+        gasUsed: receipt?.gasUsed?.toString() || '0',
+        status: 0, // Failed status
+        error: error.message,
+        revertReason: error.reason || error.data?.message || 'Transaction reverted'
+      };
+    }
+    
+    // If no transaction was sent, throw the original error
     throw new Error(`EVM transaction failed: ${error.message}`);
   }
 }
@@ -1096,75 +1273,144 @@ async function sendCosmosTx(recipientAddress, nativeTokens) {
   console.log('Sending Cosmos native tokens to:', recipientAddress);
   
   try {
-    // Create wallet from private key
-    const privateKeyBytes = getPrivateKeyBytes();
-    const wallet = await DirectSecp256k1Wallet.fromKey(
-      privateKeyBytes,
-      chainConf.sender.option.prefix
-    );
-    
-    // Connect to Cosmos chain
-    const client = await SigningStargateClient.connectWithSigner(
-      chainConf.endpoints.rpc_endpoint,
-      wallet,
-      {
-        chainId: chainConf.ids.cosmosChainId,
-        gasPrice: {
-          denom: chainConf.tx.fee.cosmos.amount[0].denom,
-          amount: (parseFloat(chainConf.tx.fee.cosmos.amount[0].amount) / parseInt(chainConf.tx.fee.cosmos.gas)).toString()
-        }
-      }
-    );
-    
     const fromAddress = getCosmosAddress();
+    console.log('From address:', fromAddress);
+    console.log('To address:', recipientAddress);
+    
+    // Get account info
+    const accountInfo = await getAccountInfo(fromAddress);
+    console.log('Account info:', accountInfo);
+    console.log('Chain ID:', chainConf.ids.cosmosChainId);
     
     // Build amount array for native tokens
     const amounts = nativeTokens.map(token => ({
       denom: token.denom,
       amount: token.amount
     }));
+    console.log('Amounts to send:', amounts);
     
-    // Send transaction
-    const result = await client.sendTokens(
+    // Create the transaction
+    const { txBody, authInfo, signDoc } = await createCosmosTransaction(
       fromAddress,
       recipientAddress,
       amounts,
-      {
-        amount: chainConf.tx.fee.cosmos.amount,
-        gas: chainConf.tx.fee.cosmos.gas
-      },
-      "" // memo
+      accountInfo.sequence,
+      accountInfo.accountNumber,
+      chainConf.ids.cosmosChainId
     );
     
-    console.log('Cosmos transaction sent:', result.transactionHash);
+    // Sign the transaction manually using eth_secp256k1
+    const privateKeyBytes = getPrivateKeyBytes();
     
-    // Build API URL
-    const restApiUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs/${result.transactionHash}`;
+    // IMPORTANT: Based on the Go code, eth_secp256k1 uses Keccak256, not SHA256!
+    const signBytes = SignDoc.encode(signDoc).finish();
+    const hashedMessage = Buffer.from(keccak_256(signBytes));
     
-    // Fetch full transaction details
-    let txResponse = null;
-    try {
-      const response = await fetch(restApiUrl);
-      if (response.ok) {
-        const data = await response.json();
-        txResponse = data.tx_response || data;
-      }
-    } catch (err) {
-      console.error('Error fetching tx details:', err);
+    console.log('Sign bytes length:', signBytes.length);
+    console.log('Hash (Keccak256):', hashedMessage.toString('hex'));
+    
+    // Sign with secp256k1
+    const signatureResult = secp256k1.sign(hashedMessage, privateKeyBytes);
+    
+    // Based on Go code: The signature for verification should be 64 bytes (R || S) without recovery ID
+    // But we store 65 bytes initially and the verification strips the recovery ID
+    const signatureBytes = Buffer.concat([
+      Buffer.from(signatureResult.r.toString(16).padStart(64, '0'), 'hex'),
+      Buffer.from(signatureResult.s.toString(16).padStart(64, '0'), 'hex')
+    ]);
+    
+    console.log('Signature length:', signatureBytes.length);
+    console.log('Signature (hex):', signatureBytes.toString('hex'));
+    console.log('R:', signatureResult.r.toString(16));
+    console.log('S:', signatureResult.s.toString(16));
+    console.log('Recovery ID:', signatureResult.recovery);
+    
+    // Construct the transaction
+    const txRaw = TxRaw.fromPartial({
+      bodyBytes: TxBody.encode(txBody).finish(),
+      authInfoBytes: authInfo,
+      signatures: [signatureBytes],
+    });
+    
+    // Encode transaction
+    const txBytes = TxRaw.encode(txRaw).finish();
+    const txBase64 = toBase64(txBytes);
+    
+    // Broadcast transaction
+    console.log('Broadcasting transaction...');
+    const broadcastUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs`;
+    const broadcastResponse = await fetch(broadcastUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tx_bytes: txBase64,
+        mode: 'BROADCAST_MODE_SYNC'
+      })
+    });
+    
+    if (!broadcastResponse.ok) {
+      const errorData = await broadcastResponse.json();
+      console.error('Broadcast error:', errorData);
+      throw new Error(`Broadcast failed: ${JSON.stringify(errorData)}`);
     }
     
+    const broadcastResult = await broadcastResponse.json();
+    console.log('Broadcast result:', broadcastResult);
+    
+    if (broadcastResult.tx_response && broadcastResult.tx_response.code !== 0) {
+      const error = new Error(`Transaction failed: ${broadcastResult.tx_response.raw_log || broadcastResult.tx_response.log}`);
+      error.broadcastResult = broadcastResult;
+      error.restApiUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs/${broadcastResult.tx_response.txhash || 'unknown'}`;
+      error.raw_log = broadcastResult.tx_response.raw_log;
+      throw error;
+    }
+    
+    const txHash = broadcastResult.tx_response.txhash;
+    const restApiUrl = `${chainConf.endpoints.rest_endpoint}/cosmos/tx/v1beta1/txs/${txHash}`;
+    
+    // Simplify the tx_response to only include essential fields
+    const simplifiedTxResponse = {
+      height: broadcastResult.tx_response.height,
+      txhash: broadcastResult.tx_response.txhash,
+      code: broadcastResult.tx_response.code,
+      gas_wanted: broadcastResult.tx_response.gas_wanted,
+      gas_used: broadcastResult.tx_response.gas_used,
+      timestamp: broadcastResult.tx_response.timestamp,
+      tx: {
+        body: {
+          messages: broadcastResult.tx_response.tx?.body?.messages || []
+        }
+      },
+      events: broadcastResult.tx_response.events ? broadcastResult.tx_response.events.length : 0
+    };
+    
     return {
-      hash: result.transactionHash,
-      height: result.height.toString(),
-      gas_used: result.gasUsed.toString(),
-      code: result.code,
-      tx_response: txResponse,
-      rest_api_url: restApiUrl
+      transactionHash: txHash,
+      hash: txHash,
+      height: broadcastResult.tx_response.height || '0',
+      gasUsed: broadcastResult.tx_response.gas_used || '0',
+      gasWanted: broadcastResult.tx_response.gas_wanted || '0',
+      code: broadcastResult.tx_response.code || 0,
+      restApiUrl: restApiUrl,
+      tx_response: simplifiedTxResponse
     };
     
   } catch (error) {
     console.error('Cosmos transaction error:', error);
-    throw new Error(`Cosmos transaction failed: ${error.message}`);
+    
+    // Include all available error details
+    const errorDetails = {
+      message: error.message,
+      restApiUrl: error.restApiUrl || null,
+      broadcastResult: error.broadcastResult || null,
+      raw_log: error.raw_log || null
+    };
+    
+    const fullError = new Error(`Cosmos transaction failed: ${error.message}`);
+    fullError.details = errorDetails;
+    throw fullError;
   }
 }
 
