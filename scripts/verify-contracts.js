@@ -5,7 +5,12 @@
  * Ensures all contracts are deployed and under our control
  */
 
-import 'dotenv/config';
+// Only import dotenv if it exists (development environment)
+try {
+    await import('dotenv/config');
+} catch (e) {
+    // In production, environment variables are provided by the runtime
+}
 import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
