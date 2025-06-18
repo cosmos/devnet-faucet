@@ -1,0 +1,80 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# Git files
+.git/
+.gitignore
+.gitmodules
+
+# Documentation
+README.md
+docs/
+
+# Development files
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+out/
+cache/
+artifacts/
+
+# Hardhat files
+hardhat.config.js
+contracts/
+lib/
+
+# Foundry files
+foundry.toml
+forge-cache/
+out/
+
+# Deployment scripts (not needed at runtime)
+scripts/deployment/
+scripts/automated-deploy.js
+scripts/deploy-*.js
+scripts/integration-test.js
+scripts/validate-environment.js
+
+# Backup files
+*.backup
+*.bak
+tokens.json.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Fly.io files
+fly.toml
+
+# Vercel files
+vercel.json
+.vercel/
+
+# Database files (will be created at runtime)
+.faucet/history.db
+*.db
