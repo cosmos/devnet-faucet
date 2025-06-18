@@ -40,7 +40,7 @@ class SecureKeyManager {
     const publicKeyBytesCompressed = secp256k1.getPublicKey(privateKeyBytes, true);
 
     const evmAddress = this._deriveEvmAddress(publicKeyBytes);
-    const cosmosAddress = this._deriveCosmosAddress(publicKeyBytes);
+    const cosmosAddress = this._deriveCosmosAddress(evmAddress);
 
     this._addressCache = {
       evm: {
@@ -69,11 +69,10 @@ class SecureKeyManager {
     return '0x' + Buffer.from(addressBytes).toString('hex');
   }
 
-  _deriveCosmosAddress(publicKeyBytes) {
-    // For eth_secp256k1, Cosmos address is derived the same way as EVM address
-    // Use the same keccak hash of uncompressed public key (minus 0x04 prefix)
-    const publicKeyWithoutPrefix = publicKeyBytes.slice(1);
-    const addressBytes = keccak_256(publicKeyWithoutPrefix).slice(-20);
+  _deriveCosmosAddress(evmAddressHex) {
+    // For eth_secp256k1, Cosmos address uses the same bytes as EVM address
+    // Just encode the EVM address bytes in bech32 format
+    const addressBytes = Buffer.from(evmAddressHex.replace('0x', ''), 'hex');
     const words = bech32.toWords(addressBytes);
     return bech32.encode('cosmos', words);
   }
@@ -120,12 +119,16 @@ class SecureKeyManager {
     const current = this._addressCache;
     const errors = [];
 
-    if (expectedAddresses.evm && expectedAddresses.evm !== current.evm.address) {
-      errors.push(`EVM address mismatch: expected ${expectedAddresses.evm}, got ${current.evm.address}`);
+    // Handle both flat and nested address structures
+    const expectedEvm = expectedAddresses.evm?.address || expectedAddresses.evm;
+    const expectedCosmos = expectedAddresses.cosmos?.address || expectedAddresses.cosmos;
+
+    if (expectedEvm && expectedEvm !== current.evm.address) {
+      errors.push(`EVM address mismatch: expected ${expectedEvm}, got ${current.evm.address}`);
     }
 
-    if (expectedAddresses.cosmos && expectedAddresses.cosmos !== current.cosmos.address) {
-      errors.push(`Cosmos address mismatch: expected ${expectedAddresses.cosmos}, got ${current.cosmos.address}`);
+    if (expectedCosmos && expectedCosmos !== current.cosmos.address) {
+      errors.push(`Cosmos address mismatch: expected ${expectedCosmos}, got ${current.cosmos.address}`);
     }
 
     if (errors.length > 0) {
