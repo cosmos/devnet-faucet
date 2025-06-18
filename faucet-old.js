@@ -474,7 +474,7 @@ async function approveToken(tokenAddress, spenderAddress, amount) {
 }
 
 /**
- * Check and setup all token approvals on startup - FIXED VERSION
+ * Check and setup all token approvals on startup
  */
 async function checkAndSetupApprovals() {
   console.log('\n Checking and setting up token approvals...');
@@ -487,7 +487,7 @@ async function checkAndSetupApprovals() {
     return;
   }
   
-  const tokensNeedingApproval = [];
+  const approvalPromises = [];
   
   // Check all configured tokens
   for (const token of chainConf.tx.amounts) {
@@ -512,12 +512,19 @@ async function checkAndSetupApprovals() {
         console.log(`  Current allowance: ${approvalStatus.allowance}`);
         console.log(`  Approving amount: ${approvalStatus.approvalAmount}`);
         
-        // Add to list of tokens needing approval
-        tokensNeedingApproval.push({
-          token,
-          approvalStatus,
-          tokenAddress: token.erc20_contract
-        });
+        // Queue approval transaction
+        approvalPromises.push(
+          approveToken(token.erc20_contract, atomicMultiSendAddress, approvalStatus.approvalAmount)
+            .then(result => {
+              console.log(`  Success: ${approvalStatus.symbol} approved successfully (tx: ${result.hash})`);
+              // Update status
+              tokenApprovalStatus.get(token.erc20_contract).allowance = approvalStatus.approvalAmount;
+              tokenApprovalStatus.get(token.erc20_contract).needsApproval = false;
+            })
+            .catch(error => {
+              console.error(`  Failed: Failed to approve ${approvalStatus.symbol}:`, error.message);
+            })
+        );
       } else {
         console.log(`  Success: Token ${approvalStatus.symbol} (${token.denom}) already approved`);
         console.log(`    Allowance: ${approvalStatus.allowance}`);
@@ -527,27 +534,10 @@ async function checkAndSetupApprovals() {
     }
   }
   
-  // Process approvals sequentially to avoid nonce conflicts
-  if (tokensNeedingApproval.length > 0) {
-    console.log(`\n Processing ${tokensNeedingApproval.length} approval transactions...`);
-    
-    for (const { token, approvalStatus, tokenAddress } of tokensNeedingApproval) {
-      try {
-        const result = await approveToken(
-          tokenAddress, 
-          atomicMultiSendAddress, 
-          approvalStatus.approvalAmount
-        );
-        
-        console.log(`  Success: ${approvalStatus.symbol} approved successfully (tx: ${result.hash})`);
-        
-        // Update status
-        tokenApprovalStatus.get(tokenAddress).allowance = approvalStatus.approvalAmount;
-        tokenApprovalStatus.get(tokenAddress).needsApproval = false;
-      } catch (error) {
-        console.error(`  Failed: Failed to approve ${approvalStatus.symbol}:`, error.message);
-      }
-    }
+  // Wait for all approvals to complete
+  if (approvalPromises.length > 0) {
+    console.log(`\n Processing ${approvalPromises.length} approval transactions...`);
+    await Promise.all(approvalPromises);
   }
   
   console.log(' Token approval setup complete!\n');
@@ -729,13 +719,24 @@ app.get('/config.json', async (req, res) => {
   }
   
   // Add token information for frontend display
-  project.tokens = chainConf.tx.amounts.map(token => ({
-    denom: token.denom,
-    name: token.denom === 'uatom' ? 'ATOM' : token.denom.toUpperCase(),
-    contract: token.erc20_contract,
-    decimals: token.decimals,
-    target_amount: token.target_balance
-  }));
+  project.tokens = [
+    // Add native ATOM token info
+    {
+      denom: "uatom",
+      name: "ATOM",
+      contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+      decimals: 6,
+      target_amount: "1000000" // 1 ATOM
+    },
+    // Add ERC20 tokens
+    ...chainConf.tx.amounts.map(token => ({
+      denom: token.denom,
+      name: token.denom.toUpperCase(),
+      contract: token.erc20_contract,
+      decimals: token.decimals,
+      target_amount: token.target_balance
+    }))
+  ];
   
   project.supportedAddressTypes = ['cosmos', 'evm']
   res.send(project);
@@ -1052,6 +1053,14 @@ function getTestingModeAmounts(tokenConfigs) {
     });
   }
   
+  // Also add 1 uatom for native token
+  testAmounts.push({
+    denom: "uatom",
+    amount: "1", // 1 uatom
+    erc20_contract: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+    decimals: 6
+  });
+  
   return testAmounts;
 }
 
@@ -1239,12 +1248,7 @@ async function sendCosmosTransactionWithRetry(recipient, neededAmounts, maxRetri
         }
       }
       
-      // Normalize the response to include transaction_hash for verifyTransaction
-      return {
-        ...result,
-        transaction_hash: result.transactionHash,  // Add transaction_hash for consistency
-        hash: result.transactionHash  // Also add hash for compatibility
-      };
+      return result;
     } catch (error) {
       // Check if this is a signature/sequence related error that might benefit from retry
       if (error.message.includes('signature verification failed') ||

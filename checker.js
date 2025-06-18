@@ -147,6 +147,34 @@ export class FrequencyChecker {
     }
     
     /**
+     * Get remaining time until the rate limit resets for a given address
+     */
+    async getRemainingTime(address, type) {
+        const key = `addr_${address}_${type}`;
+        const timestamps = this.requests.get(key) || [];
+        
+        if (timestamps.length === 0) {
+            return 0; // No previous requests
+        }
+        
+        // Find the oldest timestamp within the window
+        const now = Date.now();
+        const cutoff = now - (this.windowHours * 60 * 60 * 1000);
+        const validTimestamps = timestamps.filter(ts => ts > cutoff);
+        
+        if (validTimestamps.length === 0) {
+            return 0; // All timestamps are outside the window
+        }
+        
+        // Calculate time until the oldest valid timestamp expires
+        const oldestTimestamp = Math.min(...validTimestamps);
+        const expirationTime = oldestTimestamp + (this.windowHours * 60 * 60 * 1000);
+        const remainingTime = Math.max(0, expirationTime - now);
+        
+        return remainingTime;
+    }
+    
+    /**
      * Get current statistics
      */
     getStats() {

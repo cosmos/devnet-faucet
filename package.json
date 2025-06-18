@@ -11,7 +11,13 @@
     "deploy:test": "node scripts/automated-deploy.js --test",
     "validate": "node scripts/validate-environment.js",
     "extract-abi": "node scripts/extract-abi.js",
-    "approve-tokens": "node scripts/approve-tokens.js"
+    "approve-tokens": "node scripts/approve-tokens.js",
+    "approval:check": "node scripts/setup-approvals.js check",
+    "approval:approve": "node scripts/setup-approvals.js approve",
+    "approval:approve-max": "node scripts/setup-approvals.js approve-max",
+    "approval:revoke": "node scripts/setup-approvals.js revoke",
+    "approval:balance": "node scripts/setup-approvals.js balance",
+    "approval:help": "node scripts/setup-approvals.js help"
   },
   "repository": {
     "type": "git",
@@ -53,6 +59,7 @@
     "@nomicfoundation/hardhat-ethers": "^3.0.9",
     "chai": "^4.5.0",
     "dotenv": "^16.5.0",
+    "forge": "^2.3.0",
     "hardhat": "^2.24.2",
     "hardhat-gas-reporter": "^1.0.10"
   }

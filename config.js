@@ -1,4 +1,4 @@
-// Configuration auto-updated on 2025-06-17T22:27:16.805Z
+// Configuration auto-updated on 2025-06-18T05:13:50.402Z
 import { stringToPath } from '@cosmjs/crypto'
 import fs from 'fs'
 import secureKeyManager from './src/SecureKeyManager.js';
@@ -33,9 +33,9 @@ const config = {
             evm_websocket: "wss://devnet-1-evmws.ib.skip.build",
             evm_explorer: "https://evm-devnet-1.cloud.blockscout.com",
         },
-        // Contract addresses - will be set after deployment
+        // Contract addresses - loaded from tokens.json
         contracts: {
-            atomicMultiSend: "0x7392C85B40914B005EcF62dfA80eDe9f10a2f8A4", // AtomicMultiSend contract
+            atomicMultiSend: null, // Will be loaded from TokenConfigLoader
         },
         sender: {
             // Using eth_secp256k1 derivation path for both environments
@@ -87,7 +87,7 @@ const tokenLoader = new TokenConfigLoader(networkConfig);
 // Populate token amounts from tokens.json
 config.blockchain.tx.amounts = tokenLoader.getAllTokensForConfig();
 
-// Update contract addresses from tokens.json
+// Load contract addresses from tokens.json (the source of truth)
 const faucetConfig = tokenLoader.getFaucetConfig();
 config.blockchain.contracts.atomicMultiSend = faucetConfig.atomicMultiSend;
 

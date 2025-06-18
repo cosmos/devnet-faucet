@@ -176,18 +176,19 @@ ${features}
         allConstructorCalls.push('Ownable()');
 
         const constructorBody = [
-            '        // Transfer ownership to deployer',
-            '        _transferOwnership(msg.sender);',
+            '        // Transfer ownership to the provided initialOwner (faucet)',
+            '        _transferOwnership(initialOwner);',
             '',
-            '        // Grant roles',
-            ...(token.features.mintable ? ['        _grantRole(MINTER_ROLE, ' + token.roles.minter + ');'] : []),
-            ...(token.features.pausable ? ['        _grantRole(PAUSER_ROLE, ' + token.roles.pauser + ');'] : []),
+            '        // Grant roles to the initialOwner',
+            ...(token.features.mintable ? ['        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);', '        _grantRole(MINTER_ROLE, initialOwner);'] : []),
+            ...(token.features.pausable ? ['        _grantRole(PAUSER_ROLE, initialOwner);'] : []),
             '',
-            '        // Initial token distribution'
+            '        // Mint initial supply to the initialOwner (faucet)'
         ];
 
+        // Always mint to initialOwner instead of hardcoded addresses
         for (const dist of token.distribution || []) {
-            constructorBody.push(`        _mint(${dist.wallet}, ${dist.amount});`);
+            constructorBody.push(`        _mint(initialOwner, ${dist.amount}); // ${token.name} initial supply`);
         }
 
         return `${roles.length > 0 ? '\n' + roles.join('\n') + '\n' : ''}

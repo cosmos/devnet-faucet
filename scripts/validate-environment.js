@@ -223,10 +223,10 @@ class EnvironmentValidator {
         }
         
         if (this.errors.length === 0) {
-            console.log('\n Environment validation passed! Ready for deployment.');
+            console.log('\n Validation OK.. Faucet is ready.');
             return true;
         } else {
-            console.log('\n Environment validation failed! Please fix the issues above.');
+            console.log('\n Validation failed. Please check and fix the issues..');
             return false;
         }
     }

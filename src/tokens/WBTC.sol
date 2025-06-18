@@ -18,14 +18,15 @@ contract WBTC is ERC20, ERC20Burnable, Ownable, AccessControl {
         ERC20("Wrapped Bitcoin", "WBTC")
         Ownable()
     {
-        // Transfer ownership to deployer
-        _transferOwnership(msg.sender);
+        // Transfer ownership to the provided initialOwner (faucet)
+        _transferOwnership(initialOwner);
 
-        // Grant roles
-        _grantRole(MINTER_ROLE, 0x42e6047c5780B103E52265F6483C2d0113aA6B87);
+        // Grant roles to the initialOwner
+        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
+        _grantRole(MINTER_ROLE, initialOwner);
 
-        // Initial token distribution
-        _mint(0x42e6047c5780B103E52265F6483C2d0113aA6B87, 100000000000000);
+        // Mint initial supply to the initialOwner (faucet)
+        _mint(initialOwner, 100000000000000); // Wrapped Bitcoin initial supply
     }
 
 
