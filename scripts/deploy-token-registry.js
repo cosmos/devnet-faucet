@@ -36,17 +36,59 @@ class TokenRegistryDeployer {
     }
 
     async loadRegistry() {
-        console.log(' Loading token registry...');
+        console.log(' Loading token configuration...');
         
-        const registryPath = path.join(process.cwd(), 'token-registry.json');
-        if (!fs.existsSync(registryPath)) {
-            throw new Error('token-registry.json not found');
+        const tokensPath = path.join(process.cwd(), 'tokens.json');
+        if (!fs.existsSync(tokensPath)) {
+            throw new Error('tokens.json not found');
         }
         
-        const registryContent = fs.readFileSync(registryPath, 'utf8');
-        this.registry = JSON.parse(registryContent);
+        const tokensContent = fs.readFileSync(tokensPath, 'utf8');
+        this.tokensConfig = JSON.parse(tokensContent);
         
-        console.log(` Loaded ${this.registry.tokens.length} token definitions`);
+        // Extract and transform ERC20 tokens for deployment
+        this.registry = {
+            tokens: this.tokensConfig.tokens
+                .filter(t => t.type === 'erc20')
+                .map(token => ({
+                    // Basic info
+                    name: token.name,
+                    symbol: token.symbol,
+                    decimals: token.decimals,
+                    description: token.description,
+                    
+                    // Features
+                    features: token.features,
+                    
+                    // Roles - map from governance structure
+                    roles: {
+                        owner: token.governance?.roles?.owner?.address || secureKeyManager.getEvmAddress(),
+                        minter: token.governance?.roles?.minter?.address || secureKeyManager.getEvmAddress(),
+                        pauser: token.governance?.roles?.pauser?.address || secureKeyManager.getEvmAddress()
+                    },
+                    
+                    // Distribution
+                    distribution: token.distribution?.initialDistribution?.map(d => ({
+                        wallet: d.recipient,
+                        amount: d.amount
+                    })) || [{
+                        wallet: secureKeyManager.getEvmAddress(),
+                        amount: token.tokenomics?.initialSupply || "1000000000000000000000000"
+                    }],
+                    
+                    // Faucet config
+                    faucet: {
+                        enabled: token.faucet?.enabled || true,
+                        amount: token.faucet?.configuration?.amountPerRequest,
+                        targetBalance: token.faucet?.configuration?.targetBalance
+                    },
+                    
+                    // Keep reference to original for updates
+                    _original: token
+                }))
+        };
+        
+        console.log(` Loaded ${this.registry.tokens.length} ERC20 token definitions`);
     }
 
     async generateSolidityContracts() {
@@ -393,20 +435,7 @@ ${constructorBody.join('\n')}
         // Write updated config.js
         fs.writeFileSync('config.js', configContent);
         
-        // Write updated registry with addresses
-        this.registry.tokens.forEach(token => {
-            const deployment = this.deploymentResults.find(d => d.symbol === token.symbol);
-            if (deployment) {
-                token.contractAddress = deployment.address;
-                token.deploymentBlock = deployment.deploymentBlock;
-                token.deployer = secureKeyManager.getEvmAddress();
-            }
-        });
-        
-        this.registry.meta.updatedAt = new Date().toISOString();
-        fs.writeFileSync('token-registry.json', JSON.stringify(this.registry, null, 2));
-        
-        console.log(' Configuration updated in both tokens.json and config.js');
+        console.log(' Configuration updated in tokens.json');
     }
 
     async saveDeploymentReport() {

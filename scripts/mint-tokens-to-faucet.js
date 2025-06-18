@@ -43,15 +43,15 @@ async function mintTokensToFaucet() {
             type: conf.blockchain.type
         };
         const tokenLoader = new TokenConfigLoader(networkConfig);
-        const tokenConfig = tokenLoader.loadConfig();
         
-        // Process each ERC20 token
-        for (const token of tokenConfig.tokens.filter(t => t.type === 'erc20')) {
+        // Process each ERC20 token using the loader's methods
+        const erc20Tokens = tokenLoader.getErc20Tokens();
+        for (const token of erc20Tokens) {
             console.log(`\n🪙 Processing ${token.symbol}...`);
-            console.log(`  Address: ${token.address}`);
+            console.log(`  Address: ${token.erc20_contract}`);
             
             try {
-                const tokenContract = new ethers.Contract(token.address, MINTABLE_ERC20_ABI, wallet);
+                const tokenContract = new ethers.Contract(token.erc20_contract, MINTABLE_ERC20_ABI, wallet);
                 
                 // Check current balance
                 const currentBalance = await tokenContract.balanceOf(faucetAddress);
