@@ -6,6 +6,8 @@
   "main": "faucet.js",
   "scripts": {
     "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
+    "dev": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
+    "build": "echo 'No build step required'",
     "test": "hardhat test",
     "deploy": "node scripts/automated-deploy.js",
     "deploy:test": "node scripts/automated-deploy.js --test",

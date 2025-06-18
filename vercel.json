@@ -2,22 +2,40 @@
   "version": 2,
   "builds": [
     {
-      "src": "faucet.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "views/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
+      "src": "/views/(.*)",
+      "dest": "/views/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/faucet.js"
+      "dest": "/api/index.js"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VERCEL": "1"
   },
   "functions": {
-    "faucet.js": {
-      "maxDuration": 30
+    "api/index.js": {
+      "maxDuration": 30,
+      "includeFiles": [
+        "views/**",
+        "src/**",
+        "scripts/**",
+        "config.js",
+        "tokens.json",
+        "token-registry.json",
+        ".faucet/**"
+      ]
     }
   }
 }

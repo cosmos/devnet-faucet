@@ -80,7 +80,7 @@ blockchain: {
 
 ## Deployment
 
-### Automated (Recommended)
+### Local Deployment (Recommended for Development)
 ```bash
 # Complete deployment pipeline
 npm run deploy     # Deploy contracts, set approvals, validate
@@ -94,6 +94,20 @@ This will:
 4. Set token approvals for the faucet wallet
 5. Verify all contracts are accessible
 6. Update configuration files with deployed addresses
+
+### Vercel Deployment (Production)
+The faucet can be deployed to Vercel for serverless hosting. See [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) for detailed instructions.
+
+Quick start:
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy to Vercel
+vercel
+```
+
+**Important**: Set the `MNEMONIC` environment variable in your Vercel project settings.
 
 ### Manual Steps
 ```bash

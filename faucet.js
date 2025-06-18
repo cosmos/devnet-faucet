@@ -962,8 +962,9 @@ app.get('/send/:address', async (req, res) => {
   }
 })
 
-app.listen(conf.port, async () => {
-  console.log(`[START] Faucet server starting on port ${conf.port}...`);
+// Initialize faucet on startup (for both local and Vercel)
+const initializeFaucet = async () => {
+  console.log(`[START] Faucet initializing...`);
   
   try {
     // Initialize secure key management
@@ -1028,11 +1029,40 @@ app.listen(conf.port, async () => {
     // Never log private keys or mnemonic
     console.log(' Private keys secured in memory (never logged or written to disk)');
     
+    console.log(' Faucet initialization complete!');
+    
   } catch (error) {
     console.error(' Failed to initialize faucet:', error.message);
-    process.exit(1);
+    throw error; // Let caller handle the error
   }
-})
+}
+
+// For local development
+if (process.env.VERCEL !== '1') {
+  app.listen(conf.port, async () => {
+    console.log(`[START] Faucet server starting on port ${conf.port}...`);
+    await initializeFaucet();
+    console.log(` Server listening on http://localhost:${conf.port}`);
+  });
+} else {
+  // For Vercel, initialize on first request
+  let initialized = false;
+  app.use(async (req, res, next) => {
+    if (!initialized) {
+      try {
+        await initializeFaucet();
+        initialized = true;
+      } catch (error) {
+        console.error('Failed to initialize faucet:', error);
+        return res.status(500).json({ error: 'Server initialization failed' });
+      }
+    }
+    next();
+  });
+}
+
+// Export app for Vercel
+export { app };
 
 // Legacy functions removed - replaced by smart faucet functions above
 
