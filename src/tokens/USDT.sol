@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 /**
  * @title Tether USD
- * @dev USDT stablecoin for cosmos-evm testnet
+ * @dev USDT stablecoin for cosmos-evm testnet - pegged to US Dollar
  */
 contract USDT is ERC20, ERC20Burnable, Ownable, AccessControl {
 

@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 /**
  * @title Pepe Token
- * @dev Pepe meme token for cosmos-evm testnet
+ * @dev Pepe meme token for cosmos-evm testnet - community-driven fun token
  */
 contract PEPE is ERC20, ERC20Burnable, Ownable, AccessControl {
 

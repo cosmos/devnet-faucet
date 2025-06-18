@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 /**
  * @title Wrapped Bitcoin
- * @dev Wrapped Bitcoin for cosmos-evm testnet
+ * @dev Wrapped Bitcoin for cosmos-evm testnet - pegged 1:1 with Bitcoin
  */
 contract WBTC is ERC20, ERC20Burnable, Ownable, AccessControl {
 
