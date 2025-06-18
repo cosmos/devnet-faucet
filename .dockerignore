@@ -53,6 +53,10 @@ scripts/automated-deploy.js
 scripts/deploy-*.js
 scripts/integration-test.js
 scripts/validate-environment.js
+scripts/derive-and-cache-addresses.js
+scripts/extract-abi.js
+scripts/mint-tokens-to-faucet.js
+# Note: verify-contracts.js is needed at runtime
 
 # Backup files
 *.backup
@@ -78,3 +82,8 @@ vercel.json
 # Database files (will be created at runtime)
 .faucet/history.db
 *.db
+
+# Deployment helpers
+deploy-checklist.sh
+test-docker.sh
+DEPLOYMENT.md

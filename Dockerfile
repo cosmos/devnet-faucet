@@ -15,11 +15,11 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile
+# Install dependencies (production only)
+RUN yarn install --frozen-lockfile --production
 
-# Copy source code
-COPY . .
+# Note: We don't copy everything here, only what's needed for runtime
+# The production stage below will copy specific files
 
 # Production stage
 FROM node:20-alpine
