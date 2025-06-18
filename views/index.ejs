@@ -814,7 +814,7 @@
                     <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)">
                       <i class="fas fa-eye me-1"></i>Details
                     </button>
-                    <a v-if="tx.hash && tx.data.result && tx.data.result.explorer_url" :href="tx.data.result.explorer_url" target="_blank" class="btn btn-outline-success btn-sm ms-1">
+                    <a v-if="tx.hash && getTransactionExplorerUrl(tx)" :href="getTransactionExplorerUrl(tx)" target="_blank" class="btn btn-outline-success btn-sm ms-1">
                       <i class="fas fa-external-link-alt me-1"></i>View
                     </a>
                     <button class="btn btn-outline-danger btn-sm ms-1" @click="removeTransaction(index)">
@@ -1050,21 +1050,21 @@
                 <div class="table-responsive">
                   <table class="table table-sm table-dark">
                     <tbody>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).transaction_hash">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).hash">
                         <td style="color: var(--text-secondary);">Transaction Hash:</td>
-                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).transaction_hash}}</td>
+                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).hash}}</td>
                       </tr>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).block_number">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).blockNumber">
                         <td style="color: var(--text-secondary);">Block Number:</td>
-                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).block_number}}</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).blockNumber}}</td>
                       </tr>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).gas_used">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).gasUsed">
                         <td style="color: var(--text-secondary);">Gas Used:</td>
-                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gas_used}}</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gasUsed}}</td>
                       </tr>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).gas_price">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).gasPrice">
                         <td style="color: var(--text-secondary);">Gas Price:</td>
-                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gas_price}} wei</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gasPrice}} wei</td>
                       </tr>
                       <tr v-if="getEvmTransactionData(selectedTransaction).from">
                         <td style="color: var(--text-secondary);">From:</td>
@@ -1081,8 +1081,8 @@
                       <tr v-if="getEvmTransactionData(selectedTransaction).status !== undefined">
                         <td style="color: var(--text-secondary);">Status:</td>
                         <td>
-                          <span class="badge" :class="getEvmTransactionData(selectedTransaction).status === '0x1' ? 'bg-success' : 'bg-danger'">
-                            {{getEvmTransactionData(selectedTransaction).status === '0x1' ? 'Success' : 'Failed'}}
+                          <span class="badge" :class="getEvmTransactionData(selectedTransaction).status === '0x1' || getEvmTransactionData(selectedTransaction).status === 1 ? 'bg-success' : 'bg-danger'">
+                            {{(getEvmTransactionData(selectedTransaction).status === '0x1' || getEvmTransactionData(selectedTransaction).status === 1) ? 'Success' : 'Failed'}}
                           </span>
                         </td>
                       </tr>
@@ -1098,7 +1098,7 @@
                   </button>
                   
                   <div v-if="showAdvancedEvmData" class="mt-3 p-3 rounded border" style="background: var(--bg-primary); border-color: var(--border-color) !important;">
-                    <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
+                    <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getEvmTransactionData(selectedTransaction), null, 2)}}</code></pre>
                   </div>
                 </div>
               </div>
@@ -1140,6 +1140,7 @@
           </div>
         </div>
       </div>
+    </div>
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -1795,6 +1796,7 @@
           showTransactionDetails(tx) {
             this.selectedTransaction = tx;
             this.showFullCosmosJson = false; // Reset JSON view when opening new transaction
+            this.showAdvancedEvmData = false; // Reset EVM advanced view
             // Programmatically show the Bootstrap modal
             const modalElement = document.getElementById('transactionModal');
             if (modalElement) {
@@ -2274,18 +2276,6 @@
       // Check if Vue is loaded
       console.log('Vue loaded:', typeof Vue !== 'undefined');
       console.log('Bootstrap loaded:', typeof bootstrap !== 'undefined');
-      
-      // Debug Vue mounting
-      setTimeout(() => {
-        const appElement = document.getElementById('app');
-        if (appElement && appElement.__vue_app__) {
-          console.log('✅ Vue app mounted successfully');
-          console.log('Vue instance:', appElement.__vue_app__);
-        } else {
-          console.error('❌ Vue app failed to mount');
-          console.log('App element:', appElement);
-        }
-      }, 1000);
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>
