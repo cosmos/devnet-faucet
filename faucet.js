@@ -755,14 +755,19 @@ app.get('/send/:address', async (req, res) => {
               console.log('Filtered for Cosmos address - only native tokens');
             }
             
-            // For EVM addresses, adjust WATOM amount (1000 WATOM = 1000 * 10^18)
+            // For EVM addresses, adjust WATOM amount (convert from uatom to WATOM)
             if (addressType === 'evm') {
               neededAmounts = neededAmounts.map(token => {
                 if (token.denom === 'uatom' && (token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')) {
-                  // Convert to WATOM: 1000 WATOM with 18 decimals
+                  // Convert amount from uatom (6 decimals) to WATOM (18 decimals)
+                  // The amount here is already the "needed" amount calculated from target - current
+                  const uatomAmount = BigInt(token.amount);
+                  // Convert: uatom amount * 10^12 to go from 6 to 18 decimals
+                  const watomAmount = uatomAmount * BigInt(10 ** 12);
+                  
                   return {
                     ...token,
-                    amount: "1000000000000000000000", // 1000 * 10^18
+                    amount: watomAmount.toString(),
                     decimals: 18,
                     symbol: 'WATOM',
                     name: 'Wrapped ATOM'
@@ -780,12 +785,39 @@ app.get('/send/:address', async (req, res) => {
             console.log(`\nSuccess: No tokens needed - wallet already has sufficient balance`);
             console.log(`Current balances meet all target amounts`);
             
+            // Build detailed token status
+            const tokenStatus = chainConf.tx.amounts
+              .filter(token => {
+                // Filter tokens based on address type (same logic as above)
+                if (addressType === 'cosmos') {
+                  return token.denom === 'uatom' || 
+                    !token.erc20_contract || 
+                    token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+                }
+                return true; // EVM addresses can receive all tokens
+              })
+              .map(token => {
+                const balance = currentBalances.find(b => b.denom === token.denom);
+                const displaySymbol = (addressType === 'evm' && token.denom === 'uatom') ? 'WATOM' : token.symbol;
+                return {
+                  symbol: displaySymbol,
+                  name: token.name,
+                  status: 'already_funded',
+                  current_balance: balance?.current_amount || '0',
+                  target_balance: balance?.target_amount || token.target_balance,
+                  decimals: balance?.decimals || token.decimals
+                };
+              });
+            
             const response = {
               result: {
                 code: 0,
-                message: "Wallet already has sufficient balance. Each token balance meets or exceeds the target amount.",
+                status: 'no_tokens_sent',
+                message: "Wallet already has sufficient balance for all eligible tokens.",
+                token_status: tokenStatus,
                 current_balances: currentBalances,
                 tokens_sent: [],
+                tokens_not_sent: tokenStatus,
                 target_balances: chainConf.tx.amounts.map(token => ({
                   denom: token.denom,
                   target: token.target_balance,
@@ -805,18 +837,57 @@ app.get('/send/:address', async (req, res) => {
           txResult = await sendSmartFaucetTx(address, addressType, neededAmounts);
           
           // Step 5: Build response
+          // Identify which tokens were not sent (already funded)
+          const eligibleTokens = chainConf.tx.amounts.filter(token => {
+            if (addressType === 'cosmos') {
+              return token.denom === 'uatom' || 
+                !token.erc20_contract || 
+                token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+            }
+            return true;
+          });
+          
+          const tokensSent = neededAmounts.map(amount => {
+            const token = chainConf.tx.amounts.find(t => t.denom === amount.denom);
+            const displaySymbol = (amount.symbol === 'WATOM') ? 'WATOM' : token?.symbol || amount.denom;
+            return {
+              denom: amount.denom,
+              symbol: displaySymbol,
+              name: amount.name || token?.name,
+              amount: amount.amount,
+              decimals: amount.decimals,
+              type: amount.type || (amount.erc20_contract ? 'erc20' : 'native'),
+              status: 'sent'
+            };
+          });
+          
+          const tokensNotSent = eligibleTokens
+            .filter(token => !neededAmounts.find(n => n.denom === token.denom))
+            .map(token => {
+              const balance = currentBalances.find(b => b.denom === token.denom);
+              const displaySymbol = (addressType === 'evm' && token.denom === 'uatom') ? 'WATOM' : token.symbol;
+              return {
+                denom: token.denom,
+                symbol: displaySymbol,
+                name: token.name,
+                status: 'already_funded',
+                current_balance: balance?.current_amount || '0',
+                target_balance: balance?.target_amount || token.target_balance,
+                decimals: balance?.decimals || token.decimals
+              };
+            });
+          
           const response = {
             result: {
               code: 0,
-              message: "Tokens sent successfully!",
+              status: neededAmounts.length > 0 ? 'partial_success' : 'no_tokens_sent',
+              message: tokensNotSent.length > 0 
+                ? `Sent ${tokensSent.length} token(s). ${tokensNotSent.length} token(s) already had sufficient balance.`
+                : "Tokens sent successfully!",
               ...txResult,
               current_balances: currentBalances,
-              tokens_sent: neededAmounts.map(amount => ({
-                denom: amount.denom,
-                amount: amount.amount,
-                decimals: amount.decimals,
-                type: amount.type || (amount.erc20_contract ? 'erc20' : 'native')
-              })),
+              tokens_sent: tokensSent,
+              tokens_not_sent: tokensNotSent,
               testing_mode: TESTING_MODE
             }
           };
@@ -986,6 +1057,19 @@ async function checkRecipientBalances(address, addressType) {
             current_amount: balance.toString(),
             target_amount: token.target_balance,
             decimals: token.decimals
+          });
+        } else if (token.denom === 'uatom' && token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+          // Special handling for WATOM (native token on EVM)
+          const balance = await ethProvider.getBalance(address);
+          // Convert target from uatom (6 decimals) to WATOM (18 decimals)
+          const uatomTarget = BigInt(token.target_balance);
+          const watomTarget = uatomTarget * BigInt(10 ** 12);
+          
+          balances.push({
+            denom: token.denom,
+            current_amount: balance.toString(),
+            target_amount: watomTarget.toString(),
+            decimals: 18 // WATOM has 18 decimals on EVM
           });
         } else {
           // ERC20 token balance

@@ -302,10 +302,11 @@
               <span v-if="recentTransactions.length" class="badge bg-primary ms-1">{{recentTransactions.length}}</span>
             </button>
           </li>
-          <!-- WATOM Wrap/Unwrap Tab - Hidden for production -->
-          <li class="nav-item" role="presentation" style="display: none;">
-            <button class="nav-link" id="watom-tab" data-bs-toggle="tab" data-bs-target="#watom" type="button" role="tab">
-              <i class="fas fa-exchange-alt me-2"></i>WATOM Wrap/Unwrap
+          <!-- WATOM Wrap/Unwrap Tab (Disabled) -->
+          <li class="nav-item" role="presentation">
+            <button class="nav-link disabled" id="watom-tab" type="button" role="tab" disabled style="cursor: not-allowed; opacity: 0.6;">
+              <i class="fas fa-exchange-alt me-2"></i>WATOM 
+              <span class="badge bg-secondary ms-1" style="font-size: 0.7rem;">Coming Soon</span>
             </button>
           </li>
         </ul>
@@ -498,15 +499,26 @@
                 <!-- Token Information -->
                 <div v-if="tokenInfo && tokenInfo.length" class="mb-3">
                   <h6 class="text-muted mb-2"><i class="fas fa-coins me-2"></i>Available Tokens:</h6>
+                  <div v-if="addressType === 'Cosmos'" class="alert alert-info mb-2">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Cosmos addresses can only receive ATOM tokens. For ERC20 tokens, please use an EVM address.
+                  </div>
                   <div class="row">
                     <div v-for="token in tokenInfo" :key="token.denom" class="col-md-4 mb-2">
-                      <div class="card card-body p-2 small" :class="getTokenCardClass(token)">
+                      <div class="card card-body p-2 small" :class="[getTokenCardClass(token), addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' ? 'opacity-50' : '']">
                         <div class="d-flex justify-content-between align-items-start">
                           <div class="fw-bold">{{token.name}}</div>
                           <span class="badge" :class="getTokenTypeBadge(token)">{{getTokenType(token)}}</span>
                         </div>
                         <div class="text-muted small mt-1" style="font-family: monospace; word-break: break-all;">{{token.contract}}</div>
-                        <div class="text-muted small">{{formatBalance(token.target_amount, token.decimals)}} tokens</div>
+                        <div class="text-muted small">
+                          <span v-if="addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
+                            <i class="fas fa-times-circle"></i> Not available for Cosmos
+                          </span>
+                          <span v-else>
+                            {{formatBalance(token.target_amount, token.decimals)}} tokens
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <!-- Add native ATOM info -->
@@ -594,8 +606,8 @@
             </div>
           </div>
 
-          <!-- WATOM Wrap/Unwrap Tab - Hidden for production -->
-          <div class="tab-pane fade" id="watom" role="tabpanel" style="display: none;">
+          <!-- WATOM Wrap/Unwrap Tab -->
+          <div class="tab-pane fade" id="watom" role="tabpanel">
             <div class="card">
               <div class="card-header">
                 <i class="fas fa-exchange-alt me-2"></i>
@@ -798,12 +810,20 @@
                       <strong>Hash:</strong> 
                       <span class="text-monospace small">{{tx.hash}}</span>
                     </div>
+                    <div v-else-if="isNoTokensNeeded(tx)" class="mb-2 text-info">
+                      <i class="fas fa-info-circle me-1"></i>
+                      <span>No tokens sent - wallet already has sufficient balance</span>
+                    </div>
+                    <div v-else-if="!tx.hash && tx.data?.result?.message" class="mb-2 text-muted">
+                      <i class="fas fa-info-circle me-1"></i>
+                      <span>{{tx.data.result.message}}</span>
+                    </div>
                   </div>
                   <div class="text-end">
-                    <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)" data-bs-toggle="modal" data-bs-target="#transactionModal">
+                    <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)">
                       <i class="fas fa-eye me-1"></i>Details
                     </button>
-                    <a v-if="tx.hash && tx.data.result && tx.data.result.explorer_url" :href="tx.data.result.explorer_url" target="_blank" class="btn btn-outline-success btn-sm ms-1">
+                    <a v-if="tx.hash && getTransactionExplorerUrl(tx)" :href="getTransactionExplorerUrl(tx)" target="_blank" class="btn btn-outline-success btn-sm ms-1">
                       <i class="fas fa-external-link-alt me-1"></i>View
                     </a>
                     <button class="btn btn-outline-danger btn-sm ms-1" @click="removeTransaction(index)">
@@ -930,11 +950,82 @@
               </div>
             </div>
           </div>
+
+          <!-- WATOM Tab (Coming Soon) -->
+          <div class="tab-pane fade" id="watom" role="tabpanel">
+            <div class="info-card position-relative" style="min-height: 400px;">
+              <!-- Coming Soon Overlay -->
+              <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+                   style="background: rgba(0,0,0,0.7); z-index: 10; border-radius: 12px;">
+                <div class="text-center">
+                  <h3 class="text-white mb-3">
+                    <i class="fas fa-rocket me-2"></i>Coming Soon
+                  </h3>
+                  <p class="text-white-50 mb-0">WATOM wrapping and unwrapping functionality will be available in a future update.</p>
+                </div>
+              </div>
+              
+              <!-- Disabled Content -->
+              <div style="opacity: 0.3; pointer-events: none;">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="info-card">
+                      <h5 class="info-title">
+                        <i class="fas fa-atom"></i>
+                        Wrap ATOM to WATOM
+                      </h5>
+                      <div class="info-item mb-3">
+                        <span class="info-label">Native ATOM Balance:</span>
+                        <span class="info-value">0 ATOM</span>
+                      </div>
+                      <div class="form-group mb-3">
+                        <label for="wrapAmount" class="form-label">Amount to Wrap</label>
+                        <input 
+                          type="number" 
+                          class="form-control" 
+                          placeholder="Enter amount of ATOM to wrap"
+                          disabled
+                        >
+                      </div>
+                      <button class="btn btn-primary w-100" disabled>
+                        <i class="fas fa-box me-2"></i>Wrap ATOM
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-6">
+                    <div class="info-card">
+                      <h5 class="info-title">
+                        <i class="fas fa-box-open"></i>
+                        Unwrap WATOM to ATOM
+                      </h5>
+                      <div class="info-item mb-3">
+                        <span class="info-label">WATOM Balance:</span>
+                        <span class="info-value">0 WATOM</span>
+                      </div>
+                      <div class="form-group mb-3">
+                        <label for="unwrapAmount" class="form-label">Amount to Unwrap</label>
+                        <input 
+                          type="number" 
+                          class="form-control" 
+                          placeholder="Enter amount of WATOM to unwrap"
+                          disabled
+                        >
+                      </div>
+                      <button class="btn btn-secondary w-100" disabled>
+                        <i class="fas fa-box-open me-2"></i>Unwrap WATOM
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
-    </div>
-
-    <!-- Transaction Details Modal -->
+      
+      <!-- Transaction Details Modal -->
     <div class="modal fade" id="transactionModal" tabindex="-1" aria-labelledby="transactionModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content" style="background: var(--bg-secondary); border: 1px solid var(--border-color);">
@@ -968,11 +1059,16 @@
               </div>
               
               <!-- Transaction Hash -->
-              <div v-if="selectedTransaction.hash" class="mb-3">
+              <div v-if="selectedTransaction.hash || getActualTransactionHash(selectedTransaction)" class="mb-3">
                 <strong style="color: var(--text-primary);">Transaction Hash:</strong>
                 <div class="mt-1">
-                  <code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 4px 8px; border-radius: 4px; word-break: break-all;">{{selectedTransaction.hash}}</code>
-                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" :href="getTransactionExplorerUrl(selectedTransaction)" target="_blank" class="btn btn-outline-primary btn-sm ms-2 mt-1">
+                  <code class="small" style="color: var(--cosmos-accent); background: var(--bg-primary); padding: 4px 8px; border-radius: 4px; word-break: break-all;">
+                    {{selectedTransaction.hash || getActualTransactionHash(selectedTransaction)}}
+                  </code>
+                  <a v-if="getTransactionExplorerUrl(selectedTransaction)" 
+                     :href="getTransactionExplorerUrl(selectedTransaction)" 
+                     target="_blank" 
+                     class="btn btn-outline-primary btn-sm ms-2 mt-1">
                     <i class="fas fa-external-link-alt me-1"></i>{{getTransactionExplorerLabel(selectedTransaction)}}
                   </a>
                 </div>
@@ -989,15 +1085,15 @@
                       <tbody>
                         <tr>
                           <td style="color: var(--text-secondary);">Block Height:</td>
-                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).block_height}}</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).block_height || 'N/A'}}</td>
                         </tr>
                         <tr>
                           <td style="color: var(--text-secondary);">Gas Used / Wanted:</td>
-                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).gas_used}} / {{getCosmosImportantData(selectedTransaction).gas_wanted}}</td>
+                          <td style="color: var(--text-primary);">{{getCosmosImportantData(selectedTransaction).gas_used || 'N/A'}} / {{getCosmosImportantData(selectedTransaction).gas_wanted || 'N/A'}}</td>
                         </tr>
                         <tr>
                           <td style="color: var(--text-secondary);">Code:</td>
-                          <td><span class="badge" :class="getCosmosImportantData(selectedTransaction).code === 0 ? 'bg-success' : 'bg-danger'">{{getCosmosImportantData(selectedTransaction).code}}</span></td>
+                          <td><span class="badge" :class="getCosmosImportantData(selectedTransaction).code === 0 ? 'bg-success' : 'bg-danger'">{{getCosmosImportantData(selectedTransaction).code !== undefined ? getCosmosImportantData(selectedTransaction).code : 'N/A'}}</span></td>
                         </tr>
                         <tr v-if="getCosmosImportantData(selectedTransaction).timestamp">
                           <td style="color: var(--text-secondary);">Timestamp:</td>
@@ -1010,6 +1106,32 @@
                       </tbody>
                     </table>
                   </div>
+                  
+                  <!-- Display messages if available -->
+                  <div v-if="getCosmosImportantData(selectedTransaction).messages && getCosmosImportantData(selectedTransaction).messages.length > 0" class="mt-3">
+                    <h6 class="text-info mb-2">Transaction Messages</h6>
+                    <div v-for="(msg, index) in getCosmosImportantData(selectedTransaction).messages" :key="index" class="mb-2 p-2 rounded" style="background: rgba(0, 210, 255, 0.1);">
+                      <div><strong>Type:</strong> {{msg.type}}</div>
+                      <div><strong>From:</strong> <span style="font-family: monospace; font-size: 0.8rem;">{{msg.from}}</span></div>
+                      <div><strong>To:</strong> <span style="font-family: monospace; font-size: 0.8rem;">{{msg.to}}</span></div>
+                      <div v-if="msg.amount && msg.amount.length > 0">
+                        <strong>Amount:</strong> 
+                        <span v-for="(amt, i) in msg.amount" :key="i">
+                          {{formatTokenAmount(amt.amount, 6)}} {{amt.denom.toUpperCase()}}
+                          <span v-if="i < msg.amount.length - 1">, </span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- REST API URL Button (Always show for Cosmos transactions) -->
+                <div v-if="selectedTransaction.addressType === 'Cosmos' || (selectedTransaction.data?.result?.network_type === 'cosmos')" class="text-center mb-3">
+                  <a :href="getCosmosRestApiUrl(selectedTransaction)" 
+                     target="_blank" 
+                     class="btn btn-outline-info btn-sm me-2">
+                    <i class="fas fa-external-link-alt me-1"></i>Open REST API Response
+                  </a>
                 </div>
                 
                 <!-- Toggle for Full JSON -->
@@ -1035,21 +1157,21 @@
                 <div class="table-responsive">
                   <table class="table table-sm table-dark">
                     <tbody>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).transaction_hash">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).hash">
                         <td style="color: var(--text-secondary);">Transaction Hash:</td>
-                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).transaction_hash}}</td>
+                        <td style="color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">{{getEvmTransactionData(selectedTransaction).hash}}</td>
                       </tr>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).block_number">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).blockNumber">
                         <td style="color: var(--text-secondary);">Block Number:</td>
-                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).block_number}}</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).blockNumber}}</td>
                       </tr>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).gas_used">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).gasUsed">
                         <td style="color: var(--text-secondary);">Gas Used:</td>
-                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gas_used}}</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gasUsed}}</td>
                       </tr>
-                      <tr v-if="getEvmTransactionData(selectedTransaction).gas_price">
+                      <tr v-if="getEvmTransactionData(selectedTransaction).gasPrice">
                         <td style="color: var(--text-secondary);">Gas Price:</td>
-                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gas_price}} wei</td>
+                        <td style="color: var(--text-primary);">{{getEvmTransactionData(selectedTransaction).gasPrice}} wei</td>
                       </tr>
                       <tr v-if="getEvmTransactionData(selectedTransaction).from">
                         <td style="color: var(--text-secondary);">From:</td>
@@ -1066,8 +1188,8 @@
                       <tr v-if="getEvmTransactionData(selectedTransaction).status !== undefined">
                         <td style="color: var(--text-secondary);">Status:</td>
                         <td>
-                          <span class="badge" :class="getEvmTransactionData(selectedTransaction).status === '0x1' ? 'bg-success' : 'bg-danger'">
-                            {{getEvmTransactionData(selectedTransaction).status === '0x1' ? 'Success' : 'Failed'}}
+                          <span class="badge" :class="getEvmTransactionData(selectedTransaction).status === '0x1' || getEvmTransactionData(selectedTransaction).status === 1 ? 'bg-success' : 'bg-danger'">
+                            {{(getEvmTransactionData(selectedTransaction).status === '0x1' || getEvmTransactionData(selectedTransaction).status === 1) ? 'Success' : 'Failed'}}
                           </span>
                         </td>
                       </tr>
@@ -1083,13 +1205,77 @@
                   </button>
                   
                   <div v-if="showAdvancedEvmData" class="mt-3 p-3 rounded border" style="background: var(--bg-primary); border-color: var(--border-color) !important;">
-                    <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getBlockchainData(selectedTransaction), null, 2)}}</code></pre>
+                    <pre class="mb-0" style="color: var(--text-primary); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word;"><code style="color: var(--text-primary);">{{JSON.stringify(getEvmTransactionData(selectedTransaction), null, 2)}}</code></pre>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Error Details -->
+              <div v-if="!selectedTransaction.success && getErrorData(selectedTransaction)" class="mb-3">
+                <h6 class="text-danger mb-2">Error Details</h6>
+                <div class="alert alert-danger" style="background: rgba(220, 53, 69, 0.1); border: 1px solid #dc3545;">
+                  <div v-if="getErrorData(selectedTransaction).message" class="mb-2">
+                    <strong>Error Message:</strong><br>
+                    <span style="font-family: monospace; font-size: 0.9rem;">{{getErrorData(selectedTransaction).message}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).error" class="mb-2">
+                    <strong>Error Details:</strong><br>
+                    <span style="font-family: monospace; font-size: 0.9rem;">{{getErrorData(selectedTransaction).error}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).cosmos_error" class="mb-2">
+                    <strong>Cosmos Error:</strong><br>
+                    <span style="font-family: monospace; font-size: 0.9rem;">{{getErrorData(selectedTransaction).cosmos_error}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).code && getErrorData(selectedTransaction).code !== 0" class="mb-2">
+                    <strong>Error Code:</strong> <span class="badge bg-danger">{{getErrorData(selectedTransaction).code}}</span>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).codespace" class="mb-2">
+                    <strong>Codespace:</strong> {{getErrorData(selectedTransaction).codespace}}
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).rest_api_url" class="mb-2">
+                    <strong>REST API URL:</strong><br>
+                    <a :href="getErrorData(selectedTransaction).rest_api_url" target="_blank" class="text-info" style="word-break: break-all;">
+                      {{getErrorData(selectedTransaction).rest_api_url}}
+                    </a>
+                  </div>
+                  <div v-if="getErrorData(selectedTransaction).broadcast_result" class="mb-2">
+                    <strong>Broadcast Result:</strong>
+                    <pre class="mt-2 p-2 rounded" style="background: rgba(0,0,0,0.2); font-size: 0.8rem; max-height: 200px; overflow-y: auto;">{{JSON.stringify(getErrorData(selectedTransaction).broadcast_result, null, 2)}}</pre>
+                  </div>
+                </div>
+                
+                <!-- Failed Transfers -->
+                <div v-if="getFailedTransfers(selectedTransaction).length > 0" class="mt-3">
+                  <h6 class="text-warning mb-2">Failed Transfers</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-dark">
+                      <thead>
+                        <tr>
+                          <th style="color: var(--text-primary);">Token</th>
+                          <th style="color: var(--text-primary);">Amount</th>
+                          <th style="color: var(--text-primary);">Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(transfer, index) in getFailedTransfers(selectedTransaction)" :key="index">
+                          <td style="color: var(--text-primary);">
+                            {{transfer.denom ? transfer.denom.toUpperCase() : 'Unknown'}}
+                          </td>
+                          <td style="color: var(--text-primary);">
+                            {{formatTokenAmount(transfer.amount, transfer.decimals || 6)}}
+                          </td>
+                          <td style="color: var(--text-danger); font-size: 0.8rem;">
+                            {{transfer.error || 'Unknown error'}}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
               
               <!-- Transfer Details -->
-              <div v-if="getTransferData(selectedTransaction)" class="mb-3">
+              <div v-if="getTransferData(selectedTransaction) && getTransferData(selectedTransaction).length > 0" class="mb-3">
                 <h6 class="text-success mb-2">Token Transfers</h6>
                 <div class="table-responsive">
                   <table class="table table-sm table-dark">
@@ -1098,19 +1284,21 @@
                         <th style="color: var(--text-primary);">Token</th>
                         <th style="color: var(--text-primary);">Amount</th>
                         <th style="color: var(--text-primary);">Type</th>
-                        <th style="color: var(--text-primary);">Contract</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="transfer in getTransferData(selectedTransaction)" :key="transfer.hash + transfer.token">
-                        <td style="color: var(--text-primary);">{{transfer.denom || 'Unknown'}}</td>
-                        <td style="color: var(--text-primary);">{{transfer.amount}}</td>
+                      <tr v-for="(transfer, index) in getTransferData(selectedTransaction)" :key="index">
+                        <td style="color: var(--text-primary);">
+                          {{transfer.denom ? transfer.denom.toUpperCase() : 'Unknown'}}
+                        </td>
+                        <td style="color: var(--text-primary);">
+                          {{formatTokenAmount(transfer.amount, transfer.decimals || 18)}}
+                        </td>
                         <td>
-                          <span class="badge" :class="transfer.type === 'native' ? 'bg-primary' : 'bg-success'">
-                            {{transfer.type}}
+                          <span class="badge" :class="getTransferTypeBadgeClass(transfer.type)">
+                            {{transfer.type || 'unknown'}}
                           </span>
                         </td>
-                        <td><code class="small" style="color: var(--cosmos-accent); background: var(--bg-secondary); padding: 2px 4px; border-radius: 4px;">{{transfer.token}}</code></td>
                       </tr>
                     </tbody>
                   </table>
@@ -1124,8 +1312,9 @@
         </div>
       </div>
     </div>
+    </div>
 
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
       const { createApp } = Vue
       
@@ -1138,7 +1327,7 @@
             sampleAddresses: { cosmos: '', evm: '' },
             networkConfig: { 
               cosmos: { chainId: '', rpc: '', grpc: '', rest: '' }, 
-              evm: { chainId: '', chainIdHex: '', rpc: '', websocket: '' }, 
+              evm: { chainId: '', chainIdHex: '', rpc: '', websocket: '', explorer: '' }, 
               contracts: {} 
             },
             tokenInfo: [],
@@ -1149,15 +1338,15 @@
             selectedTransaction: null,
             showFullCosmosJson: false,
             showAdvancedEvmData: false,
-            // WATOM related data - Hidden for production
-            // wrapAmount: '',
-            // unwrapAmount: '',
-            // nativeBalance: '0',
-            // watomBalance: '0',
-            // isWrapping: false,
-            // isUnwrapping: false,
-            watomTransactions: [], // Keep as empty array to avoid template errors
-            // watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
+            // WATOM related data
+            wrapAmount: '',
+            unwrapAmount: '',
+            nativeBalance: '0',
+            watomBalance: '0',
+            isWrapping: false,
+            isUnwrapping: false,
+            watomTransactions: [],
+            watomContractAddress: '0x0000000000000000000000000000000000000802', // WERC20 precompile address
             // Wallet connection state
             cosmosWallet: {
               connected: false,
@@ -1182,13 +1371,17 @@
             this.tokenInfo = data.tokens || []
             if (data.network) {
               this.networkConfig = data.network
+              console.log('Network config loaded:', this.networkConfig);
+            } else {
+              console.warn('No network configuration in response');
             }
             this.loadFaucetBalances();
             this.loadRecentTransactions();
-            // this.loadWatomTransactions(); // Hidden for production
+            this.loadWatomTransactions();
             // loadWatomBalances will be called when EVM wallet connects
           }).catch(error => {
             console.error('Failed to load config:', error);
+            alert('Failed to load configuration. Please refresh the page.');
           });
           
           // Detect EIP-6963 wallets
@@ -1213,10 +1406,10 @@
             handler(connected) {
               if (connected && this.evmWallet.address) {
                 // Only load WATOM balances if we have a connected address
-                // this.loadWatomBalances(); // Hidden for production
+                this.loadWatomBalances();
               } else {
-                // this.nativeBalance = '0'; // Hidden for production
-                // this.watomBalance = '0'; // Hidden for production
+                this.nativeBalance = '0';
+                this.watomBalance = '0';
               }
             },
             immediate: false
@@ -1269,7 +1462,7 @@
           
           async checkExistingConnections() {
             // Wait for network config to be loaded
-            if (!this.networkConfig.cosmos?.chainId) {
+            if (!this.networkConfig || !this.networkConfig.cosmos?.chainId || !this.networkConfig.evm?.chainId) {
               setTimeout(() => this.checkExistingConnections(), 100);
               return;
             }
@@ -1418,6 +1611,11 @@
             this.evmWallet.connecting = true;
             
             try {
+              // Ensure network config is loaded
+              if (!this.networkConfig || !this.networkConfig.evm) {
+                throw new Error('Network configuration not loaded. Please refresh the page.');
+              }
+              
               // Request account access
               const accounts = await provider.request({ 
                 method: 'eth_requestAccounts' 
@@ -1432,7 +1630,15 @@
                 method: 'eth_chainId' 
               });
               
-              const expectedChainId = this.networkConfig.evm?.chainIdHex || '0x1087'; // Update to correct devnet-1 chain ID
+              // Ensure we have the expected chain ID
+              let expectedChainId = this.networkConfig.evm.chainIdHex;
+              if (!expectedChainId && this.networkConfig.evm.chainId) {
+                // If chainIdHex is missing but chainId exists, convert it
+                expectedChainId = '0x' + this.networkConfig.evm.chainId.toString(16);
+              }
+              if (!expectedChainId) {
+                throw new Error('Chain ID not configured');
+              }
               
               // Check if we're on the right chain
               if (chainId !== expectedChainId) {
@@ -1445,19 +1651,34 @@
                 } catch (switchError) {
                   // If switching fails, try to add the chain
                   if (switchError.code === 4902) {
+                    // Ensure all required properties are present
+                    const rpcUrl = this.networkConfig.evm.rpc;
+                    const explorerUrl = this.networkConfig.evm.explorer;
+                    
+                    if (!rpcUrl) {
+                      throw new Error('RPC URL not configured');
+                    }
+                    
+                    const chainParams = {
+                      chainId: expectedChainId,
+                      chainName: 'Cosmos EVM Devnet-1',
+                      rpcUrls: [rpcUrl],
+                      nativeCurrency: {
+                        name: 'ATOM',
+                        symbol: 'ATOM',
+                        decimals: 18
+                      }
+                    };
+                    
+                    // Only add blockExplorerUrls if explorer URL is defined
+                    if (explorerUrl) {
+                      chainParams.blockExplorerUrls = [explorerUrl];
+                    }
+                    
+                    console.log('Adding chain with params:', chainParams);
                     await provider.request({
                       method: 'wallet_addEthereumChain',
-                      params: [{
-                        chainId: expectedChainId,
-                        chainName: 'Cosmos EVM Devnet-1',
-                        rpcUrls: [this.networkConfig.evm?.rpc || 'https://devnet-1-evmrpc.ib.skip.build'],
-                        nativeCurrency: {
-                          name: 'ATOM',
-                          symbol: 'ATOM',
-                          decimals: 18
-                        },
-                        blockExplorerUrls: [this.networkConfig.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com']
-                      }],
+                      params: [chainParams],
                     });
                   } else {
                     throw switchError;
@@ -1471,6 +1692,8 @@
               
             } catch (error) {
               console.error('Error connecting to EVM wallet:', error);
+              console.error('Error stack:', error.stack);
+              console.error('Network config state:', this.networkConfig);
               const errorMessage = error.message || 'Unknown error occurred while connecting to wallet';
               alert('Failed to connect to EVM wallet: ' + errorMessage);
             } finally {
@@ -1579,14 +1802,18 @@
               return;
             }
             
+            console.log(`Loading balances for ${this.addressType} address: ${this.address}`);
+            
             try {
               if (this.addressType === 'Cosmos') {
                 const response = await fetch(`/balance/cosmos?address=${this.address}`);
                 const data = await response.json();
+                console.log('Cosmos balance response:', data);
                 this.requesterBalances = data.balances || [];
               } else if (this.addressType === 'EVM') {
                 const response = await fetch(`/balance/evm?address=${this.address}`);
                 const data = await response.json();
+                console.log('EVM balance response:', data);
                 this.requesterBalances = data.balances || [];
               }
             } catch (e) {
@@ -1641,12 +1868,21 @@
               const isSuccess = data.result && (data.result.code === 0 || data.result.transactions);
               
               // Add transaction to recent list
+              // Extract the correct transaction hash
+              let txHash = null;
+              if (isSuccess && data.result) {
+                txHash = data.result.transaction_hash || 
+                         data.result.hash || 
+                         (data.result.transactions && data.result.transactions[0]) || 
+                         null;
+              }
+              
               this.addTransactionToHistory({
                 address: this.address,
                 addressType: this.addressType,
                 success: isSuccess,
                 data: data,
-                hash: isSuccess ? (data.result.hash || data.result.transactions?.[0]) : null,
+                hash: txHash,
                 timestamp: new Date()
               });
               
@@ -1655,22 +1891,38 @@
                 this.loadRequesterBalances()
               ]);
 
-              const txHash = data.result?.transaction_hash || data.result?.hash;
               const explorerUrl = data.result?.explorer_url;
+              const noTokensNeeded = data.result?.message?.includes('sufficient balance') || 
+                                   (data.result?.tokens_sent && data.result.tokens_sent.length === 0);
               
-              this.message = `
-                <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
-                    <h6 class="alert-heading">
-                      <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
-                      ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
-                    </h6>
-                    <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
-                    ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
-                    ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
-                    <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-              `
+              if (noTokensNeeded) {
+                this.message = `
+                  <div class="alert alert-info alert-dismissible show fade" role="alert" style="border: 2px solid #0dcaf0; border-radius: 12px;">
+                      <h6 class="alert-heading">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No Tokens Sent
+                      </h6>
+                      <p class="mb-2"><strong>Wallet already has sufficient balance</strong></p>
+                      <p class="mb-2"><strong>Address:</strong> ${this.address}</p>
+                      <p class="mb-0 small text-muted">The wallet already meets or exceeds all target token amounts.</p>
+                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                `
+              } else {
+                this.message = `
+                  <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
+                      <h6 class="alert-heading">
+                        <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                        ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
+                      </h6>
+                      <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
+                      ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
+                      ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
+                      <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
+                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                `
+              }
             } catch (err) {
               // Add failed transaction to history
               this.addTransactionToHistory({
@@ -1736,6 +1988,13 @@
           showTransactionDetails(tx) {
             this.selectedTransaction = tx;
             this.showFullCosmosJson = false; // Reset JSON view when opening new transaction
+            this.showAdvancedEvmData = false; // Reset EVM advanced view
+            // Programmatically show the Bootstrap modal
+            const modalElement = document.getElementById('transactionModal');
+            if (modalElement) {
+              const modal = new bootstrap.Modal(modalElement);
+              modal.show();
+            }
           },
 
           getBlockchainData(tx) {
@@ -1804,25 +2063,41 @@
             const result = tx?.data?.result;
             if (!result || result.network_type !== 'cosmos') return null;
             
+            // Handle both successful and failed transactions
+            const txResponse = result.tx_response || result.cosmos_tx_data?.tx_response || {};
+            const txData = txResponse.tx || {};
+            const body = txData.body || {};
+            const messages = body.messages || [];
+            
             return {
-              block_height: result.block_height,
-              gas_used: result.gas_used,
-              gas_wanted: result.gas_wanted,
-              code: result.tx_response?.code,
-              timestamp: result.tx_response?.timestamp,
-              events_count: (result.tx_response?.events || []).length
+              block_height: result.block_height || result.height || txResponse.height,
+              gas_used: result.gas_used || txResponse.gas_used,
+              gas_wanted: result.gas_wanted || txResponse.gas_wanted,
+              code: result.code !== undefined ? result.code : txResponse.code,
+              timestamp: txResponse.timestamp,
+              events_count: (txResponse.events || []).length,
+              messages: messages.length > 0 ? messages.map(msg => ({
+                type: msg['@type'] ? msg['@type'].split('.').pop() : 'Unknown',
+                from: msg.from_address,
+                to: msg.to_address,
+                amount: msg.amount
+              })) : []
             };
           },
 
           getFullCosmosData(tx) {
             const result = tx?.data?.result;
             if (!result || result.network_type !== 'cosmos') return null;
-            return result.tx_response || null;
+            
+            // Return the full result object if tx_response is not available
+            // This ensures we capture all available data even for failed transactions
+            return result.tx_response || result;
           },
 
           getTransferData(tx) {
             if (!tx || !tx.data || !tx.data.result) return null;
-            return tx.data.result.transfers || null;
+            // Check both possible locations for transfer data
+            return tx.data.result.transfers || tx.data.result.tokens_sent || null;
           },
 
           getTransactionExplorerUrl(tx) {
@@ -1834,16 +2109,19 @@
             if (result.explorer_url) return result.explorer_url;
             if (result.rest_api_url) return result.rest_api_url;
             
+            // Get the actual transaction hash from various possible locations
+            const actualHash = this.getActualTransactionHash(tx);
+            
             // Generate URL based on transaction type and hash
-            if (tx.hash) {
+            if (actualHash) {
               if (result.network_type === 'evm' || tx.addressType === 'EVM') {
                 // EVM transaction - use blockscout explorer
                 const explorerBase = this.networkConfig.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com';
-                return `${explorerBase}/tx/${tx.hash}`;
+                return `${explorerBase}/tx/${actualHash}`;
               } else if (result.network_type === 'cosmos' || tx.addressType === 'Cosmos') {
                 // Cosmos transaction - use REST API endpoint
                 const restBase = this.networkConfig.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build';
-                return `${restBase}/cosmos/tx/v1beta1/txs/${tx.hash}`;
+                return `${restBase}/cosmos/tx/v1beta1/txs/${actualHash}`;
               }
             }
             
@@ -1870,6 +2148,108 @@
             return 'View';
           },
 
+          // Helper method to extract the actual transaction hash from various locations
+          getActualTransactionHash(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            
+            const result = tx.data.result;
+            
+            // Try various locations where the hash might be stored
+            return result.transaction_hash || 
+                   result.hash || 
+                   (result.transactions && result.transactions[0]) ||
+                   tx.hash ||
+                   null;
+          },
+
+          // Helper method to format token amounts with proper decimals
+          formatTokenAmount(amount, decimals = 18) {
+            if (!amount) return '0';
+            
+            try {
+              const bigAmount = BigInt(amount);
+              const divisor = BigInt(10 ** decimals);
+              const whole = bigAmount / divisor;
+              const fraction = bigAmount % divisor;
+              
+              if (fraction === 0n) {
+                return whole.toString();
+              } else {
+                const fractionStr = fraction.toString().padStart(decimals, '0').replace(/0+$/, '');
+                return `${whole.toString()}.${fractionStr}`;
+              }
+            } catch (error) {
+              // If BigInt conversion fails, return the original amount
+              return amount.toString();
+            }
+          },
+          
+          getErrorData(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            const result = tx.data.result;
+            
+            return {
+              message: result.message,
+              error: result.error || result.error_details,
+              cosmos_error: result.cosmos_error,
+              code: result.code,
+              codespace: result.codespace,
+              raw_log: result.raw_log,
+              failed_transfers: result.failed_transfers,
+              rest_api_url: result.rest_api_url,
+              broadcast_result: result.broadcast_result
+            };
+          },
+          
+          getFailedTransfers(tx) {
+            if (!tx || !tx.data || !tx.data.result) return [];
+            return tx.data.result.failed_transfers || [];
+          },
+          
+          getCosmosRestApiUrl(tx) {
+            if (!tx) return null;
+            
+            // First check if we have a REST API URL already
+            if (tx.data?.result?.rest_api_url) {
+              return tx.data.result.rest_api_url;
+            }
+            
+            // If not, construct one based on the transaction hash
+            const hash = this.getActualTransactionHash(tx);
+            if (hash) {
+              const restBase = this.networkConfig.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build';
+              return `${restBase}/cosmos/tx/v1beta1/txs/${hash}`;
+            }
+            
+            // For failed Cosmos transactions without a hash, we can't generate a URL
+            return null;
+          },
+
+          // Helper method to get badge class for transfer types
+          getTransferTypeBadgeClass(type) {
+            switch(type) {
+              case 'native':
+              case 'cosmos_native':
+                return 'bg-primary';
+              case 'erc20':
+                return 'bg-success';
+              default:
+                return 'bg-secondary';
+            }
+          },
+
+          isNoTokensNeeded(tx) {
+            // Check if this is a "sufficient balance" response
+            if (tx.data?.result?.message?.includes('sufficient balance')) {
+              return true;
+            }
+            // Check if tokens_sent is empty
+            if (tx.data?.result?.tokens_sent && tx.data.result.tokens_sent.length === 0) {
+              return true;
+            }
+            return false;
+          },
+
           formatDate(date) {
             return new Intl.DateTimeFormat('en-US', {
               month: 'short',
@@ -1879,8 +2259,7 @@
             }).format(date);
           },
 
-          // WATOM wrapping/unwrapping methods - Hidden for production
-          /*
+          // WATOM wrapping/unwrapping methods
           async loadWatomBalances() {
             // Use global EVM wallet state
             if (!this.evmWallet.connected || !this.evmWallet.address) {
@@ -2081,13 +2460,12 @@
             localStorage.setItem('watomTransactions', JSON.stringify(this.watomTransactions));
           },
 
-          // loadWatomTransactions() { // Hidden for production
-          //   const stored = localStorage.getItem('watomTransactions');
-          //   if (stored) {
-          //     this.watomTransactions = JSON.parse(stored);
-          //   }
-          // },
-          */
+          loadWatomTransactions() {
+            const stored = localStorage.getItem('watomTransactions');
+            if (stored) {
+              this.watomTransactions = JSON.parse(stored);
+            }
+          },
 
           getExplorerUrl(txHash) {
             return `${this.networkConfig.evm.explorer || 'https://evm-devnet-1.cloud.blockscout.com'}/tx/${txHash}`;
@@ -2149,6 +2527,15 @@
           }
         }
       }).mount('#app')
+      
+      // Add error handler
+      window.addEventListener('error', (e) => {
+        console.error('Global error:', e.error);
+      });
+      
+      // Check if Vue is loaded
+      console.log('Vue loaded:', typeof Vue !== 'undefined');
+      console.log('Bootstrap loaded:', typeof bootstrap !== 'undefined');
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-OERcA2EqjJCMA+/3y+gxIOqMEjwtxJY7qPCqsdltbNJuaOe923+mo//f6V8Qbsw3" crossorigin="anonymous"></script>

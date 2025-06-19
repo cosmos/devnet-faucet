@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
     "dev": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
-    "docker": "docker-compose run -e HOST=0.0.0.0 -p 0.0.0.0:8088:8088 faucet",
+    "predocker": "docker compose down --remove-orphans && docker-compose build faucet",
+    "docker":    "docker compose run --rm --remove-orphans -e HOST=0.0.0.0 -p 8088:8088 faucet",
     "build": "docker-compose build faucet",
     "test": "hardhat test",
     "deploy": "node scripts/automated-deploy.js",

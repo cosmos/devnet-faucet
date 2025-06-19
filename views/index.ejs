@@ -828,10 +828,10 @@
                 <div class="d-flex justify-content-between align-items-start">
                   <div class="flex-grow-1">
                     <div class="d-flex align-items-center gap-2 mb-2">
-                      <i :class="tx.success ? 'fas fa-check-circle text-success' : 'fas fa-exclamation-triangle text-danger'"></i>
+                      <i :class="getTransactionIcon(tx)"></i>
                       <span class="fw-bold">{{tx.addressType}} Transaction</span>
-                      <span class="badge" :class="tx.success ? 'bg-success' : 'bg-danger'">
-                        {{tx.success ? 'Success' : 'Failed'}}
+                      <span class="badge" :class="getTransactionBadgeClass(tx)">
+                        {{getTransactionStatus(tx)}}
                       </span>
                       <small class="text-muted">{{formatDate(tx.timestamp)}}</small>
                     </div>
@@ -843,13 +843,28 @@
                       <strong>Hash:</strong> 
                       <span class="text-monospace small">{{tx.hash}}</span>
                     </div>
-                    <div v-else-if="isNoTokensNeeded(tx)" class="mb-2 text-info">
+                    <div v-else-if="isNoTokensNeeded(tx)" class="mb-2 text-warning">
                       <i class="fas fa-info-circle me-1"></i>
                       <span>No tokens sent - wallet already has sufficient balance</span>
                     </div>
                     <div v-else-if="!tx.hash && tx.data?.result?.message" class="mb-2 text-muted">
                       <i class="fas fa-info-circle me-1"></i>
                       <span>{{tx.data.result.message}}</span>
+                    </div>
+                    <!-- Show token summary for recent transactions -->
+                    <div v-if="tx.data?.result?.tokens_sent && tx.data.result.tokens_sent.length > 0" class="mb-1">
+                      <small class="text-muted">Sent: 
+                        <span v-for="(token, idx) in tx.data.result.tokens_sent" :key="idx">
+                          {{token.symbol}} <span v-if="idx < tx.data.result.tokens_sent.length - 1">, </span>
+                        </span>
+                      </small>
+                    </div>
+                    <div v-if="tx.data?.result?.tokens_not_sent && tx.data.result.tokens_not_sent.length > 0" class="mb-1">
+                      <small class="text-muted">Already funded: 
+                        <span v-for="(token, idx) in tx.data.result.tokens_not_sent" :key="idx">
+                          {{token.symbol}} <span v-if="idx < tx.data.result.tokens_not_sent.length - 1">, </span>
+                        </span>
+                      </small>
                     </div>
                   </div>
                   <div class="text-end">
@@ -1322,14 +1337,49 @@
                     <tbody>
                       <tr v-for="(transfer, index) in getTransferData(selectedTransaction)" :key="index">
                         <td style="color: var(--text-primary);">
-                          {{transfer.denom ? transfer.denom.toUpperCase() : 'Unknown'}}
+                          {{transfer.symbol || (transfer.denom ? transfer.denom.toUpperCase() : 'Unknown')}}
                         </td>
                         <td style="color: var(--text-primary);">
-                          {{formatTokenAmount(transfer.amount, transfer.decimals || 18)}}
+                          {{formatTokenAmount(transfer.amount, transfer.decimals || 18, transfer.symbol)}}
                         </td>
                         <td>
                           <span class="badge" :class="getTransferTypeBadgeClass(transfer.type)">
                             {{transfer.type || 'unknown'}}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Tokens Not Sent Details -->
+              <div v-if="getTokensNotSent(selectedTransaction) && getTokensNotSent(selectedTransaction).length > 0" class="mb-3">
+                <h6 class="text-warning mb-2">Tokens Already Funded</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm table-dark">
+                    <thead>
+                      <tr>
+                        <th style="color: var(--text-primary);">Token</th>
+                        <th style="color: var(--text-primary);">Current Balance</th>
+                        <th style="color: var(--text-primary);">Target Balance</th>
+                        <th style="color: var(--text-primary);">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(token, index) in getTokensNotSent(selectedTransaction)" :key="index">
+                        <td style="color: var(--text-primary);">
+                          {{token.symbol || (token.denom ? token.denom.toUpperCase() : 'Unknown')}}
+                        </td>
+                        <td style="color: var(--text-primary);">
+                          {{formatTokenAmount(token.current_balance, token.decimals || 6, token.symbol)}}
+                        </td>
+                        <td style="color: var(--text-primary);">
+                          {{formatTokenAmount(token.target_balance, token.decimals || 6, token.symbol)}}
+                        </td>
+                        <td>
+                          <span class="badge bg-warning text-dark">
+                            Already Funded
                           </span>
                         </td>
                       </tr>
@@ -1929,32 +1979,86 @@
                                    (data.result?.tokens_sent && data.result.tokens_sent.length === 0);
               
               if (noTokensNeeded) {
+                // Build list of tokens at max
+                let tokenList = '';
+                if (data.result?.token_status || data.result?.tokens_not_sent) {
+                  const tokenData = data.result.token_status || data.result.tokens_not_sent;
+                  const tokenNames = tokenData.map(t => t.symbol).join(', ');
+                  const allTokens = tokenData.length === this.tokenInfo.length;
+                  tokenList = allTokens ? 'tokens' : tokenNames;
+                }
+                
                 this.message = `
-                  <div class="alert alert-info alert-dismissible show fade" role="alert" style="border: 2px solid #0dcaf0; border-radius: 12px;">
+                  <div class="alert alert-warning alert-dismissible show fade" role="alert" style="border: 2px solid #ffc107; border-radius: 12px; background-color: rgba(255, 193, 7, 0.1);">
                       <h6 class="alert-heading">
                         <i class="fas fa-info-circle me-2"></i>
                         No Tokens Sent
                       </h6>
-                      <p class="mb-2"><strong>Wallet already has sufficient balance</strong></p>
-                      <p class="mb-2"><strong>Address:</strong> ${this.address}</p>
-                      <p class="mb-0 small text-muted">The wallet already meets or exceeds all target token amounts.</p>
+                      <p class="mb-0"><strong>This wallet already holds the maximum amount of ${tokenList} the faucet allows.</strong></p>
                       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                   </div>
                 `
               } else {
-                this.message = `
-                  <div class="alert alert-${isSuccess ? 'success': 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
-                      <h6 class="alert-heading">
-                        <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
-                        ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
-                      </h6>
-                      <p class="mb-2"><strong>Address Type:</strong> ${this.addressType}</p>
-                      ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
-                      ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
-                      <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
-                      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                  </div>
-                `
+                // Check if we have partial success (some tokens sent, some not)
+                const hasSentTokens = data.result?.tokens_sent && data.result.tokens_sent.length > 0;
+                const hasNotSentTokens = data.result?.tokens_not_sent && data.result.tokens_not_sent.length > 0;
+                const isPartialSuccess = isSuccess && hasSentTokens && hasNotSentTokens;
+                
+                if (isPartialSuccess) {
+                  // Two separate alerts for partial success
+                  let sentTokensList = data.result.tokens_sent.map(token => {
+                    let amount = this.formatBalance(token.amount, token.decimals);
+                    return `${amount} ${token.symbol}`;
+                  }).join(', ');
+                  
+                  let notSentTokensList = data.result.tokens_not_sent.map(t => t.symbol).join(', ');
+                  
+                  this.message = `
+                    <div class="alert alert-success alert-dismissible show fade mb-2" role="alert" style="border: 2px solid #198754; border-radius: 12px;">
+                        <h6 class="alert-heading">
+                          <i class="fas fa-check-circle me-2"></i>
+                          Tokens Sent Successfully!
+                        </h6>
+                        <p class="mb-2"><strong>Sent:</strong> ${sentTokensList}</p>
+                        ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
+                        ${explorerUrl ? `<p class="mb-0"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    <div class="alert alert-warning alert-dismissible show fade" role="alert" style="border: 2px solid #ffc107; border-radius: 12px; background-color: rgba(255, 193, 7, 0.1);">
+                        <h6 class="alert-heading">
+                          <i class="fas fa-info-circle me-2"></i>
+                          Some Tokens Not Sent
+                        </h6>
+                        <p class="mb-0"><strong>This wallet already holds the maximum amount of ${notSentTokensList} the faucet allows.</strong></p>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                  `;
+                } else {
+                  // Single alert for complete success or failure
+                  let tokenSummaryHtml = '';
+                  if (hasSentTokens) {
+                    let sentTokensList = data.result.tokens_sent.map(token => {
+                      let amount = this.formatBalance(token.amount, token.decimals);
+                      return `${amount} ${token.symbol}`;
+                    }).join(', ');
+                    tokenSummaryHtml = `<p class="mb-2"><strong>Sent:</strong> ${sentTokensList}</p>`;
+                  }
+                  
+                  this.message = `
+                    <div class="alert alert-${isSuccess ? 'success' : 'danger'} alert-dismissible show fade" role="alert" style="border: 2px solid ${isSuccess ? '#198754' : '#dc3545'}; border-radius: 12px;">
+                        <h6 class="alert-heading">
+                          <i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                          ${isSuccess ? 'Tokens Sent Successfully!' : 'Request Failed'}
+                        </h6>
+                        ${tokenSummaryHtml}
+                        ${txHash ? `<p class="mb-2"><strong>Transaction:</strong> <code class="small">${txHash}</code></p>` : ''}
+                        ${explorerUrl ? `<p class="mb-2"><a href="${explorerUrl}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View on Explorer</a></p>` : ''}
+                        <p class="mb-0 small text-muted">Full transaction details saved to Recent Txs tab.</p>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                  `;
+                }
+              }
               }
             } catch (err) {
               // Add failed transaction to history
@@ -2132,6 +2236,12 @@
             // Check both possible locations for transfer data
             return tx.data.result.transfers || tx.data.result.tokens_sent || null;
           },
+          
+          getTokensNotSent(tx) {
+            if (!tx || !tx.data || !tx.data.result) return null;
+            // Check for tokens that were not sent
+            return tx.data.result.tokens_not_sent || tx.data.result.token_status || null;
+          },
 
           getTransactionExplorerUrl(tx) {
             if (!tx || !tx.data || !tx.data.result) return null;
@@ -2196,7 +2306,7 @@
           },
 
           // Helper method to format token amounts with proper decimals
-          formatTokenAmount(amount, decimals = 18) {
+          formatTokenAmount(amount, decimals = 18, symbol = '') {
             if (!amount) return '0';
             
             try {
@@ -2280,7 +2390,50 @@
             if (tx.data?.result?.tokens_sent && tx.data.result.tokens_sent.length === 0) {
               return true;
             }
+            // Check for no_tokens_sent status
+            if (tx.data?.result?.status === 'no_tokens_sent') {
+              return true;
+            }
             return false;
+          },
+          
+          getTransactionIcon(tx) {
+            if (!tx.success) {
+              return 'fas fa-exclamation-triangle text-danger';
+            }
+            if (this.isNoTokensNeeded(tx)) {
+              return 'fas fa-info-circle text-warning';
+            }
+            if (tx.data?.result?.status === 'partial_success') {
+              return 'fas fa-info-circle text-warning';
+            }
+            return 'fas fa-check-circle text-success';
+          },
+          
+          getTransactionBadgeClass(tx) {
+            if (!tx.success) {
+              return 'bg-danger';
+            }
+            if (this.isNoTokensNeeded(tx)) {
+              return 'bg-warning text-dark';
+            }
+            if (tx.data?.result?.status === 'partial_success') {
+              return 'bg-warning text-dark';
+            }
+            return 'bg-success';
+          },
+          
+          getTransactionStatus(tx) {
+            if (!tx.success) {
+              return 'Failed';
+            }
+            if (this.isNoTokensNeeded(tx)) {
+              return 'Already Funded';
+            }
+            if (tx.data?.result?.status === 'partial_success') {
+              return 'Partial';
+            }
+            return 'Success';
           },
 
           formatDate(date) {
