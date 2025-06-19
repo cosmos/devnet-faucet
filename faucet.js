@@ -768,20 +768,14 @@ app.get('/send/:address', async (req, res) => {
               console.log('Filtered for Cosmos address - only native tokens');
             }
             
-            // For EVM addresses, adjust WATOM amount (convert from uatom to WATOM)
+            // For EVM addresses, add WATOM metadata
             if (addressType === 'evm') {
               neededAmounts = neededAmounts.map(token => {
                 if (token.denom === 'uatom' && (token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')) {
-                  // Convert amount from uatom (6 decimals) to WATOM (18 decimals)
-                  // The amount here is already the "needed" amount calculated from target - current
-                  const uatomAmount = BigInt(token.amount);
-                  // Convert: uatom amount * 10^12 to go from 6 to 18 decimals
-                  const watomAmount = uatomAmount * BigInt(10 ** 12);
-                  
+                  // The amount is already in WATOM (18 decimals) from the balance check
+                  // Just add the WATOM metadata
                   return {
                     ...token,
-                    amount: watomAmount.toString(),
-                    decimals: 18,
                     symbol: 'WATOM',
                     name: 'Wrapped ATOM'
                   };
@@ -1132,7 +1126,7 @@ function calculateNeededAmounts(currentBalances, configAmounts) {
         denom: currentBalance.denom,
         amount: needed.toString(),
         erc20_contract: configToken.erc20_contract,
-        decimals: configToken.decimals
+        decimals: currentBalance.decimals || configToken.decimals
       });
     }
   }
