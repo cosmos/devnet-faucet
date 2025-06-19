@@ -1275,8 +1275,8 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
   let receipt = null;
   
   try {
-    // If we have multiple ERC20 tokens, use AtomicMultiSend
-    if (erc20Tokens.length > 1) {
+    // If we have multiple tokens (ERC20s and/or native), use AtomicMultiSend
+    if (neededAmounts.length > 1 || (erc20Tokens.length >= 1 && nativeTokens.length > 0)) {
       console.log('Using AtomicMultiSend contract for guaranteed atomicity');
       
       const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
@@ -1292,16 +1292,32 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
       const atomicContract = new Contract(atomicMultiSendAddress, atomicMultiSendABI, wallet);
 
       // Prepare transfers array for the contract
-      const transfers = erc20Tokens.map(t => ({
-        token: t.erc20_contract,
-        amount: t.amount
-      }));
+      const transfers = [];
+      
+      // Add ERC20 transfers
+      erc20Tokens.forEach(t => {
+        transfers.push({
+          token: t.erc20_contract,
+          amount: t.amount
+        });
+      });
+      
+      // Add native token transfers (address(0) represents native tokens)
+      let totalNativeAmount = BigInt(0);
+      nativeTokens.forEach(t => {
+        transfers.push({
+          token: '0x0000000000000000000000000000000000000000', // address(0) for native
+          amount: t.amount
+        });
+        totalNativeAmount += BigInt(t.amount);
+      });
 
-      // Execute atomic transfer
+      // Execute atomic transfer with native value if needed
       tx = await atomicContract.atomicMultiSend(
         recipientAddress,
         transfers,
         {
+          value: totalNativeAmount,
           gasLimit: 500000 // Reasonable gas limit for multiple transfers
         }
       );
@@ -1312,46 +1328,45 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
 
       return receipt;
     } 
-    // For single ERC20 token, use direct transfer
-    else if (erc20Tokens.length === 1) {
-      console.log('Single ERC20 transfer');
-      const token = erc20Tokens[0];
-      const tokenContract = new Contract(token.erc20_contract, ERC20_BASE_ABI, wallet);
-      
-      tx = await tokenContract.transfer(recipientAddress, token.amount);
-      console.log('Transaction sent:', tx.hash);
-      
-      receipt = await tx.wait();
-      console.log('Transaction confirmed!');
-      
-      return receipt;
-    }
-    // For native token only
-    else if (nativeTokens.length > 0) {
-      console.log('Native token transfer via EVM');
-      const totalNative = nativeTokens.reduce((sum, token) => 
-        sum + BigInt(token.amount), BigInt(0)
-      );
-      
-      // Check faucet balance before sending
-      const faucetBalance = await ethProvider.getBalance(wallet.address);
-      console.log(`Faucet WATOM balance: ${faucetBalance.toString()} wei`);
-      console.log(`Required WATOM amount: ${totalNative.toString()} wei`);
-      
-      if (faucetBalance < totalNative) {
-        throw new Error(`Insufficient faucet balance. Has ${faucetBalance.toString()} wei, needs ${totalNative.toString()} wei`);
+    // For single token (ERC20 or native), use direct transfer
+    else if (neededAmounts.length === 1) {
+      if (erc20Tokens.length === 1) {
+        console.log('Single ERC20 transfer');
+        const token = erc20Tokens[0];
+        const tokenContract = new Contract(token.erc20_contract, ERC20_BASE_ABI, wallet);
+        
+        tx = await tokenContract.transfer(recipientAddress, token.amount);
+        console.log('Transaction sent:', tx.hash);
+        
+        receipt = await tx.wait();
+        console.log('Transaction confirmed!');
+        
+        return receipt;
+        console.log('Native token transfer via EVM');
+        const totalNative = nativeTokens.reduce((sum, token) => 
+          sum + BigInt(token.amount), BigInt(0)
+        );
+        
+        // Check faucet balance before sending
+        const faucetBalance = await ethProvider.getBalance(wallet.address);
+        console.log(`Faucet WATOM balance: ${faucetBalance.toString()} wei`);
+        console.log(`Required WATOM amount: ${totalNative.toString()} wei`);
+        
+        if (faucetBalance < totalNative) {
+          throw new Error(`Insufficient faucet balance. Has ${faucetBalance.toString()} wei, needs ${totalNative.toString()} wei`);
+        }
+        
+        tx = await wallet.sendTransaction({
+          to: recipientAddress,
+          value: totalNative
+        });
+        
+        console.log('Native transaction sent:', tx.hash);
+        receipt = await tx.wait();
+        console.log('Native transaction confirmed!');
+        
+        return receipt;
       }
-      
-      tx = await wallet.sendTransaction({
-        to: recipientAddress,
-        value: totalNative
-      });
-      
-      console.log('Native transaction sent:', tx.hash);
-      receipt = await tx.wait();
-      console.log('Native transaction confirmed!');
-      
-      return receipt;
     }
     
     throw new Error('No tokens to send');
