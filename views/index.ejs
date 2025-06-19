@@ -216,6 +216,16 @@
           transform: rotate(360deg);
         }
       }
+      
+      .gap-2 {
+        gap: 0.5rem !important;
+      }
+      
+      .text-truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
       .balance-item {
         display: flex;
@@ -314,7 +324,7 @@
             </button>
           </li>
           <!-- WATOM Wrap/Unwrap Tab (Disabled) -->
-          <li class="nav-item" role="presentation">
+          <li class="nav-item" role="presentation" style="display: none;">
             <button class="nav-link disabled" id="watom-tab" type="button" role="tab" disabled style="cursor: not-allowed; opacity: 0.6;">
               <i class="fas fa-exchange-alt me-2"></i>WATOM 
               <span class="badge bg-secondary ms-1" style="font-size: 0.7rem;">Coming Soon</span>
@@ -439,84 +449,109 @@
                 
                 <!-- Wallet Connection Section -->
                 <div class="mb-4">
-                  <h6 class="text-muted mb-3"><i class="fas fa-wallet me-2"></i>Connect Wallet</h6>
                   <div class="row">
                     <!-- Cosmos Wallet (Keplr) -->
                     <div class="col-md-6 mb-2">
-                      <button 
-                        type="button" 
-                        class="btn w-100" 
-                        :class="cosmosWallet.connected ? 'btn-success' : 'btn-outline-primary'"
-                        @click="cosmosWallet.connected ? disconnectKeplr() : connectKeplr()"
-                        :disabled="cosmosWallet.connecting"
-                      >
-                        <span v-if="cosmosWallet.connecting" class="loading-spinner me-2"></span>
-                        <i v-else class="fas fa-atom me-2"></i>
-                        <span v-if="cosmosWallet.connected">
-                          Connected: {{formatAddress(cosmosWallet.address)}}
-                        </span>
-                        <span v-else-if="cosmosWallet.connecting">
-                          Connecting to Keplr...
-                        </span>
-                        <span v-else>
-                          Connect Keplr Wallet
-                        </span>
-                      </button>
+                      <div class="d-flex gap-2">
+                        <button 
+                          type="button" 
+                          class="btn flex-grow-1" 
+                          :class="cosmosWallet.connected ? 'btn-success' : 'btn-outline-primary'"
+                          @click="cosmosWallet.connected ? disconnectKeplr() : connectKeplr()"
+                          :disabled="cosmosWallet.connecting"
+                        >
+                          <span v-if="cosmosWallet.connecting" class="loading-spinner me-2"></span>
+                          <i v-else class="fas fa-atom me-2"></i>
+                          <span v-if="cosmosWallet.connected">
+                            Connected: {{formatAddress(cosmosWallet.address)}}
+                          </span>
+                          <span v-else-if="cosmosWallet.connecting">
+                            Connecting to Keplr...
+                          </span>
+                          <span v-else>
+                            Connect Keplr Wallet
+                          </span>
+                        </button>
+                        <button 
+                          v-if="cosmosWallet.connected"
+                          type="button" 
+                          class="btn btn-primary"
+                          @click="useCosmosAddress()"
+                          title="Use this address"
+                        >
+                          <i class="fas fa-paste"></i>
+                        </button>
+                      </div>
                     </div>
                     
                     <!-- EVM Wallet -->
                     <div class="col-md-6 mb-2">
-                      <button 
-                        type="button" 
-                        class="btn w-100" 
-                        :class="evmWallet.connected ? 'btn-success' : 'btn-outline-secondary'"
-                        @click="evmWallet.connected ? disconnectEvm() : connectEvm()"
-                        :disabled="evmWallet.connecting"
-                      >
-                        <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
-                        <i v-else class="fab fa-ethereum me-2"></i>
-                        <span v-if="evmWallet.connected">
-                          Connected: {{formatAddress(evmWallet.address)}}
-                        </span>
-                        <span v-else-if="evmWallet.connecting">
-                          Connecting to Wallet...
-                        </span>
-                        <span v-else>
-                          Connect EVM Wallet
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <!-- Use Connected Address Button -->
-                  <div v-if="cosmosWallet.connected || evmWallet.connected" class="text-center mt-2">
-                    <div class="btn-group" role="group">
-                      <button v-if="cosmosWallet.connected" 
-                              type="button" 
-                              class="btn btn-sm btn-outline-primary"
-                              @click="useConnectedAddress(cosmosWallet.address)">
-                        Use Cosmos Address
-                      </button>
-                      <button v-if="evmWallet.connected" 
-                              type="button" 
-                              class="btn btn-sm btn-outline-secondary"
-                              @click="useConnectedAddress(evmWallet.address)">
-                        Use EVM Address
-                      </button>
+                      <div class="d-flex gap-2">
+                        <button 
+                          type="button" 
+                          class="btn flex-grow-1" 
+                          :class="evmWallet.connected ? 'btn-success' : 'btn-outline-secondary'"
+                          @click="evmWallet.connected ? disconnectEvm() : connectEvm()"
+                          :disabled="evmWallet.connecting"
+                        >
+                          <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
+                          <i v-else class="fab fa-ethereum me-2"></i>
+                          <span v-if="evmWallet.connected">
+                            Connected: {{formatAddress(evmWallet.address)}}
+                          </span>
+                          <span v-else-if="evmWallet.connecting">
+                            Connecting to Wallet...
+                          </span>
+                          <span v-else>
+                            Connect EVM Wallet
+                          </span>
+                        </button>
+                        <button 
+                          v-if="evmWallet.connected"
+                          type="button" 
+                          class="btn btn-primary"
+                          @click="useEvmAddress()"
+                          title="Use this address"
+                        >
+                          <i class="fas fa-paste"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <!-- Token Information -->
-                <div v-if="tokenInfo && tokenInfo.length" class="mb-3">
-                  <h6 class="text-muted mb-2"><i class="fas fa-coins me-2"></i>Available Tokens:</h6>
-                  <div v-if="addressType === 'Cosmos'" class="alert alert-info mb-2">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Note:</strong> Cosmos addresses can only receive ATOM tokens. For ERC20 tokens, please use an EVM address.
+                <!-- Address Input and Request Button -->
+                <div class="mb-4">
+                  <div class="input-group">
+                    <input
+                      id="address"
+                      class="form-control"
+                      placeholder="Enter Cosmos (cosmos...) or EVM (0x...) address"
+                      v-model="address"
+                    >
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      @click="requestToken()"
+                      :disabled="!isValidAddress || isLoading"
+                    >
+                      <span v-if="isLoading" class="loading-spinner me-2"></span>
+                      <i v-else class="fas fa-paper-plane me-2"></i>
+                      {{isLoading ? 'Sending...' : 'Request Tokens'}}
+                    </button>
                   </div>
-                  <div class="row">
-                    <div v-for="token in tokenInfo" :key="token.denom" class="col-md-4 mb-2">
-                      <div class="card card-body p-2 small" :class="[getTokenCardClass(token), addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' ? 'opacity-50' : '']">
+                </div>
+                
+                <!-- Token Information -->
+                <div class="mb-3">
+                  <h6 class="text-muted mb-2"><i class="fas fa-coins me-2"></i>Available Tokens:</h6>
+                  <div v-if="!address" class="alert alert-secondary mb-2">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Enter an address above to see available tokens for that address type.
+                  </div>
+                  <div v-if="filteredTokenInfo && filteredTokenInfo.length" class="row">
+                    <div v-for="token in filteredTokenInfo" :key="token.denom" class="col-md-4 mb-2">
+                      <div class="card card-body p-2 small" :class="getTokenCardClass(token)">
                         <div class="d-flex justify-content-between align-items-start">
                           <div class="fw-bold">
                             <span v-if="addressType === 'EVM' && token.denom === 'uatom' && token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
@@ -538,71 +573,16 @@
                         </div>
                         <div class="text-muted small mt-1" style="font-family: monospace; word-break: break-all;">{{token.contract}}</div>
                         <div class="text-muted small">
-                          <span v-if="addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
-                            <i class="fas fa-times-circle"></i> Not available for Cosmos
-                          </span>
-                          <span v-else>
-                            <strong v-if="addressType === 'EVM' && token.denom === 'uatom' && token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
-                              1000 WATOM
-                            </strong>
-                            <strong v-else>
-                              {{formatBalance(token.target_amount, token.decimals)}} {{token.symbol || token.denom}}
-                            </strong>
-                          </span>
+                          <strong v-if="addressType === 'EVM' && token.denom === 'uatom' && token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
+                            1000 WATOM
+                          </strong>
+                          <strong v-else>
+                            {{formatBalance(token.target_balance || token.amount, token.decimals)}} {{token.symbol || token.denom}}
+                          </strong>
                         </div>
-                      </div>
-                    </div>
-                    <!-- Add native ATOM info for Cosmos addresses -->
-                    <div v-if="addressType === 'Cosmos'" class="col-md-4 mb-2">
-                      <div class="card card-body p-2 small border-primary">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div class="fw-bold">ATOM</div>
-                          <span class="badge bg-primary">Native</span>
-                        </div>
-                        <div class="text-muted small">Cosmos Hub</div>
-                        <div class="text-muted small mt-1" style="font-family: monospace;">uatom (Native Token)</div>
-                        <div class="text-muted small"><strong>1.0 ATOM</strong></div>
-                      </div>
-                    </div>
-                    <!-- Add WATOM info for EVM addresses -->
-                    <div v-else-if="addressType === 'EVM'" class="col-md-4 mb-2">
-                      <div class="card card-body p-2 small border-primary">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div class="fw-bold">WATOM</div>
-                          <span class="badge bg-primary">Native</span>
-                        </div>
-                        <div class="text-muted small">Wrapped ATOM</div>
-                        <div class="text-muted small mt-1" style="font-family: monospace;">0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE</div>
-                        <div class="text-muted small"><strong>1000 WATOM</strong></div>
                       </div>
                     </div>
                   </div>
-                </div>
-                
-                <div class="input-group mb-3">
-                  <input
-                    id="address"
-                    class="form-control"
-                    placeholder="Enter Cosmos (cosmos...) or EVM (0x...) address"
-                    v-model="address"
-                  >
-                  <button
-                    type="button"
-                    class="btn btn-primary"
-                    @click="requestToken()"
-                    :disabled="!isValidAddress || isLoading"
-                  >
-                    <span v-if="isLoading" class="loading-spinner me-2"></span>
-                    <i v-else class="fas fa-paper-plane me-2"></i>
-                    {{isLoading ? 'Sending...' : 'Request Tokens'}}
-                  </button>
-                </div>
-
-                <div v-if="addressType && addressType !== 'Invalid'" class="text-center">
-                  <span class="badge bg-primary">
-                    <i :class="addressType === 'Cosmos' ? 'fas fa-atom' : 'fab fa-ethereum'"></i>
-                    {{addressType}} Address Detected
-                  </span>
                 </div>
               </div>
             </div>
@@ -611,11 +591,11 @@
 
             <!-- Balances -->
             <div class="info-grid">
-              <!-- Requester Wallet -->
+              <!-- Your Wallet -->
               <div class="info-card">
                 <h5 class="info-title">
                   <i class="fas fa-user-circle"></i>
-                  Requester Wallet
+                  Your Wallet
                 </h5>
                 <div v-if="requesterBalances && requesterBalances.length">
                   <div v-for="balance in requesterBalances" :key="balance.denom" class="balance-item">
@@ -1539,6 +1519,21 @@
               }
             });
             return result;
+          },
+          filteredTokenInfo() {
+            if (!this.tokenInfo || !this.addressType) return [];
+            
+            if (this.addressType === 'Cosmos') {
+              // For Cosmos addresses, only show ATOM (native token)
+              return this.tokenInfo.filter(token => 
+                token.denom === 'uatom' && token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+              );
+            } else if (this.addressType === 'EVM') {
+              // For EVM addresses, show all tokens (WATOM will be displayed as WATOM, ERC20s as is)
+              return this.tokenInfo;
+            }
+            
+            return [];
           }
         },
         methods: {
@@ -1597,6 +1592,38 @@
               } catch (error) {
                 console.error('Error checking EVM connection:', error);
               }
+            }
+          },
+          
+          async connectAndUseKeplr() {
+            // First connect the wallet
+            await this.connectKeplr();
+            
+            // If successfully connected, paste the address
+            if (this.cosmosWallet.connected && this.cosmosWallet.address) {
+              this.address = this.cosmosWallet.address;
+            }
+          },
+          
+          async connectAndUseEvm() {
+            // First connect the wallet
+            await this.connectEvm();
+            
+            // If successfully connected, paste the address
+            if (this.evmWallet.connected && this.evmWallet.address) {
+              this.address = this.evmWallet.address;
+            }
+          },
+          
+          useCosmosAddress() {
+            if (this.cosmosWallet.connected && this.cosmosWallet.address) {
+              this.address = this.cosmosWallet.address;
+            }
+          },
+          
+          useEvmAddress() {
+            if (this.evmWallet.connected && this.evmWallet.address) {
+              this.address = this.evmWallet.address;
             }
           },
           
