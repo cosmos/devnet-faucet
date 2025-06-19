@@ -479,7 +479,7 @@
                           @click="useCosmosAddress()"
                           title="Use this address"
                         >
-                          <i class="fas fa-paste"></i>
+                          <i class="fas fa-arrow-down"></i>
                         </button>
                       </div>
                     </div>
@@ -487,6 +487,15 @@
                     <!-- EVM Wallet -->
                     <div class="col-md-6 mb-2">
                       <div class="d-flex gap-2">
+                        <button 
+                          v-if="evmWallet.connected"
+                          type="button" 
+                          class="btn btn-primary"
+                          @click="useEvmAddress()"
+                          title="Use this address"
+                        >
+                          <i class="fas fa-arrow-down"></i>
+                        </button>
                         <button 
                           type="button" 
                           class="btn flex-grow-1" 
@@ -505,15 +514,6 @@
                           <span v-else>
                             Connect EVM Wallet
                           </span>
-                        </button>
-                        <button 
-                          v-if="evmWallet.connected"
-                          type="button" 
-                          class="btn btn-primary"
-                          @click="useEvmAddress()"
-                          title="Use this address"
-                        >
-                          <i class="fas fa-paste"></i>
                         </button>
                       </div>
                     </div>
@@ -1950,7 +1950,13 @@
           
           formatBalance(amount, decimals = 0) {
             if (!amount) return '0';
-            const num = BigInt(amount);
+            // Handle scientific notation by converting to string first
+            let amountStr = amount.toString();
+            // If it's in scientific notation (e.g., 1e+21), convert to regular notation
+            if (amountStr.includes('e+') || amountStr.includes('e-')) {
+              amountStr = Number(amount).toLocaleString('fullwide', {useGrouping: false});
+            }
+            const num = BigInt(amountStr);
             if (decimals > 0) {
               const divisor = BigInt(10 ** decimals);
               const whole = num / divisor;
@@ -2018,7 +2024,7 @@
               ]);
 
               const explorerUrl = data.result?.explorer_url;
-              const noTokensNeeded = data.result?.message?.includes('sufficient balance') || 
+              const noTokensNeeded = data.result?.status === 'no_tokens_sent' || 
                                    (data.result?.tokens_sent && data.result.tokens_sent.length === 0);
               
               if (noTokensNeeded) {
