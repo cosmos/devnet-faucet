@@ -602,7 +602,7 @@ app.get('/balance/:type', async (req, res) => {
   const type = req.params.type; // 'cosmos' or 'evm'
   const { address } = req.query; // Optional: check specific address instead of faucet
   
-  console.log(`Balance request: type=${type}, address=${address}`);
+  console.log(`[BALANCE] Request - Type: ${type}, Address: ${address || 'faucet wallet'}`);
   
   let balances = [];
   
@@ -619,9 +619,22 @@ app.get('/balance/:type', async (req, res) => {
       // Fetch EVM balances from JSON-RPC
       const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
       
+      // First check native WATOM balance
+      try {
+        const nativeBalance = await ethProvider.getBalance(targetAddress);
+        balances.push({
+          denom: 'WATOM',
+          amount: nativeBalance.toString(),
+          type: 'native',
+          decimals: 18
+        });
+      } catch(err) {
+        console.error('Error fetching native balance:', err);
+      }
+      
       for (const token of chainConf.tx.amounts) {
         if (token.type === 'native' || token.denom === 'uatom') {
-          // Skip native tokens in EVM context as they're handled via Cosmos
+          // Skip native tokens as we already handled WATOM above
           continue;
         }
         
@@ -664,7 +677,7 @@ app.get('/balance/:type', async (req, res) => {
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
       const balanceUrl = `${restEndpoint}/cosmos/bank/v1beta1/balances/${targetAddress}`;
-      console.log(`Fetching Cosmos balance from: ${balanceUrl}`);
+      console.log(`[COSMOS] Fetching balance from: ${balanceUrl}`);
       
       try {
         const response = await fetch(balanceUrl, {
@@ -692,7 +705,7 @@ app.get('/balance/:type', async (req, res) => {
               decimals: 6
             }];
           }
-          console.log(`Cosmos balances for ${targetAddress}:`, balances);
+          console.log(`[COSMOS] Balances for ${targetAddress}:`, balances);
         } else {
           console.error(`Cosmos balance API returned ${response.status}: ${response.statusText}`);
         }
@@ -713,7 +726,7 @@ app.get('/balance/:type', async (req, res) => {
 app.get('/send/:address', async (req, res) => {
   const { address } = req.params;
   const ip = req.headers['cf-connecting-ip'] || req.headers['x-real-ip'] || req.headers['X-Forwarded-For'] || req.ip
-  console.log('request tokens to ', address, ip)
+  console.log(`[FAUCET] Token request - Address: ${address}, IP: ${ip}`)
 
   if (address) {
     try {
@@ -1018,8 +1031,7 @@ async function checkRecipientBalances(address, addressType) {
   try {
     if (addressType === 'cosmos') {
       // Check Cosmos balances via REST API
-      console.log(`Checking balances for Cosmos address ${address}`);
-      console.log(`Available tokens in config:`, chainConf.tx.amounts.map(t => ({ denom: t.denom, target: t.target_balance })));
+      console.log(`[BALANCE CHECK] Cosmos address: ${address}`);
       
       const restEndpoint = chainConf.endpoints.rest_endpoint;
       const response = await fetch(`${restEndpoint}/cosmos/bank/v1beta1/balances/${address}`);
@@ -1036,7 +1048,9 @@ async function checkRecipientBalances(address, addressType) {
         }
         
         const balance = data.balances?.find(b => b.denom === token.denom);
-        console.log(`Token ${token.denom}: current_amount=${balance ? balance.amount : "0"}, target_amount=${token.target_balance}`);
+        if (balance) {
+          console.log(`[TOKEN] ${token.denom}: current=${balance.amount}, target=${token.target_balance}`);
+        }
         balances.push({
           denom: token.denom,
           current_amount: balance ? balance.amount : "0",
@@ -1324,6 +1338,15 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
       const totalNative = nativeTokens.reduce((sum, token) => 
         sum + BigInt(token.amount), BigInt(0)
       );
+      
+      // Check faucet balance before sending
+      const faucetBalance = await ethProvider.getBalance(wallet.address);
+      console.log(`Faucet WATOM balance: ${faucetBalance.toString()} wei`);
+      console.log(`Required WATOM amount: ${totalNative.toString()} wei`);
+      
+      if (faucetBalance < totalNative) {
+        throw new Error(`Insufficient faucet balance. Has ${faucetBalance.toString()} wei, needs ${totalNative.toString()} wei`);
+      }
       
       tx = await wallet.sendTransaction({
         to: recipientAddress,
