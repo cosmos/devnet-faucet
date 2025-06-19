@@ -95,6 +95,8 @@ class TokenConfigLoader {
         erc20Tokens.forEach(token => {
             amounts.push({
                 denom: token.denom,
+                symbol: token.symbol,
+                name: token.name,
                 amount: token.amount,
                 erc20_contract: token.erc20_contract,
                 decimals: token.decimals,
@@ -106,6 +108,8 @@ class TokenConfigLoader {
         nativeTokens.forEach(token => {
             amounts.push({
                 denom: token.denom,
+                symbol: token.symbol,
+                name: token.name,
                 amount: token.amount,
                 erc20_contract: token.evmWrapper?.enabled ? token.evmWrapper.wrapperContract : "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
                 decimals: token.decimals,
