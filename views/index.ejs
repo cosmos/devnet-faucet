@@ -339,7 +339,7 @@
                 </div>
                 <div class="info-item">
                   <span class="info-label">Faucet:</span>
-                  <span class="info-value">{{ sampleAddresses.cosmos }}</span>
+                  <span class="info-value">{{ networkConfig.faucetAddresses?.cosmos || 'Loading...' }}</span>
                 </div>
               </div>
 
@@ -367,7 +367,7 @@
                 </div>
                 <div class="info-item">
                   <span class="info-label">Faucet:</span>
-                  <span class="info-value">{{ sampleAddresses.evm }}</span>
+                  <span class="info-value">{{ networkConfig.faucetAddresses?.evm || 'Loading...' }}</span>
                 </div>
               </div>
             </div>
@@ -507,29 +507,43 @@
                     <div v-for="token in tokenInfo" :key="token.denom" class="col-md-4 mb-2">
                       <div class="card card-body p-2 small" :class="[getTokenCardClass(token), addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE' ? 'opacity-50' : '']">
                         <div class="d-flex justify-content-between align-items-start">
-                          <div class="fw-bold">{{token.name}}</div>
+                          <div class="fw-bold">{{token.symbol || token.denom}}</div>
                           <span class="badge" :class="getTokenTypeBadge(token)">{{getTokenType(token)}}</span>
                         </div>
+                        <div class="text-muted small">{{token.name}}</div>
                         <div class="text-muted small mt-1" style="font-family: monospace; word-break: break-all;">{{token.contract}}</div>
                         <div class="text-muted small">
                           <span v-if="addressType === 'Cosmos' && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
                             <i class="fas fa-times-circle"></i> Not available for Cosmos
                           </span>
                           <span v-else>
-                            {{formatBalance(token.target_amount, token.decimals)}} tokens
+                            <strong>{{formatBalance(token.target_amount, token.decimals)}} {{token.symbol || token.denom}}</strong>
                           </span>
                         </div>
                       </div>
                     </div>
-                    <!-- Add native ATOM info -->
-                    <div class="col-md-4 mb-2">
+                    <!-- Add native ATOM info for Cosmos addresses -->
+                    <div v-if="addressType === 'Cosmos'" class="col-md-4 mb-2">
                       <div class="card card-body p-2 small border-primary">
                         <div class="d-flex justify-content-between align-items-start">
                           <div class="fw-bold">ATOM</div>
                           <span class="badge bg-primary">Native</span>
                         </div>
-                        <div class="text-muted small mt-1" style="font-family: monospace;">uatom (Cosmos SDK)</div>
-                        <div class="text-muted small">1.0 ATOM (gas fees)</div>
+                        <div class="text-muted small">Cosmos Hub</div>
+                        <div class="text-muted small mt-1" style="font-family: monospace;">uatom (Native Token)</div>
+                        <div class="text-muted small"><strong>1.0 ATOM</strong></div>
+                      </div>
+                    </div>
+                    <!-- Add WATOM info for EVM addresses -->
+                    <div v-else-if="addressType === 'EVM'" class="col-md-4 mb-2">
+                      <div class="card card-body p-2 small border-primary">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div class="fw-bold">WATOM</div>
+                          <span class="badge bg-primary">Native</span>
+                        </div>
+                        <div class="text-muted small">Wrapped ATOM</div>
+                        <div class="text-muted small mt-1" style="font-family: monospace;">0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE</div>
+                        <div class="text-muted small"><strong>1000 WATOM</strong></div>
                       </div>
                     </div>
                   </div>
