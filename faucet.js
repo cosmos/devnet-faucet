@@ -36,6 +36,7 @@ import conf, {
   validateDerivedAddresses
 } from './config.js'
 
+
 const app = express()
 const chainConf = conf.blockchain
 
@@ -558,6 +559,8 @@ app.get('/config.json', (req, res) => {
     },
     tokens: chainConf.tx.amounts.map(token => ({
       denom: token.denom,
+      symbol: token.symbol || token.denom.toUpperCase(),
+      name: token.name || token.denom,
       amount: token.amount,
       target_balance: token.target_balance,
       decimals: token.decimals,
@@ -572,16 +575,21 @@ app.get('/config.json', (req, res) => {
     },
     network: {
       name: chainConf.name,
+      faucetAddresses: {
+        cosmos: getCosmosAddress(),
+        evm: getEvmAddress()
+      },
       evm: {
         chainId: chainConf.ids.chainId,
         chainIdHex: '0x' + chainConf.ids.chainId.toString(16),
         rpc: chainConf.endpoints.evm_endpoint,
-        websocket: chainConf.endpoints.websocket || '',
+        websocket: chainConf.endpoints.evm_websocket || '',
         explorer: chainConf.endpoints.evm_explorer
       },
       cosmos: {
         chainId: chainConf.ids.cosmosChainId,
         rpc: chainConf.endpoints.rpc_endpoint,
+        grpc: chainConf.endpoints.grpc_endpoint,
         rest: chainConf.endpoints.rest_endpoint,
         prefix: chainConf.sender.option.prefix
       }
@@ -745,6 +753,23 @@ app.get('/send/:address', async (req, res) => {
                 token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
               );
               console.log('Filtered for Cosmos address - only native tokens');
+            }
+            
+            // For EVM addresses, adjust WATOM amount (1000 WATOM = 1000 * 10^18)
+            if (addressType === 'evm') {
+              neededAmounts = neededAmounts.map(token => {
+                if (token.denom === 'uatom' && (token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')) {
+                  // Convert to WATOM: 1000 WATOM with 18 decimals
+                  return {
+                    ...token,
+                    amount: "1000000000000000000000", // 1000 * 10^18
+                    decimals: 18,
+                    symbol: 'WATOM',
+                    name: 'Wrapped ATOM'
+                  };
+                }
+                return token;
+              });
             }
             
             console.log('Needed amounts:', neededAmounts);
