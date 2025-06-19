@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
     "dev": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
-    "build": "echo 'No build step required'",
+    "docker": "docker-compose run -e HOST=0.0.0.0 -p 0.0.0.0:8088:8088 faucet",
+    "build": "docker-compose build faucet",
     "test": "hardhat test",
     "deploy": "node scripts/automated-deploy.js",
     "deploy:test": "node scripts/automated-deploy.js --test",
