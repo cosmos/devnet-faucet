@@ -1,0 +1,208 @@
+@import 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css';
+@import 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css';
+
+:root {
+  --cosmos-primary: #2e2e54;
+  --cosmos-secondary: #5064fb;
+  --cosmos-accent: #00d2ff;
+  --cosmos-gradient: linear-gradient(135deg, #2e2e54 0%, #5064fb 50%, #00d2ff 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --text-primary: #f0f6fc;
+    --text-secondary: #8b949e;
+    --border-color: #30363d;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --text-primary: #24292f;
+    --text-secondary: #656d76;
+    --border-color: #d0d7de;
+  }
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+.container {
+  max-width: 800px;
+}
+
+.card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  margin-bottom: 2rem;
+}
+
+.card-header {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 12px 12px 0 0;
+  padding: 1.25rem;
+  font-weight: 600;
+}
+
+.form-control {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+}
+
+.form-control:focus {
+  border-color: var(--cosmos-accent);
+  box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.1);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.btn-primary {
+  background: var(--cosmos-gradient);
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background: var(--cosmos-gradient);
+  transform: translateY(-1px);
+}
+
+.nav-tabs {
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 2rem;
+}
+
+.nav-tabs .nav-link {
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  background: none;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--cosmos-accent);
+  background: none;
+  border-color: var(--cosmos-accent);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.info-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.info-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.info-title i {
+  color: var(--cosmos-accent);
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.info-value {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--text-secondary);
+  border-top-color: var(--cosmos-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.transaction-item {
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.transaction-item:hover {
+  transform: translateX(2px);
+  border-color: var(--cosmos-accent);
+}
+
+.text-monospace {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.fade {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

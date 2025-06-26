@@ -6,10 +6,13 @@
   "main": "faucet.js",
   "scripts": {
     "start": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
-    "dev": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
     "predocker": "docker compose down --remove-orphans && docker-compose build faucet",
-    "docker":    "docker compose run --rm --remove-orphans -e HOST=0.0.0.0 -p 8088:8088 faucet",
-    "build": "docker-compose build faucet",
+    "docker": "docker compose run --rm --remove-orphans -e HOST=0.0.0.0 -p 8088:8088 faucet",
+    "docker:build": "docker-compose build faucet",
     "test": "hardhat test",
     "deploy": "node scripts/automated-deploy.js",
     "deploy:test": "node scripts/automated-deploy.js --test",
@@ -46,6 +49,10 @@
     "@cosmjs/stargate": "^0.31",
     "@noble/curves": "^1.9.2",
     "@noble/hashes": "^1.8.0",
+    "@reown/appkit": "^1.7.11",
+    "@reown/appkit-adapter-wagmi": "^1.7.11",
+    "@tanstack/vue-query": "^5.81.2",
+    "@wagmi/vue": "^0.1.22",
     "bech32": "^2.0.0",
     "bip32": "^5.0.0-rc.0",
     "bip39": "^3.1.0",
@@ -57,14 +64,18 @@
     "express-rate-limit": "^6.7.0",
     "long": "^5.2.3",
     "node-fetch": "^3.3.2",
-    "tiny-secp256k1": "^2.2.3"
+    "tiny-secp256k1": "^2.2.3",
+    "viem": "^2.31.4",
+    "vue": "^3.5.17"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.9",
+    "@vitejs/plugin-vue": "^6.0.0",
     "chai": "^4.5.0",
     "dotenv": "^16.5.0",
     "forge": "^2.3.0",
     "hardhat": "^2.24.2",
-    "hardhat-gas-reporter": "^1.0.10"
+    "hardhat-gas-reporter": "^1.0.10",
+    "vite": "^7.0.0"
   }
 }
