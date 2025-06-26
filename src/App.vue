@@ -58,7 +58,7 @@ onMounted(async () => {
       name: 'Cosmos EVM Faucet',
       description: 'Token distribution faucet for Cosmos EVM Devnet',
       url: 'https://faucet.basementnodes.ca',
-      icons: ['https://ping.pub/favicon.ico']
+      icons: ['https://faucet.basementnodes.ca/favicon.svg']
     }
     
     // Create Wagmi adapter

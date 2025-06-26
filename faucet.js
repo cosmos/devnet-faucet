@@ -70,6 +70,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.static('src'))
+app.use(express.static('public'))
 app.use('/.well-known', express.static('.well-known'))
 app.use(express.json())
 
