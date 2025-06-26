@@ -57,7 +57,7 @@ onMounted(async () => {
     const metadata = {
       name: 'Cosmos EVM Faucet',
       description: 'Token distribution faucet for Cosmos EVM Devnet',
-      url: window.location.origin,
+      url: 'https://faucet.basementnodes.ca',
       icons: ['https://ping.pub/favicon.ico']
     }
     
