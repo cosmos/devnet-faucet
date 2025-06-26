@@ -10,8 +10,8 @@
 
 <script setup>
 import { onMounted, provide } from 'vue'
-import { createAppKit } from '@reown/appkit/vue'
-import { mainnet, type AppKitNetwork } from '@reown/appkit/networks'
+import { createAppKit } from '@reown/appkit'
+import { mainnet } from '@reown/appkit/networks'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import Header from './components/Header.vue'
 import Tabs from './components/Tabs.vue'

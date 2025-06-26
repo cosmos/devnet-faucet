@@ -49,7 +49,20 @@
             <!-- EVM Wallet (Reown AppKit) -->
             <div class="col-md-6 mb-2">
               <div class="d-flex gap-2">
-                <appkit-button />
+                <button 
+                  type="button" 
+                  class="btn flex-grow-1" 
+                  :class="evmWallet.connected ? 'btn-success' : 'btn-outline-primary'"
+                  @click="openModal"
+                >
+                  <i class="fab fa-ethereum me-2"></i>
+                  <span v-if="evmWallet.connected">
+                    Connected: {{ formatAddress(evmWallet.address) }}
+                  </span>
+                  <span v-else>
+                    Connect EVM Wallet
+                  </span>
+                </button>
                 <button 
                   v-if="evmWallet.connected"
                   type="button" 
@@ -124,6 +137,9 @@ const { cosmosWallet, evmWallet, connectKeplr, disconnectKeplr } = useWalletStor
 const { networkConfig } = useConfig()
 const { addTransactionToHistory } = useTransactions()
 
+// Inject the AppKit modal
+const modal = inject('appKitModal')
+
 const address = ref('')
 const message = ref('')
 const isLoading = ref(false)
@@ -153,6 +169,12 @@ const useCosmosAddress = () => {
 const useEvmAddress = () => {
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
+  }
+}
+
+const openModal = () => {
+  if (modal && modal.open) {
+    modal.open()
   }
 }
 
