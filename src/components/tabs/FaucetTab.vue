@@ -17,10 +17,10 @@
               <div class="d-flex gap-2">
                 <button 
                   type="button" 
-                  class="btn flex-grow-1" 
-                  :class="cosmosWallet.connected ? 'btn-success' : 'btn-outline-primary'"
-                  @click="cosmosWallet.connected ? disconnectKeplr() : connectKeplr()"
-                  :disabled="cosmosWallet.connecting"
+                  class="wallet-btn flex-grow-1" 
+                  :class="{ 'connected': cosmosWallet.connected }"
+                  @click="cosmosWallet.connected ? disconnectKeplr() : connectKeplr(config?.network)"
+                  :disabled="cosmosWallet.connecting || !config"
                 >
                   <span v-if="cosmosWallet.connecting" class="loading-spinner me-2"></span>
                   <i v-else class="fas fa-atom me-2"></i>
@@ -44,6 +44,17 @@
                   <i class="fas fa-arrow-down"></i>
                 </button>
               </div>
+              <!-- Show full address when connected -->
+              <div v-if="cosmosWallet.connected && cosmosWallet.address" class="mt-1">
+                <small class="text-muted d-flex align-items-center gap-2">
+                  <span class="font-monospace">{{ cosmosWallet.address }}</span>
+                  <i 
+                    class="fas fa-copy copy-icon-small" 
+                    @click="copyToClipboard(cosmosWallet.address)"
+                    title="Copy address"
+                  ></i>
+                </small>
+              </div>
             </div>
             
             <!-- EVM Wallet (Reown AppKit) -->
@@ -51,13 +62,18 @@
               <div class="d-flex gap-2">
                 <button 
                   type="button" 
-                  class="btn flex-grow-1" 
-                  :class="evmWallet.connected ? 'btn-success' : 'btn-outline-primary'"
-                  @click="openModal"
+                  class="wallet-btn flex-grow-1" 
+                  :class="{ 'connected': evmWallet.connected }"
+                  @click="evmWallet.connected ? handleEvmDisconnect() : openModal()"
+                  :disabled="evmWallet.connecting"
                 >
-                  <i class="fab fa-ethereum me-2"></i>
+                  <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
+                  <i v-else class="fas fa-wallet me-2"></i>
                   <span v-if="evmWallet.connected">
                     Connected: {{ formatAddress(evmWallet.address) }}
+                  </span>
+                  <span v-else-if="evmWallet.connecting">
+                    Connecting...
                   </span>
                   <span v-else>
                     Connect EVM Wallet
@@ -72,6 +88,17 @@
                 >
                   <i class="fas fa-arrow-down"></i>
                 </button>
+              </div>
+              <!-- Show full address when connected -->
+              <div v-if="evmWallet.connected && evmWallet.address" class="mt-1">
+                <small class="text-muted d-flex align-items-center gap-2">
+                  <span class="font-monospace">{{ evmWallet.address }}</span>
+                  <i 
+                    class="fas fa-copy copy-icon-small" 
+                    @click="copyToClipboard(evmWallet.address)"
+                    title="Copy address"
+                  ></i>
+                </small>
               </div>
             </div>
           </div>
@@ -133,12 +160,14 @@ import { useConfig } from '../../composables/useConfig'
 import { useTransactions } from '../../composables/useTransactions'
 import FaucetBalances from '../FaucetBalances.vue'
 
-const { cosmosWallet, evmWallet, connectKeplr, disconnectKeplr } = useWalletStore()
-const { networkConfig } = useConfig()
+const { cosmosWallet, evmWallet, connectKeplr, disconnectKeplr, disconnectEvm } = useWalletStore()
+const { networkConfig, config } = useConfig()
 const { addTransactionToHistory } = useTransactions()
 
 // Inject the AppKit modal
 const modal = inject('appKitModal')
+const openAppKitModal = inject('openAppKitModal')
+const disconnectAppKit = inject('disconnectAppKit')
 
 const address = ref('')
 const message = ref('')
@@ -173,9 +202,22 @@ const useEvmAddress = () => {
 }
 
 const openModal = () => {
-  if (modal && modal.open) {
-    modal.open()
+  if (openAppKitModal) {
+    try {
+      openAppKitModal()
+    } catch (error) {
+      console.error('Error opening modal:', error)
+    }
+  } else {
+    alert('Wallet connection is initializing. Please try again in a moment.')
   }
+}
+
+const handleEvmDisconnect = async () => {
+  if (disconnectAppKit) {
+    await disconnectAppKit()
+  }
+  disconnectEvm()
 }
 
 const requestToken = async () => {
@@ -342,4 +384,71 @@ const formatBalance = (amount, decimals = 0) => {
   }
   return num.toLocaleString()
 }
+
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    // Could add a toast notification here
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
+}
 </script>
+
+<style scoped>
+.wallet-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  min-height: 46px;
+}
+
+.wallet-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--cosmos-accent);
+  color: var(--cosmos-accent);
+  transform: translateY(-1px);
+}
+
+.wallet-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.wallet-btn.connected {
+  background: var(--bg-secondary);
+  border-color: #28a745;
+  color: #28a745;
+}
+
+.wallet-btn.connected:hover {
+  border-color: var(--cosmos-accent);
+  color: var(--cosmos-accent);
+}
+
+.copy-icon-small {
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.copy-icon-small:hover {
+  opacity: 1;
+  color: var(--cosmos-accent);
+}
+
+.font-monospace {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+</style>
