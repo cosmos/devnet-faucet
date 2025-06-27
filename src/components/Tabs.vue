@@ -42,7 +42,7 @@
     <div class="tab-content">
       <NetworkInfo v-if="activeTab === 'network'" />
       <FaucetTab v-if="activeTab === 'faucet'" />
-      <RecentTransactions v-if="activeTab === 'recent'" />
+      <RecentTransactionsTab v-if="activeTab === 'recent'" />
     </div>
   </div>
 </template>
@@ -51,7 +51,7 @@
 import { ref } from 'vue'
 import NetworkInfo from './tabs/NetworkInfo.vue'
 import FaucetTab from './tabs/FaucetTab.vue'
-import RecentTransactions from './tabs/RecentTransactions.vue'
+import RecentTransactionsTab from './tabs/RecentTransactionsTab.vue'
 import { useTransactions } from '../composables/useTransactions'
 
 const activeTab = ref('faucet')

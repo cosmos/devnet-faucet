@@ -349,15 +349,24 @@ const requestToken = async () => {
       address: address.value,
       addressType: addressType.value,
       success: false,
-      data: { error: err.message },
+      data: { 
+        error: err.message,
+        result: {
+          message: err.message,
+          network_type: addressType.value.toLowerCase()
+        }
+      },
       hash: null,
       timestamp: new Date()
     })
     
     message.value = `
-      <div class="alert alert-danger">
-        <h6><i class="fas fa-exclamation-triangle me-2"></i>Network Error</h6>
+      <div class="alert alert-danger alert-dismissible show fade" role="alert">
+        <h6 class="alert-heading">
+          <i class="fas fa-exclamation-triangle me-2"></i>Network Error
+        </h6>
         <p class="mb-0">${err.message}</p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>`
   } finally {
     isLoading.value = false
