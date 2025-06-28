@@ -229,15 +229,28 @@ const formatAddress = (addr) => {
   return addr.slice(0, 6) + '...' + addr.slice(-4)
 }
 
+const closeDropdown = () => {
+  // Close Bootstrap dropdown programmatically
+  const dropdownElement = document.querySelector('.dropdown-menu.show')
+  if (dropdownElement) {
+    const dropdown = bootstrap.Dropdown.getInstance(dropdownElement.previousElementSibling)
+    if (dropdown) {
+      dropdown.hide()
+    }
+  }
+}
+
 const useCosmosAddress = () => {
   if (cosmosWallet.connected && cosmosWallet.address) {
     address.value = cosmosWallet.address
+    closeDropdown()
   }
 }
 
 const useEvmAddress = () => {
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
+    closeDropdown()
   }
 }
 
