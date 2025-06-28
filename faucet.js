@@ -815,6 +815,15 @@ app.get('/send/:address', async (req, res) => {
             }
             
             console.log('Needed amounts:', neededAmounts);
+      
+      // Filter out IBC tokens without contracts for EVM addresses
+      if (addressType === 'evm') {
+        neededAmounts = neededAmounts.filter(token => {
+          // Keep tokens that have a valid contract address (including native placeholder)
+          return token.erc20_contract && token.erc20_contract !== null;
+        });
+        console.log('Filtered needed amounts (removed IBC without contracts):', neededAmounts);
+      }
           }
 
           // Step 3: Check if any tokens are needed
@@ -1171,12 +1180,15 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
   console.log('All needed amounts:', neededAmounts);
 
   // Separate ERC20 and native tokens
-  // WATOM (0xEeeee...) is now treated as ERC20 since we use its ERC20 interface
+  // Separate ERC20s from native tokens
+  // WATOM (0xEeeee...) is actually native ATOM, not an ERC20
   const erc20Tokens = neededAmounts.filter(t => t.erc20_contract && 
-    t.erc20_contract !== "0x0000000000000000000000000000000000000000"
+    t.erc20_contract !== "0x0000000000000000000000000000000000000000" &&
+    t.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
   );
   const nativeTokens = neededAmounts.filter(t => !t.erc20_contract || 
-    t.erc20_contract === "0x0000000000000000000000000000000000000000"
+    t.erc20_contract === "0x0000000000000000000000000000000000000000" ||
+    t.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
   );
 
   const results = {
@@ -1287,12 +1299,15 @@ async function sendSmartEvmTx(recipientAddress, neededAmounts) {
   
 
   // Separate ERC20 and native tokens
-  // WATOM (0xEeeee...) is now treated as ERC20 since we use its ERC20 interface
+  // Separate ERC20s from native tokens
+  // WATOM (0xEeeee...) is actually native ATOM, not an ERC20
   const erc20Tokens = neededAmounts.filter(t => t.erc20_contract && 
-    t.erc20_contract !== "0x0000000000000000000000000000000000000000"
+    t.erc20_contract !== "0x0000000000000000000000000000000000000000" &&
+    t.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
   );
   const nativeTokens = neededAmounts.filter(t => !t.erc20_contract || 
-    t.erc20_contract === "0x0000000000000000000000000000000000000000"
+    t.erc20_contract === "0x0000000000000000000000000000000000000000" ||
+    t.erc20_contract === "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
   );
 
   const ethProvider = new JsonRpcProvider(chainConf.endpoints.evm_endpoint);
