@@ -225,12 +225,14 @@ const formatAddress = (addr) => {
 }
 
 const useCosmosAddress = () => {
+  console.log('useCosmosAddress called', cosmosWallet.connected, cosmosWallet.address)
   if (cosmosWallet.connected && cosmosWallet.address) {
     address.value = cosmosWallet.address
   }
 }
 
 const useEvmAddress = () => {
+  console.log('useEvmAddress called', evmWallet.connected, evmWallet.address)
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
   }
