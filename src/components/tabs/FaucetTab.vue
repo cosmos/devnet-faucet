@@ -111,7 +111,8 @@
                   title="Use connected wallet address"
                 >
                   <i class="fas fa-wallet me-1"></i>
-                  Use Wallet
+                  Wallet
+                  <i class="fas fa-caret-down ms-1" style="font-size: 0.8em;"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li v-if="cosmosWallet.connected">
@@ -148,7 +149,7 @@
         
         <!-- Submit Button -->
         <button 
-          class="btn btn-primary w-100"
+          class="btn-glow w-100"
           @click="requestToken"
           :disabled="!isValidAddress || isLoading"
         >
@@ -225,21 +226,18 @@ const formatAddress = (addr) => {
 }
 
 const useCosmosAddress = () => {
-  console.log('useCosmosAddress called', cosmosWallet.connected, cosmosWallet.address)
   if (cosmosWallet.connected && cosmosWallet.address) {
     address.value = cosmosWallet.address
   }
 }
 
 const useEvmAddress = () => {
-  console.log('useEvmAddress called', evmWallet.connected, evmWallet.address)
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
   }
 }
 
 const openModal = () => {
-  console.log('openModal called, openAppKitModal exists:', !!openAppKitModal)
   if (openAppKitModal) {
     try {
       // Check for wallet conflicts before opening
@@ -247,7 +245,6 @@ const openModal = () => {
         console.warn('Multiple wallet providers detected:', window.ethereum.providers.length)
         // Still try to open - the user can select their preferred wallet
       }
-      console.log('Calling openAppKitModal...')
       openAppKitModal()
     } catch (error) {
       console.error('Error opening modal:', error)

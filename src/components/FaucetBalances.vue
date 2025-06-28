@@ -2,10 +2,6 @@
   <div>
     <!-- Token Information -->
     <div class="mb-4" v-if="config && config.tokens">
-      <h6 class="text-muted mb-3">
-        <i class="fas fa-coins me-2"></i>
-        Available Tokens
-      </h6>
       <div class="row g-3">
         <div v-for="token in allTokens" :key="token.denom" class="col-md-6 col-lg-4">
           <div 
@@ -47,7 +43,7 @@
               <!-- Token Amount and Balance -->
               <div class="token-amounts">
                 <div class="token-amount">
-                  <strong>Faucet: {{ formatTokenAmount(token) }}</strong>
+                  <strong>Claim: {{ formatClaimableAmount(token) }}</strong>
                 </div>
                 <div v-if="tokenBalances[token.denom]" class="token-balance">
                   <small class="text-muted">
@@ -186,8 +182,11 @@ const isTokenCompatible = (token) => {
 
 const getTokenStatusClass = (token) => {
   const status = getTokenStatus(token)
+  const claimPercentage = getClaimPercentage(token)
+  
   return {
-    'status-available': status === 'available',
+    'status-available': status === 'available' && claimPercentage >= 50,
+    'status-partial': status === 'available' && claimPercentage < 50,
     'status-maxed': status === 'maxed',
     'status-incompatible': status === 'incompatible',
     'status-neutral': status === 'neutral' || !props.address
@@ -244,6 +243,32 @@ const formatIbcDenom = (denom) => {
 const formatTokenAmount = (token) => {
   const amount = token.target_balance || token.amount || 0
   const formatted = formatBalance(amount, token.decimals || 0)
+  const symbol = getTokenSymbol(token)
+  return `${formatted} ${symbol}`
+}
+
+const getClaimPercentage = (token) => {
+  const claimable = getClaimableAmountRaw(token)
+  const target = parseFloat(token.target_balance || token.amount || 0)
+  if (!target) return 0
+  return (claimable / target) * 100
+}
+
+const getClaimableAmountRaw = (token) => {
+  const target = parseFloat(token.target_balance || token.amount || 0)
+  const balance = tokenBalances.value[token.denom]
+  
+  if (!balance) return target
+  
+  const current = parseFloat(balance.amount) || 0
+  const remaining = target - current
+  
+  return Math.max(0, remaining)
+}
+
+const formatClaimableAmount = (token) => {
+  const claimable = getClaimableAmountRaw(token)
+  const formatted = formatBalance(claimable, token.decimals || 0)
   const symbol = getTokenSymbol(token)
   return `${formatted} ${symbol}`
 }
@@ -370,6 +395,10 @@ onMounted(() => {
 
 .token-card.status-available {
   border-color: #28a745;
+}
+
+.token-card.status-partial {
+  border-color: #ff9800;
 }
 
 .token-card.status-maxed {
