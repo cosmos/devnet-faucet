@@ -100,18 +100,21 @@
                 'is-invalid': address && !isValidAddress 
               }"
             >
-            <!-- Connected Wallet Quick Select -->
+            <!-- Connected Wallet Quick Select / Request Button -->
             <div v-if="hasConnectedWallets" class="input-group-text p-0">
               <div class="dropdown">
                 <button 
-                  class="btn btn-sm btn-link dropdown-toggle text-decoration-none" 
+                  class="btn btn-sm dropdown-toggle wallet-request-btn" 
+                  :class="{ 'has-valid-address': isValidAddress }"
                   type="button" 
                   data-bs-toggle="dropdown" 
                   aria-expanded="false"
-                  title="Use connected wallet address"
+                  :title="isValidAddress ? 'Request tokens or change wallet' : 'Select wallet address'"
+                  @click="handleWalletButtonClick"
                 >
-                  <i class="fas fa-wallet me-1"></i>
-                  Wallet
+                  <i v-if="!isValidAddress" class="fas fa-wallet me-1"></i>
+                  <i v-else class="fas fa-faucet me-1"></i>
+                  {{ isValidAddress ? 'Request' : 'Wallet' }}
                   <i class="fas fa-caret-down ms-1" style="font-size: 0.8em;"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -147,9 +150,10 @@
           </small>
         </div>
         
-        <!-- Submit Button -->
+        <!-- Submit Button (only show if no wallets connected) -->
         <button 
-          class="btn-request-tokens"
+          v-if="!hasConnectedWallets"
+          class="btn btn-primary w-100 mt-3"
           @click="requestToken"
           :disabled="!isValidAddress || isLoading"
         >
@@ -265,6 +269,16 @@ const handleEvmDisconnect = async () => {
     await disconnectAppKit()
   }
   disconnectEvm()
+}
+
+const handleWalletButtonClick = (event) => {
+  // If valid address, also trigger request on button click
+  if (isValidAddress.value && !isLoading.value) {
+    event.stopPropagation()
+    event.preventDefault()
+    requestToken()
+  }
+  // Let dropdown still open for wallet switching
 }
 
 const requestToken = async () => {
@@ -515,6 +529,33 @@ const copyToClipboard = async (text) => {
 @keyframes glow-pulse {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.8; }
+}
+
+/* Wallet/Request dropdown button */
+.wallet-request-btn {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.wallet-request-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--cosmos-accent);
+  color: var(--cosmos-accent);
+}
+
+.wallet-request-btn.has-valid-address {
+  border: 2px solid #00ff88;
+  color: var(--cosmos-accent);
+  font-weight: 600;
+}
+
+.wallet-request-btn.has-valid-address:hover {
+  background: rgba(0, 255, 136, 0.1);
+  transform: scale(1.02);
 }
 </style>
 

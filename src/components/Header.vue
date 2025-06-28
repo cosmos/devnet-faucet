@@ -113,9 +113,10 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 
 .nav-icons {
   display: flex;
-  gap: 3rem;
-  align-items: center;
-  margin-right: -3rem;
+  gap: 2rem;
+  align-items: flex-end;
+  margin-right: -1rem;
+  padding-bottom: 0.5rem;
 }
 
 .nav-link {
@@ -185,8 +186,9 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   }
   
   .nav-icons {
-    gap: 2rem;
-    margin-right: -1rem;
+    gap: 1.5rem;
+    margin-right: 0;
+    padding-bottom: 0.3rem;
   }
   
   .icon-wrapper {
