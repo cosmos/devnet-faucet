@@ -93,7 +93,7 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 
 .nav-icons {
   display: flex;
-  gap: 1.5rem;
+  gap: 3rem;
   align-items: center;
 }
 
@@ -101,10 +101,13 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   text-decoration: none;
   color: var(--text-primary);
   transition: color 0.3s ease;
+  position: relative;
+  z-index: 10;
 }
 
 .nav-link:hover {
   color: var(--cosmos-accent);
+  z-index: 20;
 }
 
 .icon-wrapper {
@@ -114,7 +117,7 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .nav-icon {
@@ -151,7 +154,7 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   }
   
   .nav-icons {
-    gap: 1rem;
+    gap: 2rem;
   }
   
   .icon-wrapper {
