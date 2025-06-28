@@ -237,6 +237,7 @@ const useEvmAddress = () => {
 }
 
 const openModal = () => {
+  console.log('openModal called, openAppKitModal exists:', !!openAppKitModal)
   if (openAppKitModal) {
     try {
       // Check for wallet conflicts before opening
@@ -244,6 +245,7 @@ const openModal = () => {
         console.warn('Multiple wallet providers detected:', window.ethereum.providers.length)
         // Still try to open - the user can select their preferred wallet
       }
+      console.log('Calling openAppKitModal...')
       openAppKitModal()
     } catch (error) {
       console.error('Error opening modal:', error)

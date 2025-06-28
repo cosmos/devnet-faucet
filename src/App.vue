@@ -31,8 +31,12 @@ provide('appKitModal', modal)
 
 // Also provide a simple open function
 const openAppKitModal = () => {
+  console.log('openAppKitModal in App.vue called, modal.value:', modal.value)
   if (modal.value && modal.value.open) {
+    console.log('Calling modal.value.open()...')
     modal.value.open()
+  } else {
+    console.error('Modal not initialized or open method not available')
   }
 }
 provide('openAppKitModal', openAppKitModal)
