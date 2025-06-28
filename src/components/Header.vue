@@ -80,12 +80,15 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 
 .brand-logo {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 2.5rem;
+  font-size: 4rem;
   font-weight: bold;
   margin: 0;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.15em;
   color: var(--cosmos-accent);
   text-transform: lowercase;
+  line-height: 0.8;
+  transform: scaleX(1.2);
+  transform-origin: left center;
 }
 
 .nav-icons {
@@ -144,7 +147,7 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .brand-logo {
-    font-size: 2rem;
+    font-size: 3rem;
   }
   
   .nav-icons {
