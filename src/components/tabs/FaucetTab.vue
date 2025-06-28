@@ -149,7 +149,7 @@
         
         <!-- Submit Button -->
         <button 
-          class="btn-glow w-100"
+          class="btn-request-tokens"
           @click="requestToken"
           :disabled="!isValidAddress || isLoading"
         >
@@ -450,6 +450,73 @@ const copyToClipboard = async (text) => {
   }
 }
 </script>
+
+<style scoped>
+/* Special Request Tokens button */
+.btn-request-tokens {
+  background: linear-gradient(135deg, #00ff88 0%, var(--cosmos-accent) 100%);
+  border: 3px solid rgba(0, 255, 136, 0.3);
+  color: #000;
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  width: auto;
+  max-width: 320px;
+  margin: 1.5rem auto;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+}
+
+.btn-request-tokens:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(0, 255, 136, 0.5);
+  border-color: rgba(0, 255, 136, 0.6);
+  color: #000;
+}
+
+.btn-request-tokens:active {
+  transform: translateY(0) scale(1);
+}
+
+.btn-request-tokens:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: linear-gradient(135deg, #666 0%, #888 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-request-tokens::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, transparent, rgba(0, 255, 136, 0.4), transparent);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 12px;
+}
+
+.btn-request-tokens:hover::before {
+  opacity: 1;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+</style>
 
 <style scoped>
 .wallet-btn {

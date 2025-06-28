@@ -2,7 +2,10 @@
   <div class="header">
     <div class="container">
       <div class="d-flex justify-content-between align-items-center">
-        <h1 class="brand-logo">cosmos</h1>
+        <div class="brand-container">
+          <h1 class="brand-logo">cosmos</h1>
+          <span class="brand-subtitle">DEVNET</span>
+        </div>
         <nav class="nav-icons">
           <a 
             href="https://cosmos-docs.mintlify.app/docs" 
@@ -78,23 +81,41 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   padding: 1.5rem 0;
 }
 
+.brand-container {
+  position: relative;
+  margin-left: -1rem;
+}
+
 .brand-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 4rem;
-  font-weight: bold;
+  font-family: 'Bungee', cursive;
+  font-size: 3.5rem;
+  font-weight: 400;
   margin: 0;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.02em;
   color: var(--cosmos-accent);
   text-transform: lowercase;
-  line-height: 0.8;
-  transform: scaleX(1.2);
+  line-height: 0.7;
+  transform: scaleY(0.7);
   transform-origin: left center;
+}
+
+.brand-subtitle {
+  position: absolute;
+  bottom: -0.5rem;
+  right: -1rem;
+  font-family: 'Bungee', cursive;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #00ff88;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .nav-icons {
   display: flex;
   gap: 3rem;
   align-items: center;
+  margin-right: -3rem;
 }
 
 .nav-link {
@@ -130,9 +151,9 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 .nav-text {
   position: absolute;
   opacity: 0;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.2rem;
-  letter-spacing: 0.05em;
+  font-family: 'Bungee', cursive;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
   text-transform: lowercase;
   transition: all 0.3s ease;
   white-space: nowrap;
@@ -149,12 +170,23 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .brand-container {
+    margin-left: 0;
+  }
+  
   .brand-logo {
-    font-size: 3rem;
+    font-size: 2.5rem;
+  }
+  
+  .brand-subtitle {
+    font-size: 0.7rem;
+    bottom: -0.3rem;
+    right: -0.5rem;
   }
   
   .nav-icons {
     gap: 2rem;
+    margin-right: -1rem;
   }
   
   .icon-wrapper {
