@@ -95,8 +95,25 @@ onMounted(async () => {
       projectId: import.meta.env.VITE_REOWN_PROJECT_ID || 'YOUR_PROJECT_ID'
     })
     
-    // Create AppKit modal
+    // Create AppKit modal with enhanced error handling
     try {
+      // Check for conflicting wallet extensions
+      if (window.ethereum) {
+        // Log available providers
+        const providers = window.ethereum.providers || [window.ethereum]
+        console.log(`Found ${providers.length} wallet provider(s)`)
+        
+        // If multiple providers exist, try to find MetaMask or a preferred one
+        if (window.ethereum.providers && window.ethereum.providers.length > 1) {
+          console.warn('Multiple wallet providers detected. This may cause connection issues.')
+          // Try to find MetaMask specifically
+          const metamaskProvider = window.ethereum.providers.find(p => p.isMetaMask && !p.isBraveWallet)
+          if (metamaskProvider) {
+            console.log('Using MetaMask provider')
+          }
+        }
+      }
+      
       const appKitInstance = createAppKit({
         adapters: [wagmiAdapter],
         networks: [customNetwork],
@@ -108,6 +125,15 @@ onMounted(async () => {
           socials: false,
           swaps: false,
           onramp: false
+        },
+        // Add additional config to handle multiple wallets
+        walletConnectConfig: {
+          // Prefer injected wallets when multiple are available
+          qrModalOptions: {
+            themeVariables: {
+              '--wcm-z-index': '10000'
+            }
+          }
         }
       })
       
@@ -116,6 +142,8 @@ onMounted(async () => {
       console.log('Wallet connector initialized')
     } catch (error) {
       console.error('Failed to create AppKit modal:', error)
+      // Don't let initialization failure break the app
+      console.warn('Wallet connection may be limited due to initialization error')
     }
     
     // Subscribe to account changes

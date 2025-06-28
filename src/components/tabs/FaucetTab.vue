@@ -34,15 +34,6 @@
                     Connect Keplr Wallet
                   </span>
                 </button>
-                <button 
-                  v-if="cosmosWallet.connected"
-                  type="button" 
-                  class="btn btn-primary"
-                  @click="useCosmosAddress()"
-                  title="Use this address"
-                >
-                  <i class="fas fa-arrow-down"></i>
-                </button>
               </div>
               <!-- Show full address when connected -->
               <div v-if="cosmosWallet.connected && cosmosWallet.address" class="mt-1">
@@ -79,15 +70,6 @@
                     Connect EVM Wallet
                   </span>
                 </button>
-                <button 
-                  v-if="evmWallet.connected"
-                  type="button" 
-                  class="btn btn-primary"
-                  @click="useEvmAddress()"
-                  title="Use this address"
-                >
-                  <i class="fas fa-arrow-down"></i>
-                </button>
               </div>
               <!-- Show full address when connected -->
               <div v-if="evmWallet.connected && evmWallet.address" class="mt-1">
@@ -107,19 +89,56 @@
         <!-- Address Input -->
         <div class="mb-3">
           <label class="form-label text-muted">Wallet Address</label>
-          <input 
-            type="text" 
-            class="form-control" 
-            v-model="address"
-            placeholder="cosmos... or 0x..."
-            :class="{ 
-              'is-valid': address && isValidAddress, 
-              'is-invalid': address && !isValidAddress 
-            }"
-          >
+          <div class="input-group">
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="address"
+              placeholder="cosmos... or 0x..."
+              :class="{ 
+                'is-valid': address && isValidAddress, 
+                'is-invalid': address && !isValidAddress 
+              }"
+            >
+            <!-- Connected Wallet Quick Select -->
+            <div v-if="hasConnectedWallets" class="input-group-text p-0">
+              <div class="dropdown">
+                <button 
+                  class="btn btn-sm btn-link dropdown-toggle text-decoration-none" 
+                  type="button" 
+                  data-bs-toggle="dropdown" 
+                  aria-expanded="false"
+                  title="Use connected wallet address"
+                >
+                  <i class="fas fa-wallet me-1"></i>
+                  Use Wallet
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li v-if="cosmosWallet.connected">
+                    <a class="dropdown-item" href="#" @click.prevent="useCosmosAddress">
+                      <i class="fas fa-atom me-2"></i>
+                      <span class="text-truncate">{{ formatAddress(cosmosWallet.address) }}</span>
+                      <small class="text-muted ms-1">(Cosmos)</small>
+                    </a>
+                  </li>
+                  <li v-if="evmWallet.connected">
+                    <a class="dropdown-item" href="#" @click.prevent="useEvmAddress">
+                      <i class="fab fa-ethereum me-2"></i>
+                      <span class="text-truncate">{{ formatAddress(evmWallet.address) }}</span>
+                      <small class="text-muted ms-1">(EVM)</small>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
           <small v-if="isValidAddress" class="text-success">
             <i class="fas fa-check-circle me-1"></i>
             Valid {{ addressType }} address
+            <span v-if="addressMatchesWallet" class="ms-1">
+              <i class="fas fa-link"></i>
+              ({{ connectedWalletType }})
+            </span>
           </small>
           <small v-else-if="address" class="text-danger">
             <i class="fas fa-exclamation-circle me-1"></i>
@@ -184,6 +203,22 @@ const addressType = computed(() => {
   return address.value.startsWith('cosmos') ? 'Cosmos' : 'EVM'
 })
 
+const hasConnectedWallets = computed(() => {
+  return cosmosWallet.connected || evmWallet.connected
+})
+
+const addressMatchesWallet = computed(() => {
+  if (!address.value) return false
+  return (cosmosWallet.connected && address.value === cosmosWallet.address) ||
+         (evmWallet.connected && address.value === evmWallet.address)
+})
+
+const connectedWalletType = computed(() => {
+  if (cosmosWallet.connected && address.value === cosmosWallet.address) return 'Keplr'
+  if (evmWallet.connected && address.value === evmWallet.address) return 'EVM Wallet'
+  return ''
+})
+
 const formatAddress = (addr) => {
   if (!addr) return ''
   return addr.slice(0, 6) + '...' + addr.slice(-4)
@@ -204,9 +239,20 @@ const useEvmAddress = () => {
 const openModal = () => {
   if (openAppKitModal) {
     try {
+      // Check for wallet conflicts before opening
+      if (window.ethereum && window.ethereum.providers && window.ethereum.providers.length > 1) {
+        console.warn('Multiple wallet providers detected:', window.ethereum.providers.length)
+        // Still try to open - the user can select their preferred wallet
+      }
       openAppKitModal()
     } catch (error) {
       console.error('Error opening modal:', error)
+      // Provide more helpful error message
+      if (error.message && error.message.includes('providers')) {
+        alert('Multiple wallet extensions detected. Please disable all but one wallet extension and try again.')
+      } else {
+        alert('Failed to open wallet connection dialog. Please refresh the page and try again.')
+      }
     }
   } else {
     alert('Wallet connection is initializing. Please try again in a moment.')
@@ -459,5 +505,45 @@ const copyToClipboard = async (text) => {
 .font-monospace {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.875rem;
+}
+
+/* Input group improvements */
+.input-group-text {
+  background: transparent;
+  border-left: none;
+}
+
+.dropdown-toggle {
+  color: var(--cosmos-accent) !important;
+  font-size: 0.9rem;
+  padding: 0.375rem 0.75rem;
+}
+
+.dropdown-toggle:hover {
+  background: var(--bg-secondary);
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.dropdown-menu {
+  min-width: 200px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dropdown-item {
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: var(--bg-secondary);
+  color: var(--cosmos-accent);
+}
+
+.dropdown-item i {
+  width: 20px;
+  text-align: center;
 }
 </style>

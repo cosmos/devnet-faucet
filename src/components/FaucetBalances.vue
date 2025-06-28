@@ -1,20 +1,5 @@
 <template>
   <div>
-    <!-- WATOM Explanation Panel -->
-    <div class="watom-info mb-4">
-      <div class="info-icon">
-        <i class="fas fa-info-circle"></i>
-      </div>
-      <div class="info-content">
-        <h6 class="mb-2">Native ATOM for EVM = WATOM</h6>
-        <p class="mb-0">
-          When sending to EVM addresses, the native ATOM token is automatically wrapped as WATOM (Wrapped ATOM) 
-          with 18 decimals. This ERC20 representation allows EVM smart contracts and wallets to interact with 
-          ATOM seamlessly while maintaining compatibility with the native token.
-        </p>
-      </div>
-    </div>
-
     <!-- Token Information -->
     <div class="mb-4" v-if="config && config.tokens">
       <h6 class="text-muted mb-3">
@@ -89,6 +74,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Help Tip (shown below tokens) -->
+    <div class="help-tip mt-4" v-if="addressType === 'evm'">
+      <div class="help-icon">
+        <i class="fas fa-info-circle"></i>
+      </div>
+      <div class="help-content">
+        <h6 class="mb-2">About WATOM</h6>
+        <p class="mb-0">
+          WATOM represents native ATOM on the EVM side. It's the same token that powers both Cosmos and EVM transactions,
+          displayed with ATOM's standard 6 decimal precision. Whether you check your balance as "native" or "ERC20",
+          you'll see the same ATOM amount.
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -111,28 +111,30 @@ const addressType = computed(() => {
   return props.address.startsWith('cosmos') ? 'cosmos' : 'evm'
 })
 
-// Show all tokens and add WATOM for EVM addresses
+// Show appropriate tokens based on address type
 const allTokens = computed(() => {
   if (!config.value || !config.value.tokens) return []
   
-  const tokens = [...config.value.tokens]
+  let tokens = [...config.value.tokens]
   
-  // If viewing as EVM address, add WATOM representation
   if (addressType.value === 'evm') {
-    // Find native ATOM token
-    const atomToken = tokens.find(t => t.denom === 'uatom')
+    // For EVM addresses: hide native ATOM, show WATOM instead
+    tokens = tokens.filter(t => t.denom !== 'uatom')
+    
+    // Find native ATOM token to create WATOM display
+    const atomToken = config.value.tokens.find(t => t.denom === 'uatom')
     if (atomToken) {
-      // Add WATOM as a separate display token
+      // Add WATOM as the EVM representation of ATOM
       tokens.push({
         ...atomToken,
         denom: 'watom',
         symbol: 'WATOM',
         name: 'Wrapped ATOM',
         type: 'wrapped',
-        decimals: 18, // WATOM uses 18 decimals
-        contract: '0x0000000000000000000000000000000000000802', // ERC20 precompile address
-        description: 'ERC20 representation of native ATOM for EVM compatibility',
-        isWrappedDisplay: true // Flag to indicate this is a display-only entry
+        decimals: 6, // Using ATOM's native 6 decimals for cleaner display
+        contract: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE', // Native token placeholder
+        description: 'Native ATOM on EVM (direct substitute for ETH)',
+        isWrappedDisplay: true // Flag to indicate this is ATOM for EVM
       })
     }
   }
@@ -318,7 +320,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.watom-info {
+.help-tip {
   display: flex;
   gap: 1rem;
   padding: 1rem;
@@ -328,22 +330,32 @@ onMounted(() => {
   align-items: flex-start;
 }
 
-.info-icon {
+.help-icon {
   color: var(--cosmos-accent);
   font-size: 1.5rem;
   flex-shrink: 0;
 }
 
-.info-content h6 {
+.help-content h6 {
   color: var(--cosmos-accent);
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
-.info-content p {
+.help-content p {
   color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.help-content ul {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding-left: 1.5rem;
+}
+
+.help-content li {
+  margin-bottom: 0.25rem;
 }
 
 .token-card {

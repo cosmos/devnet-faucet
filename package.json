@@ -9,7 +9,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node --experimental-modules --es-module-specifier-resolution=node faucet.js",
     "predocker": "docker compose down --remove-orphans && docker-compose build faucet",
     "docker": "docker compose run --rm --remove-orphans -e HOST=0.0.0.0 -p 8088:8088 faucet",
     "docker:build": "docker-compose build faucet",
@@ -18,13 +17,7 @@
     "deploy:test": "node scripts/automated-deploy.js --test",
     "validate": "node scripts/validate-environment.js",
     "extract-abi": "node scripts/extract-abi.js",
-    "approve-tokens": "node scripts/approve-tokens.js",
-    "approval:check": "node scripts/setup-approvals.js check",
-    "approval:approve": "node scripts/setup-approvals.js approve",
-    "approval:approve-max": "node scripts/setup-approvals.js approve-max",
-    "approval:revoke": "node scripts/setup-approvals.js revoke",
-    "approval:balance": "node scripts/setup-approvals.js balance",
-    "approval:help": "node scripts/setup-approvals.js help"
+    "approval": "node scripts/setup-approvals.js"
   },
   "repository": {
     "type": "git",
@@ -47,6 +40,8 @@
     "@cosmjs/encoding": "0.31.0",
     "@cosmjs/proto-signing": "^0.31",
     "@cosmjs/stargate": "^0.31",
+    "@cosmjs/tendermint-rpc": "^0.33.1",
+    "@evmos/proto": "^0.2.1",
     "@noble/curves": "^1.9.2",
     "@noble/hashes": "^1.8.0",
     "@reown/appkit": "^1.7.11",
@@ -64,6 +59,7 @@
     "express-rate-limit": "^6.7.0",
     "long": "^5.2.3",
     "node-fetch": "^3.3.2",
+    "secp256k1": "^5.0.1",
     "tiny-secp256k1": "^2.2.3",
     "viem": "^2.31.4",
     "vue": "^3.5.17"
