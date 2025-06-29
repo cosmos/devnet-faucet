@@ -257,8 +257,8 @@ const handleCosmosConnect = async () => {
       // We're already in Keplr browser, just connect normally
       await connectKeplr(config.value?.network)
     } else {
-      // Use Keplr deep link to open in Keplr browser
-      const currentUrl = encodeURIComponent(window.location.href)
+      // Use Keplr deep link to show address
+      const chainId = config.value?.network?.cosmos?.chainId || 'cosmoshub-4'
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
       const isAndroid = /Android/i.test(navigator.userAgent)
       
@@ -266,51 +266,52 @@ const handleCosmosConnect = async () => {
       
       if (isIOS) {
         // iOS: Use custom URL scheme
-        deepLink = `keplrwallet://web-browser?url=${currentUrl}`
+        deepLink = `keplrwallet://show-address?chainId=${chainId}`
       } else if (isAndroid) {
         // Android: Use intent-based deeplink
-        deepLink = `intent://web-browser?url=${currentUrl}#Intent;package=com.chainapsis.keplr;scheme=keplrwallet;end;`
+        deepLink = `intent://show-address?chainId=${chainId}#Intent;package=com.chainapsis.keplr;scheme=keplrwallet;end;`
       } else {
         // Fallback: Use universal link
-        deepLink = `https://deeplink.keplr.app/web-browser?url=${currentUrl}`
+        deepLink = `https://deeplink.keplr.app/show-address?chainId=${chainId}`
       }
       
-      // Try to open Keplr
+      // Try to open Keplr to show address
       window.location.href = deepLink
       
-      // Show instructions in case the deep link doesn't work
-      setTimeout(() => {
-        message.value = `
-          <div class="alert alert-info alert-dismissible show fade" role="alert">
-            <h6 class="alert-heading">
-              <i class="fas fa-mobile-alt me-2"></i>Opening Keplr...
-            </h6>
-            <p class="mb-3">Keplr should be opening. Once it loads:</p>
-            <ol class="mb-3">
-              <li>The page will reload in Keplr's browser</li>
-              <li>Click "Connect Keplr Wallet" again</li>
-              <li>Approve the connection</li>
-            </ol>
+      // Show instructions
+      message.value = `
+        <div class="alert alert-info alert-dismissible show fade" role="alert">
+          <h6 class="alert-heading">
+            <i class="fas fa-mobile-alt me-2"></i>Opening Keplr...
+          </h6>
+          <p class="mb-3">Keplr should display your address. Copy it and paste below:</p>
+          
+          <div class="d-grid gap-2 mb-3">
+            <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.readText().then(text => { 
+              const input = document.querySelector('input[placeholder*=cosmos]');
+              if (input && text.startsWith('cosmos')) {
+                input.value = text;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            }).catch(() => alert('Please paste your address manually'))">
+              <i class="fas fa-paste me-2"></i>
+              Paste Address from Clipboard
+            </button>
             
-            <p class="mb-2">If Keplr didn't open:</p>
-            <div class="d-grid gap-2">
-              <a href="${deepLink}" class="btn btn-primary btn-sm">
-                <i class="fas fa-external-link-alt me-2"></i>
-                Try Again
-              </a>
-              
-              <a href="${isIOS ? 'https://apps.apple.com/app/keplr-wallet/id1567851089' : 'https://play.google.com/store/apps/details?id=com.chainapsis.keplr'}" 
-                 class="btn btn-outline-secondary btn-sm" 
-                 target="_blank">
-                <i class="fas fa-download me-2"></i>
-                Install Keplr
-              </a>
-            </div>
-            
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <a href="${deepLink}" class="btn btn-outline-secondary btn-sm">
+              <i class="fas fa-redo me-2"></i>
+              Show Address Again
+            </a>
           </div>
-        `
-      }, 1500)
+          
+          <p class="mb-0 small text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            After copying your address from Keplr, return here and paste it.
+          </p>
+          
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      `
     }
   } else {
     connectKeplr(config.value?.network)
