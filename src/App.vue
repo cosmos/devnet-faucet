@@ -2,6 +2,22 @@
   <div id="app">
     <Header />
     <div class="container">
+      <!-- Multiple Wallets Warning -->
+      <div v-if="showWalletWarning" class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+        <h6 class="alert-heading">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Multiple Wallet Extensions Detected
+        </h6>
+        <p class="mb-2">
+          You have multiple wallet extensions installed (e.g., MetaMask, Coinbase Wallet). 
+          This may cause connection issues.
+        </p>
+        <p class="mb-0">
+          <strong>Recommendation:</strong> Disable all wallet extensions except the one you want to use, 
+          then refresh the page.
+        </p>
+        <button type="button" class="btn-close" @click="showWalletWarning = false" aria-label="Close"></button>
+      </div>
       <Tabs />
     </div>
     <TransactionModal />
@@ -25,6 +41,7 @@ const walletStore = useWalletStore()
 
 // Initialize Reown AppKit - use ref to make it reactive
 const modal = ref(null)
+const showWalletWarning = ref(false)
 
 // Provide the modal ref immediately during setup
 provide('appKitModal', modal)
@@ -98,19 +115,28 @@ onMounted(async () => {
     // Create AppKit modal with enhanced error handling
     try {
       // Check for conflicting wallet extensions
-      if (window.ethereum) {
-        // Log available providers
-        const providers = window.ethereum.providers || [window.ethereum]
-        console.log(`Found ${providers.length} wallet provider(s)`)
-        
-        // If multiple providers exist, try to find MetaMask or a preferred one
-        if (window.ethereum.providers && window.ethereum.providers.length > 1) {
-          console.warn('Multiple wallet providers detected. This may cause connection issues.')
-          // Try to find MetaMask specifically
-          const metamaskProvider = window.ethereum.providers.find(p => p.isMetaMask && !p.isBraveWallet)
-          if (metamaskProvider) {
-            console.log('Using MetaMask provider')
+      try {
+        if (window.ethereum) {
+          // Log available providers
+          const providers = window.ethereum.providers || [window.ethereum]
+          console.log(`Found ${providers.length} wallet provider(s)`)
+          
+          // If multiple providers exist, try to find MetaMask or a preferred one
+          if (window.ethereum.providers && window.ethereum.providers.length > 1) {
+            console.warn('Multiple wallet providers detected. This may cause connection issues.')
+            showWalletWarning.value = true
+            // Try to find MetaMask specifically
+            const metamaskProvider = window.ethereum.providers.find(p => p.isMetaMask && !p.isBraveWallet)
+            if (metamaskProvider) {
+              console.log('Using MetaMask provider')
+            }
           }
+        }
+      } catch (providerError) {
+        console.warn('Error checking wallet providers:', providerError.message)
+        // The error about "Cannot set property ethereum" is expected when multiple wallets conflict
+        if (providerError.message.includes('Cannot set property ethereum')) {
+          showWalletWarning.value = true
         }
       }
       
@@ -193,3 +219,20 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+/* Multiple wallet warning */
+.alert-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 2px solid #ffc107;
+  color: var(--text-primary);
+}
+
+.alert-warning .alert-heading {
+  color: #ffc107;
+}
+
+.alert-warning .btn-close {
+  filter: invert(0.8);
+}
+</style>
