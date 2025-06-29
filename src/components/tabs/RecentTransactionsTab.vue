@@ -2,9 +2,9 @@
   <div>
     <div v-if="recentTransactions.length > 0">
       <div v-for="(tx, index) in recentTransactions" :key="index" class="transaction-item">
-        <div class="d-flex justify-content-between align-items-start">
-          <div class="flex-grow-1">
-            <div class="d-flex align-items-center mb-2">
+        <div class="d-flex justify-content-between align-items-start flex-wrap">
+          <div class="flex-grow-1 transaction-details">
+            <div class="d-flex align-items-center mb-2 flex-wrap">
               <i :class="getTransactionIcon(tx)" class="me-2"></i>
               <span class="badge" :class="getTransactionBadgeClass(tx)">
                 {{ getTransactionStatus(tx) }}
@@ -48,21 +48,21 @@
             </div>
           </div>
           
-          <div class="text-end">
-            <div class="d-flex flex-column gap-1" style="min-width: 100px;">
-              <button class="btn btn-outline-primary btn-sm w-100" @click="showTransactionDetails(tx)">
+          <div class="transaction-actions">
+            <div class="d-flex flex-column flex-md-column gap-1">
+              <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)">
                 <i class="fas fa-eye me-1"></i>Details
               </button>
               <a v-if="getTransactionExplorerUrl(tx)" 
                  :href="getTransactionExplorerUrl(tx)" 
                  target="_blank" 
-                 class="btn btn-outline-success btn-sm w-100">
+                 class="btn btn-outline-success btn-sm">
                 <i class="fas fa-external-link-alt me-1"></i>{{ getTransactionExplorerLabel(tx) }}
               </a>
-              <button v-else class="btn btn-outline-secondary btn-sm w-100 disabled" disabled>
+              <button v-else class="btn btn-outline-secondary btn-sm disabled" disabled>
                 <i class="fas fa-external-link-alt me-1"></i>View
               </button>
-              <button class="btn btn-outline-danger btn-sm w-100" @click="removeTransaction(index)">
+              <button class="btn btn-outline-danger btn-sm" @click="removeTransaction(index)">
                 <i class="fas fa-trash me-1"></i>Delete
               </button>
             </div>
@@ -285,5 +285,55 @@ const formatDate = (date) => {
 
 .bg-warning {
   background-color: #ffc107;
+}
+
+.transaction-details {
+  min-width: 0; /* Allow text to wrap properly */
+}
+
+.transaction-actions {
+  margin-left: auto;
+  min-width: 100px;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .transaction-item {
+    padding: 0.75rem;
+  }
+  
+  .transaction-details {
+    width: 100%;
+    margin-bottom: 0.75rem;
+  }
+  
+  .transaction-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  
+  .transaction-actions .d-flex {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 0.5rem !important;
+  }
+  
+  .transaction-actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+  
+  .transaction-actions .btn i {
+    display: none; /* Hide icons on mobile to save space */
+  }
+  
+  /* Make the address text wrap properly */
+  .transaction-item code {
+    word-break: break-all;
+    display: inline-block;
+    max-width: 100%;
+  }
 }
 </style>
