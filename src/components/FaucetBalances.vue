@@ -69,7 +69,7 @@
                     <i class="fas fa-exclamation-circle me-1"></i>Already maxed
                   </span>
                   <span v-else-if="getTokenStatus(token) === 'incompatible'" class="text-danger">
-                    <i class="fas fa-times-circle me-1"></i>Not for {{ addressType }}
+                    <i class="fas fa-times-circle me-1"></i>{{ getIncompatibleReason(token) }}
                   </span>
                 </span>
               </div>
@@ -139,7 +139,7 @@
                   <i class="fas fa-exclamation-circle me-1"></i>Already maxed
                 </span>
                 <span v-else-if="getTokenStatus(token) === 'incompatible'" class="status-text text-danger">
-                  <i class="fas fa-times-circle me-1"></i>Not available for {{ addressType }}
+                  <i class="fas fa-times-circle me-1"></i>{{ getIncompatibleReason(token) }}
                 </span>
               </div>
             </div>
@@ -257,8 +257,17 @@ const isTokenCompatible = (token) => {
            token.contract === '0x0000000000000000000000000000000000000000' ||
            token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
   } else if (addressType.value === 'evm') {
-    // EVM addresses can receive all tokens
-    // Native tokens (including IBC) are sent as native, ATOM is converted to WATOM
+    // EVM addresses can only receive:
+    // 1. ERC20 tokens (have a real contract address)
+    // 2. Native ATOM (special case, shown as WATOM)
+    // But NOT IBC tokens (they don't have ERC20 interfaces yet)
+    
+    // IBC tokens are identified by having an ibc/ denom
+    if (token.denom && token.denom.startsWith('ibc/')) {
+      return false
+    }
+    
+    // Allow native ATOM and tokens with real ERC20 contracts
     return true
   }
   
@@ -403,11 +412,28 @@ const getHoverClass = (token) => {
                         token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
     return isCompatible ? 'token-hover-eligible' : ''
   } else if (hoveringAddressType === 'evm') {
-    // EVM addresses can receive all tokens
+    // EVM addresses cannot receive IBC tokens yet
+    if (token.denom && token.denom.startsWith('ibc/')) {
+      return ''
+    }
     return 'token-hover-eligible'
   }
   
   return ''
+}
+
+const getIncompatibleReason = (token) => {
+  if (addressType.value === 'cosmos' && token.contract && 
+      token.contract !== '0x0000000000000000000000000000000000000000' && 
+      token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+    return 'ERC20 tokens not available for Cosmos wallets'
+  }
+  
+  if (addressType.value === 'evm' && token.denom && token.denom.startsWith('ibc/')) {
+    return 'IBC tokens not yet available for EVM wallets'
+  }
+  
+  return `Not available for ${addressType.value}`
 }
 
 const formatBalance = (amount, decimals = 0) => {
