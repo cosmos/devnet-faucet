@@ -41,13 +41,15 @@ WORKDIR /app
 # Copy from builder
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs package.json yarn.lock ./
-COPY --chown=nodejs:nodejs faucet.js config.js checker.js ./
+COPY --chown=nodejs:nodejs faucet.js config.js checker.js tokenAllowance.js ./
 COPY --chown=nodejs:nodejs src ./src
 COPY --chown=nodejs:nodejs scripts ./scripts
 COPY --chown=nodejs:nodejs views ./views
 COPY --chown=nodejs:nodejs tokens.json ./
 # Copy the deployments directory with ABI files
 COPY --chown=nodejs:nodejs deployments ./deployments
+# Copy the built frontend dist directory
+COPY --chown=nodejs:nodejs dist ./dist
 
 # Create .faucet directory for rate limiting database
 RUN mkdir -p .faucet && chown -R nodejs:nodejs .faucet
