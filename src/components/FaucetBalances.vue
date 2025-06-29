@@ -1,5 +1,13 @@
 <template>
   <div>
+    <!-- Loading indicator -->
+    <div v-if="loadingBalances && address && isValid" class="text-center mb-3">
+      <div class="spinner-border spinner-border-sm text-primary" role="status">
+        <span class="visually-hidden">Loading balances...</span>
+      </div>
+      <small class="text-muted ms-2">Checking token balances...</small>
+    </div>
+    
     <!-- Token Information -->
     <div class="mb-4" v-if="config && config.tokens">
       <!-- Mobile compact view -->
@@ -55,7 +63,7 @@
                 <span class="detail-label">Status:</span>
                 <span class="detail-value">
                   <span v-if="getTokenStatus(token) === 'available'" class="text-success">
-                    <i class="fas fa-check-circle me-1"></i>Will receive
+                    <i class="fas fa-check-circle me-1"></i>Will receive {{ formatClaimableAmount(token) }}
                   </span>
                   <span v-else-if="getTokenStatus(token) === 'maxed'" class="text-warning">
                     <i class="fas fa-exclamation-circle me-1"></i>Already maxed
@@ -125,7 +133,7 @@
               <!-- Status Indicator -->
               <div class="token-status mt-2" v-if="address && isValid">
                 <span v-if="getTokenStatus(token) === 'available'" class="status-text text-success">
-                  <i class="fas fa-check-circle me-1"></i>Will receive
+                  <i class="fas fa-check-circle me-1"></i>Will receive {{ formatClaimableAmount(token) }}
                 </span>
                 <span v-else-if="getTokenStatus(token) === 'maxed'" class="status-text text-warning">
                   <i class="fas fa-exclamation-circle me-1"></i>Already maxed
@@ -222,12 +230,17 @@ const getTokenStatus = (token) => {
   const isCompatible = isTokenCompatible(token)
   if (!isCompatible) return 'incompatible'
   
+  // If we're still loading balances, show neutral state
+  if (loadingBalances.value) return 'neutral'
+  
   // Check if user already has max amount
   const balance = tokenBalances.value[token.denom]
+  const targetAmount = parseFloat(token.target_balance || token.amount || 0)
+  
+  // Always check current balance, even if not in tokenBalances
   if (balance) {
     // Handle both 'amount' and 'current_amount' fields for compatibility
     const currentAmount = parseFloat(balance.current_amount || balance.amount || 0)
-    const targetAmount = parseFloat(token.target_balance || token.amount || 0)
     if (currentAmount >= targetAmount) return 'maxed'
   }
   
@@ -338,6 +351,9 @@ const formatTokenAmount = (token) => {
 }
 
 const getClaimPercentage = (token) => {
+  // If loading or no address, assume full amount
+  if (loadingBalances.value || !props.address || !props.isValid) return 100
+  
   const claimable = getClaimableAmountRaw(token)
   const target = parseFloat(token.target_balance || token.amount || 0)
   if (!target) return 0
@@ -442,8 +458,19 @@ const fetchBalances = async () => {
     if (data.balances) {
       // Create a map of balances by denom
       data.balances.forEach(balance => {
-        tokenBalances.value[balance.denom] = balance
+        // Normalize denom to lowercase for consistent lookup
+        const normalizedDenom = balance.denom.toLowerCase()
+        
+        // Special handling for WATOM -> uatom mapping
+        if (normalizedDenom === 'watom') {
+          tokenBalances.value['uatom'] = balance
+        } else {
+          tokenBalances.value[normalizedDenom] = balance
+        }
       })
+      
+      // Debug log to verify balance loading
+      console.log('Loaded token balances:', tokenBalances.value)
     }
   } catch (error) {
     console.error('Error fetching balances:', error)
