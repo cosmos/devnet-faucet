@@ -3,8 +3,8 @@
     <div class="container">
       <div class="d-flex justify-content-between align-items-center">
         <div class="brand-container">
-          <h1 class="brand-logo">cosmos</h1>
-          <span class="brand-subtitle">DEVNET</span>
+          <h1 class="brand-logo">cosmos-evm</h1>
+          <span class="brand-subtitle">DEVNET-1</span>
         </div>
         <nav class="nav-icons">
           <a 

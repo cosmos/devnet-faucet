@@ -6,7 +6,7 @@
         <div v-for="token in allTokens" :key="token.denom" class="col-md-6 col-lg-4">
           <div 
             class="token-card" 
-            :class="getTokenStatusClass(token)"
+            :class="[getTokenStatusClass(token), getHoverClass(token)]"
           >
             <div class="token-header">
               <div class="token-info">
@@ -94,7 +94,8 @@ import { useConfig } from '../composables/useConfig'
 
 const props = defineProps({
   address: String,
-  isValid: Boolean
+  isValid: Boolean,
+  hoveringWallet: String
 })
 
 const { config } = useConfig()
@@ -271,6 +272,27 @@ const formatClaimableAmount = (token) => {
   const formatted = formatBalance(claimable, token.decimals || 0)
   const symbol = getTokenSymbol(token)
   return `${formatted} ${symbol}`
+}
+
+const getHoverClass = (token) => {
+  if (!props.hoveringWallet) return ''
+  
+  // Check if this token would be eligible for the hovering wallet
+  const hoveringAddressType = props.hoveringWallet.startsWith('cosmos') ? 'cosmos' : 'evm'
+  
+  // Check compatibility
+  if (hoveringAddressType === 'cosmos') {
+    // Cosmos addresses can only receive native tokens
+    const isCompatible = !token.contract || 
+                        token.contract === '0x0000000000000000000000000000000000000000' ||
+                        token.contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+    return isCompatible ? 'token-hover-eligible' : ''
+  } else if (hoveringAddressType === 'evm') {
+    // EVM addresses can receive all tokens
+    return 'token-hover-eligible'
+  }
+  
+  return ''
 }
 
 const formatBalance = (amount, decimals = 0) => {
@@ -537,5 +559,13 @@ onMounted(() => {
 
 .text-danger {
   color: #dc3545;
+}
+
+/* Hover effect when hovering wallet in dropdown */
+.token-card.token-hover-eligible {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3);
+  border-color: #00ff88;
+  z-index: 10;
 }
 </style>

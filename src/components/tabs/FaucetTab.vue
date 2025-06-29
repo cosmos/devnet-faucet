@@ -59,7 +59,7 @@
                   :disabled="evmWallet.connecting"
                 >
                   <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
-                  <i v-else class="fas fa-wallet me-2"></i>
+                  <i v-else class="fab fa-ethereum me-2"></i>
                   <span v-if="evmWallet.connected">
                     Connected: {{ formatAddress(evmWallet.address) }}
                   </span>
@@ -115,18 +115,30 @@
                   <i v-if="!isValidAddress" class="fas fa-wallet me-1"></i>
                   <i v-else class="fas fa-faucet me-1"></i>
                   {{ isValidAddress ? 'Request' : 'Wallet' }}
-                  <i class="fas fa-caret-down ms-1" style="font-size: 0.8em;"></i>
+                  <i class="fas fa-chevron-down ms-1" style="font-size: 0.75em;"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li v-if="cosmosWallet.connected">
-                    <a class="dropdown-item" href="#" @click.prevent="useCosmosAddress">
+                    <a 
+                      class="dropdown-item" 
+                      href="#" 
+                      @click.prevent="useCosmosAddress"
+                      @mouseenter="hoveringWallet = cosmosWallet.address"
+                      @mouseleave="hoveringWallet = ''"
+                    >
                       <i class="fas fa-atom me-2"></i>
                       <span class="text-truncate">{{ formatAddress(cosmosWallet.address) }}</span>
                       <small class="text-muted ms-1">(Cosmos)</small>
                     </a>
                   </li>
                   <li v-if="evmWallet.connected">
-                    <a class="dropdown-item" href="#" @click.prevent="useEvmAddress">
+                    <a 
+                      class="dropdown-item" 
+                      href="#" 
+                      @click.prevent="useEvmAddress"
+                      @mouseenter="hoveringWallet = evmWallet.address"
+                      @mouseleave="hoveringWallet = ''"
+                    >
                       <i class="fab fa-ethereum me-2"></i>
                       <span class="text-truncate">{{ formatAddress(evmWallet.address) }}</span>
                       <small class="text-muted ms-1">(EVM)</small>
@@ -171,7 +183,7 @@
         <div v-if="message" class="mt-3" v-html="message"></div>
         
         <!-- Balances -->
-        <FaucetBalances :address="address" :is-valid="isValidAddress" />
+        <FaucetBalances :address="address" :is-valid="isValidAddress" :hovering-wallet="hoveringWallet" />
       </div>
     </div>
   </div>
@@ -196,6 +208,7 @@ const disconnectAppKit = inject('disconnectAppKit')
 const address = ref('')
 const message = ref('')
 const isLoading = ref(false)
+const hoveringWallet = ref('')
 
 const isValidAddress = computed(() => {
   if (!address.value) return false
@@ -229,28 +242,15 @@ const formatAddress = (addr) => {
   return addr.slice(0, 6) + '...' + addr.slice(-4)
 }
 
-const closeDropdown = () => {
-  // Close Bootstrap dropdown programmatically
-  const dropdownElement = document.querySelector('.dropdown-menu.show')
-  if (dropdownElement) {
-    const dropdown = bootstrap.Dropdown.getInstance(dropdownElement.previousElementSibling)
-    if (dropdown) {
-      dropdown.hide()
-    }
-  }
-}
-
 const useCosmosAddress = () => {
   if (cosmosWallet.connected && cosmosWallet.address) {
     address.value = cosmosWallet.address
-    closeDropdown()
   }
 }
 
 const useEvmAddress = () => {
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
-    closeDropdown()
   }
 }
 
@@ -546,8 +546,8 @@ const copyToClipboard = async (text) => {
 
 /* Wallet/Request dropdown button */
 .wallet-request-btn {
-  border: 1px solid var(--border-color);
-  background: transparent;
+  border: 2px solid var(--border-color) !important;
+  background: var(--bg-secondary);
   color: var(--text-primary);
   padding: 0.5rem 1rem;
   transition: all 0.2s ease;
@@ -555,13 +555,13 @@ const copyToClipboard = async (text) => {
 }
 
 .wallet-request-btn:hover {
-  background: var(--bg-secondary);
-  border-color: var(--cosmos-accent);
+  background: var(--bg-primary);
+  border-color: var(--cosmos-accent) !important;
   color: var(--cosmos-accent);
 }
 
 .wallet-request-btn.has-valid-address {
-  border: 2px solid #00ff88;
+  border: 2px solid #00ff88 !important;
   color: var(--cosmos-accent);
   font-weight: 600;
 }
@@ -631,26 +631,29 @@ const copyToClipboard = async (text) => {
 
 /* Input group improvements */
 .input-group-text {
-  background: transparent;
-  border-left: none;
-}
-
-.dropdown-toggle {
-  color: var(--cosmos-accent) !important;
-  font-size: 0.9rem;
-  padding: 0.375rem 0.75rem;
-}
-
-.dropdown-toggle:hover {
   background: var(--bg-secondary);
-  border-radius: 0 0.375rem 0.375rem 0;
+  border: 2px solid var(--border-color);
+  border-left: none;
+  padding: 0;
+  overflow: visible;
+}
+
+.wallet-request-btn {
+  border-radius: 0 0.375rem 0.375rem 0 !important;
+  border-left: 2px solid var(--border-color);
+  min-width: 100px;
+}
+
+.dropdown-toggle::after {
+  display: none;
 }
 
 .dropdown-menu {
   min-width: 200px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
+  border: 2px solid var(--cosmos-accent);
+  box-shadow: 0 6px 20px rgba(0, 210, 255, 0.2);
+  margin-top: 4px;
 }
 
 .dropdown-item {
@@ -667,5 +670,26 @@ const copyToClipboard = async (text) => {
 .dropdown-item i {
   width: 20px;
   text-align: center;
+}
+
+/* Enhanced dropdown styling when open */
+.dropdown.show .wallet-request-btn {
+  background: rgba(0, 210, 255, 0.1);
+  border-color: var(--cosmos-accent) !important;
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
+  color: var(--cosmos-accent);
+}
+
+.dropdown.show .wallet-request-btn.has-valid-address {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: #00ff88 !important;
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
+}
+
+/* Hover effect for dropdown items */
+.dropdown-item:hover {
+  background: var(--bg-secondary);
+  color: var(--cosmos-accent);
+  transform: translateX(4px);
 }
 </style>
