@@ -22,16 +22,10 @@ export function useWalletStore() {
     
     if (!window.keplr) {
       if (isMobile) {
-        // On mobile, try to open Keplr app via deep link
-        const deepLink = `keplrwallet://open`
-        window.location.href = deepLink
-        
-        // Give the app time to open, then check again
-        setTimeout(() => {
-          if (!window.keplr) {
-            alert('Please open this page in the Keplr mobile app browser or install Keplr extension on desktop')
-          }
-        }, 1000)
+        // For mobile, we'll use WalletConnect through Keplr
+        // First, check if we can use Keplr's WalletConnect integration
+        // Mobile Keplr connection will be handled by MobileWalletConnect component
+        console.log('Keplr not found on mobile, should use MobileWalletConnect component')
         return
       } else {
         alert('Please install Keplr wallet extension')

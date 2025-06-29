@@ -19,7 +19,7 @@
                   type="button" 
                   class="wallet-btn flex-grow-1" 
                   :class="{ 'connected': cosmosWallet.connected }"
-                  @click="cosmosWallet.connected ? disconnectKeplr() : connectKeplr(config?.network)"
+                  @click="cosmosWallet.connected ? disconnectKeplr() : handleCosmosConnect()"
                   :disabled="cosmosWallet.connecting || !config"
                 >
                   <span v-if="cosmosWallet.connecting" class="loading-spinner me-2"></span>
@@ -55,7 +55,7 @@
                   type="button" 
                   class="wallet-btn flex-grow-1" 
                   :class="{ 'connected': evmWallet.connected }"
-                  @click="evmWallet.connected ? handleEvmDisconnect() : openModal()"
+                  @click="evmWallet.connected ? handleEvmDisconnect() : handleEvmConnect()"
                   :disabled="evmWallet.connecting"
                 >
                   <span v-if="evmWallet.connecting" class="loading-spinner me-2"></span>
@@ -186,6 +186,13 @@
         <FaucetBalances :address="address" :is-valid="isValidAddress" :hovering-wallet="hoveringWallet" />
       </div>
     </div>
+    
+    <!-- Mobile Wallet Connect Modal -->
+    <MobileWalletConnect 
+      v-if="showMobileWalletModal"
+      :wallet-type="mobileWalletType"
+      @close="showMobileWalletModal = false"
+    />
   </div>
 </template>
 
@@ -195,6 +202,7 @@ import { useWalletStore } from '../../composables/useWalletStore'
 import { useConfig } from '../../composables/useConfig'
 import { useTransactions } from '../../composables/useTransactions'
 import FaucetBalances from '../FaucetBalances.vue'
+import MobileWalletConnect from '../MobileWalletConnect.vue'
 
 const { cosmosWallet, evmWallet, connectKeplr, disconnectKeplr, disconnectEvm } = useWalletStore()
 const { networkConfig, config } = useConfig()
@@ -209,6 +217,8 @@ const address = ref('')
 const message = ref('')
 const isLoading = ref(false)
 const hoveringWallet = ref('')
+const showMobileWalletModal = ref(false)
+const mobileWalletType = ref('')
 
 const isValidAddress = computed(() => {
   if (!address.value) return false
@@ -251,6 +261,28 @@ const useCosmosAddress = () => {
 const useEvmAddress = () => {
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
+  }
+}
+
+const isMobile = () => {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+}
+
+const handleCosmosConnect = () => {
+  if (isMobile()) {
+    mobileWalletType.value = 'cosmos'
+    showMobileWalletModal.value = true
+  } else {
+    connectKeplr(config.value?.network)
+  }
+}
+
+const handleEvmConnect = () => {
+  if (isMobile()) {
+    mobileWalletType.value = 'evm'
+    showMobileWalletModal.value = true
+  } else {
+    openModal()
   }
 }
 
