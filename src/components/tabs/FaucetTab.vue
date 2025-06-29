@@ -257,34 +257,24 @@ const handleCosmosConnect = async () => {
       // We're already in Keplr browser, just connect normally
       await connectKeplr(config.value?.network)
     } else {
-      // Use Keplr deep link to show address
-      const chainId = config.value?.network?.cosmos?.chainId || 'cosmoshub-4'
+      // For mobile, just provide clear instructions since chain might not be recognized
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
       const isAndroid = /Android/i.test(navigator.userAgent)
-      
-      let deepLink = ''
-      
-      if (isIOS) {
-        // iOS: Use custom URL scheme
-        deepLink = `keplrwallet://show-address?chainId=${chainId}`
-      } else if (isAndroid) {
-        // Android: Use intent-based deeplink
-        deepLink = `intent://show-address?chainId=${chainId}#Intent;package=com.chainapsis.keplr;scheme=keplrwallet;end;`
-      } else {
-        // Fallback: Use universal link
-        deepLink = `https://deeplink.keplr.app/show-address?chainId=${chainId}`
-      }
-      
-      // Try to open Keplr to show address
-      window.location.href = deepLink
       
       // Show instructions
       message.value = `
         <div class="alert alert-info alert-dismissible show fade" role="alert">
           <h6 class="alert-heading">
-            <i class="fas fa-mobile-alt me-2"></i>Opening Keplr...
+            <i class="fas fa-mobile-alt me-2"></i>Keplr Mobile Instructions
           </h6>
-          <p class="mb-3">Keplr should display your address. Copy it and paste below:</p>
+          <p class="mb-3">To use your Keplr wallet:</p>
+          
+          <ol class="mb-3">
+            <li>Open the Keplr app</li>
+            <li>Select your wallet</li>
+            <li>Copy your Cosmos address</li>
+            <li>Return here and paste it below</li>
+          </ol>
           
           <div class="d-grid gap-2 mb-3">
             <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.readText().then(text => { 
@@ -292,21 +282,18 @@ const handleCosmosConnect = async () => {
               if (input && text.startsWith('cosmos')) {
                 input.value = text;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
+              } else {
+                alert('Please copy a Cosmos address from Keplr first');
               }
             }).catch(() => alert('Please paste your address manually'))">
               <i class="fas fa-paste me-2"></i>
               Paste Address from Clipboard
             </button>
-            
-            <a href="${deepLink}" class="btn btn-outline-secondary btn-sm">
-              <i class="fas fa-redo me-2"></i>
-              Show Address Again
-            </a>
           </div>
           
           <p class="mb-0 small text-muted">
             <i class="fas fa-info-circle me-1"></i>
-            After copying your address from Keplr, return here and paste it.
+            This devnet chain may not be listed in Keplr. Just copy any Cosmos address.
           </p>
           
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
