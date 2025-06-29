@@ -171,38 +171,62 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .header {
+    padding: 1rem 0;
+  }
+  
   .brand-container {
     margin-left: 0;
   }
   
   .brand-logo {
-    font-size: 2.5rem;
+    font-size: 2rem;
   }
   
   .brand-subtitle {
-    font-size: 0.7rem;
-    bottom: -0.3rem;
-    right: -0.5rem;
+    font-size: 0.6rem;
+    bottom: -0.2rem;
+    right: -0.3rem;
   }
   
   .nav-icons {
-    gap: 1.5rem;
+    gap: 1rem;
     margin-right: 0;
-    padding-bottom: 0.3rem;
+    padding-bottom: 0.2rem;
   }
   
   .icon-wrapper {
-    width: 2rem;
-    height: 2rem;
+    width: 1.8rem;
+    height: 1.8rem;
   }
   
   .nav-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
   }
   
   .nav-text {
-    font-size: 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-logo {
+    font-size: 1.5rem;
+  }
+  
+  .nav-icons {
+    gap: 0.75rem;
+  }
+  
+  .icon-wrapper {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  
+  .nav-icon {
+    width: 16px;
+    height: 16px;
   }
 }
 </style>

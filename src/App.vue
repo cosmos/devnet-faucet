@@ -75,6 +75,9 @@ onMounted(async () => {
   }
   
   if (config.value && config.value.network) {
+    // Check if mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
     // Configure custom network based on config
     const customNetwork = {
       id: config.value.network.evm.chainId,
@@ -152,13 +155,35 @@ onMounted(async () => {
           swaps: false,
           onramp: false
         },
+        // Mobile-optimized configuration
+        defaultChain: customNetwork,
+        allowUnsupportedChain: true,
         // Add additional config to handle multiple wallets
         walletConnectConfig: {
           // Prefer injected wallets when multiple are available
           qrModalOptions: {
             themeVariables: {
               '--wcm-z-index': '10000'
-            }
+            },
+            // Mobile-specific options
+            mobileWallets: [
+              {
+                id: 'metamask',
+                name: 'MetaMask',
+                links: {
+                  native: 'metamask://',
+                  universal: 'https://metamask.app.link'
+                }
+              },
+              {
+                id: 'trust',
+                name: 'Trust Wallet',
+                links: {
+                  native: 'trust://',
+                  universal: 'https://link.trustwallet.com'
+                }
+              }
+            ]
           }
         }
       })
@@ -234,5 +259,38 @@ onMounted(async () => {
 
 .alert-warning .btn-close {
   filter: invert(0.8);
+}
+
+/* Mobile responsive container */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .alert {
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+  }
+  
+  .alert-heading {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  .alert {
+    font-size: 0.85rem;
+    padding: 0.65rem 0.85rem;
+  }
+  
+  .alert p {
+    margin-bottom: 0.5rem !important;
+  }
 }
 </style>

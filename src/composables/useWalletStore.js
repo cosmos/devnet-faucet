@@ -17,9 +17,26 @@ const state = reactive({
 
 export function useWalletStore() {
   const connectKeplr = async (networkConfig) => {
+    // Check if on mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
     if (!window.keplr) {
-      alert('Please install Keplr wallet extension')
-      return
+      if (isMobile) {
+        // On mobile, try to open Keplr app via deep link
+        const deepLink = `keplrwallet://open`
+        window.location.href = deepLink
+        
+        // Give the app time to open, then check again
+        setTimeout(() => {
+          if (!window.keplr) {
+            alert('Please open this page in the Keplr mobile app browser or install Keplr extension on desktop')
+          }
+        }, 1000)
+        return
+      } else {
+        alert('Please install Keplr wallet extension')
+        return
+      }
     }
     
     state.cosmosWallet.connecting = true

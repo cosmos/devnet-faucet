@@ -568,4 +568,69 @@ onMounted(() => {
   border-color: #00ff88;
   z-index: 10;
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .token-card {
+    padding: 0.75rem;
+  }
+  
+  .token-symbol {
+    font-size: 1rem;
+  }
+  
+  .token-name {
+    font-size: 0.8rem;
+  }
+  
+  .token-type-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+  
+  .token-address {
+    font-size: 0.75rem;
+  }
+  
+  .token-amount {
+    font-size: 0.85rem;
+  }
+  
+  .help-tip {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+  
+  .help-icon {
+    font-size: 1.25rem;
+  }
+  
+  .help-content h6 {
+    font-size: 0.9rem;
+  }
+  
+  .help-content p {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Stack token cards on mobile */
+  .col-md-6.col-lg-4 {
+    margin-bottom: 0.75rem;
+  }
+  
+  .token-card {
+    padding: 0.65rem;
+  }
+  
+  .token-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .token-type-badge {
+    font-size: 0.65rem;
+  }
+}
 </style>

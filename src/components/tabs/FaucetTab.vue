@@ -692,4 +692,61 @@ const copyToClipboard = async (text) => {
   color: var(--cosmos-accent);
   transform: translateX(4px);
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .wallet-btn {
+    font-size: 0.9rem;
+    padding: 0.65rem 0.85rem;
+    min-height: 42px;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .input-group {
+    flex-wrap: nowrap;
+  }
+  
+  .wallet-request-btn {
+    min-width: 90px;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.75rem;
+  }
+  
+  .dropdown-menu {
+    font-size: 0.9rem;
+  }
+  
+  .btn-primary {
+    font-size: 0.95rem;
+    padding: 0.65rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-header h5 {
+    font-size: 1.1rem;
+  }
+  
+  .wallet-btn {
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+  }
+  
+  .form-control {
+    font-size: 0.9rem;
+  }
+  
+  .wallet-request-btn {
+    min-width: 80px;
+    font-size: 0.8rem;
+  }
+  
+  /* Stack wallet buttons on very small screens */
+  .col-md-6 {
+    margin-bottom: 0.5rem;
+  }
+}
 </style>
