@@ -2,22 +2,6 @@
   <div id="app">
     <Header />
     <div class="container">
-      <!-- Multiple Wallets Warning -->
-      <div v-if="showWalletWarning" class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
-        <h6 class="alert-heading">
-          <i class="fas fa-exclamation-triangle me-2"></i>
-          Multiple Wallet Extensions Detected
-        </h6>
-        <p class="mb-2">
-          You have multiple wallet extensions installed (e.g., MetaMask, Coinbase Wallet). 
-          This may cause connection issues.
-        </p>
-        <p class="mb-0">
-          <strong>Recommendation:</strong> Disable all wallet extensions except the one you want to use, 
-          then refresh the page.
-        </p>
-        <button type="button" class="btn-close" @click="showWalletWarning = false" aria-label="Close"></button>
-      </div>
       <Tabs />
     </div>
     <TransactionModal />
