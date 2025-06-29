@@ -207,6 +207,45 @@ onMounted(() => {
 @media (max-width: 768px) {
   .info-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .info-card {
+    padding: 1rem;
+  }
+  
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .info-label {
+    min-width: auto;
+    font-size: 0.85rem;
+  }
+  
+  .info-value {
+    font-size: 0.8rem;
+    width: 100%;
+  }
+  
+  /* Override text-truncate on mobile to allow wrapping */
+  .text-truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+  }
+  
+  .address-value {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  
+  .section-title {
+    font-size: 0.95rem;
   }
 }
 
