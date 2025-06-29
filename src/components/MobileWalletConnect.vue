@@ -84,44 +84,44 @@ const closeModal = () => {
 }
 
 const connectKeplrMobile = () => {
-  // Try multiple Keplr deep link formats
-  const deepLinks = [
-    'keplrwallet://app',
-    'keplrwalletapp://',
-    'keplr://',
-    'intent://keplr/#Intent;scheme=keplrwallet;package=com.chainapsis.keplr;end'
-  ]
+  // For Keplr mobile, we need to use WalletConnect
+  // Keplr mobile supports WalletConnect v2
+  alert('Keplr mobile connection requires WalletConnect. Please use the WalletConnect option below to connect your Keplr mobile wallet.')
   
-  // Try each deep link
-  for (const link of deepLinks) {
-    try {
-      window.location.href = link
-      // If successful, close modal after delay
-      setTimeout(() => {
-        closeModal()
-      }, 1000)
-      return
-    } catch (e) {
-      console.log('Failed to open:', link)
-    }
-  }
-  
-  // If all fail, show app store link
+  // Alternatively, provide install link if not installed
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-  if (isIOS) {
-    window.open('https://apps.apple.com/app/keplr-wallet/id1567851089', '_blank')
-  } else {
-    window.open('https://play.google.com/store/apps/details?id=com.chainapsis.keplr', '_blank')
+  if (confirm('Would you like to install Keplr mobile wallet?')) {
+    if (isIOS) {
+      window.open('https://apps.apple.com/app/keplr-wallet/id1567851089', '_blank')
+    } else {
+      window.open('https://play.google.com/store/apps/details?id=com.chainapsis.keplr', '_blank')
+    }
   }
 }
 
 const connectMetaMaskMobile = () => {
-  // MetaMask deep linking
-  const dappUrl = window.location.href
-  const metamaskDeepLink = `https://metamask.app.link/dapp/${dappUrl.replace('https://', '')}`
-  
-  window.location.href = metamaskDeepLink
-  closeModal()
+  // For MetaMask mobile, we should use WalletConnect
+  // The direct deep link approach often fails due to browser restrictions
+  if (window.ethereum && window.ethereum.isMetaMask) {
+    // MetaMask is already available (in-app browser)
+    if (openAppKitModal) {
+      openAppKitModal()
+    }
+    closeModal()
+  } else {
+    // Use WalletConnect for external MetaMask app
+    alert('To connect MetaMask mobile, please use the WalletConnect option below and select MetaMask from the list of wallets.')
+    
+    // Optionally provide install link
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    if (confirm('Would you like to install MetaMask mobile wallet?')) {
+      if (isIOS) {
+        window.open('https://apps.apple.com/app/metamask/id1438144202', '_blank')
+      } else {
+        window.open('https://play.google.com/store/apps/details?id=io.metamask', '_blank')
+      }
+    }
+  }
 }
 
 const connectRabbyMobile = () => {

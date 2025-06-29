@@ -114,7 +114,7 @@
                       @click.prevent="useCosmosAddress"
                       @mouseenter="hoveringWallet = cosmosWallet.address"
                       @mouseleave="hoveringWallet = ''"
-                      :title="`Use ${cosmosWallet.address} - Click to copy`"
+                      :title="`Use ${cosmosWallet.address}`"
                     >
                       <i class="fas fa-atom me-2"></i>
                       <span class="wallet-address">{{ formatAddress(cosmosWallet.address) }}</span>
@@ -128,7 +128,7 @@
                       @click.prevent="useEvmAddress"
                       @mouseenter="hoveringWallet = evmWallet.address"
                       @mouseleave="hoveringWallet = ''"
-                      :title="`Use ${evmWallet.address} - Click to copy`"
+                      :title="`Use ${evmWallet.address}`"
                     >
                       <i class="fab fa-ethereum me-2"></i>
                       <span class="wallet-address">{{ formatAddress(evmWallet.address) }}</span>
@@ -178,12 +178,6 @@
       </div>
     </div>
     
-    <!-- Mobile Wallet Connect Modal -->
-    <MobileWalletConnect 
-      v-if="showMobileWalletModal"
-      :wallet-type="mobileWalletType"
-      @close="showMobileWalletModal = false"
-    />
   </div>
 </template>
 
@@ -193,7 +187,6 @@ import { useWalletStore } from '../../composables/useWalletStore'
 import { useConfig } from '../../composables/useConfig'
 import { useTransactions } from '../../composables/useTransactions'
 import FaucetBalances from '../FaucetBalances.vue'
-import MobileWalletConnect from '../MobileWalletConnect.vue'
 
 const { cosmosWallet, evmWallet, connectKeplr, disconnectKeplr, disconnectEvm } = useWalletStore()
 const { networkConfig, config } = useConfig()
@@ -208,8 +201,6 @@ const address = ref('')
 const message = ref('')
 const isLoading = ref(false)
 const hoveringWallet = ref('')
-const showMobileWalletModal = ref(false)
-const mobileWalletType = ref('')
 
 const isValidAddress = computed(() => {
   if (!address.value) return false
@@ -243,19 +234,15 @@ const formatAddress = (addr) => {
   return addr.slice(0, 6) + '...' + addr.slice(-4)
 }
 
-const useCosmosAddress = async () => {
+const useCosmosAddress = () => {
   if (cosmosWallet.connected && cosmosWallet.address) {
     address.value = cosmosWallet.address
-    // Also copy to clipboard
-    await copyToClipboard(cosmosWallet.address)
   }
 }
 
-const useEvmAddress = async () => {
+const useEvmAddress = () => {
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
-    // Also copy to clipboard
-    await copyToClipboard(evmWallet.address)
   }
 }
 
@@ -265,20 +252,32 @@ const isMobile = () => {
 
 const handleCosmosConnect = () => {
   if (isMobile()) {
-    mobileWalletType.value = 'cosmos'
-    showMobileWalletModal.value = true
+    // On mobile, provide better UX guidance
+    message.value = `
+      <div class="alert alert-info alert-dismissible show fade" role="alert">
+        <h6 class="alert-heading">
+          <i class="fas fa-mobile-alt me-2"></i>Mobile Wallet Instructions
+        </h6>
+        <p class="mb-2"><strong>For Keplr Mobile:</strong></p>
+        <ol class="mb-0">
+          <li>Open your Keplr mobile app</li>
+          <li>Go to your wallet and copy your Cosmos address</li>
+          <li>Paste it in the address field below</li>
+          <li>Click "Request Tokens"</li>
+        </ol>
+        <p class="mt-2 mb-0"><small>Note: Direct wallet connection is not available on mobile browsers.</small></p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    `
   } else {
     connectKeplr(config.value?.network)
   }
 }
 
 const handleEvmConnect = () => {
-  if (isMobile()) {
-    mobileWalletType.value = 'evm'
-    showMobileWalletModal.value = true
-  } else {
-    openModal()
-  }
+  // For both mobile and desktop, use the WalletConnect modal
+  // which handles mobile wallets properly
+  openModal()
 }
 
 const openModal = () => {
@@ -484,15 +483,6 @@ const formatBalance = (amount, decimals = 0) => {
     }
   }
   return num.toLocaleString()
-}
-
-const copyToClipboard = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    // Could add a toast notification here
-  } catch (err) {
-    console.error('Failed to copy:', err)
-  }
 }
 </script>
 
