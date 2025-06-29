@@ -257,43 +257,60 @@ const handleCosmosConnect = async () => {
       // We're already in Keplr browser, just connect normally
       await connectKeplr(config.value?.network)
     } else {
-      // External mobile browser - Keplr requires WalletConnect or manual entry
-      message.value = `
-        <div class="alert alert-info alert-dismissible show fade" role="alert">
-          <h6 class="alert-heading">
-            <i class="fas fa-mobile-alt me-2"></i>Keplr Mobile Options
-          </h6>
-          <p class="mb-3">Choose how to connect your Keplr wallet:</p>
-          
-          <div class="d-grid gap-2">
-            <button class="btn btn-outline-primary btn-sm" onclick="window.open('https://faucet.basementnodes.ca', '_blank')">
-              <i class="fas fa-external-link-alt me-2"></i>
-              Open in Keplr Browser
-            </button>
+      // Use Keplr deep link to open in Keplr browser
+      const currentUrl = encodeURIComponent(window.location.href)
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      const isAndroid = /Android/i.test(navigator.userAgent)
+      
+      let deepLink = ''
+      
+      if (isIOS) {
+        // iOS: Use custom URL scheme
+        deepLink = `keplrwallet://web-browser?url=${currentUrl}`
+      } else if (isAndroid) {
+        // Android: Use intent-based deeplink
+        deepLink = `intent://web-browser?url=${currentUrl}#Intent;package=com.chainapsis.keplr;scheme=keplrwallet;end;`
+      } else {
+        // Fallback: Use universal link
+        deepLink = `https://deeplink.keplr.app/web-browser?url=${currentUrl}`
+      }
+      
+      // Try to open Keplr
+      window.location.href = deepLink
+      
+      // Show instructions in case the deep link doesn't work
+      setTimeout(() => {
+        message.value = `
+          <div class="alert alert-info alert-dismissible show fade" role="alert">
+            <h6 class="alert-heading">
+              <i class="fas fa-mobile-alt me-2"></i>Opening Keplr...
+            </h6>
+            <p class="mb-3">Keplr should be opening. Once it loads:</p>
+            <ol class="mb-3">
+              <li>The page will reload in Keplr's browser</li>
+              <li>Click "Connect Keplr Wallet" again</li>
+              <li>Approve the connection</li>
+            </ol>
             
-            <button class="btn btn-outline-secondary btn-sm" onclick="navigator.clipboard.readText().then(text => { document.querySelector('input[placeholder*=cosmos]').value = text; })">
-              <i class="fas fa-paste me-2"></i>
-              Paste Address from Clipboard
-            </button>
+            <p class="mb-2">If Keplr didn't open:</p>
+            <div class="d-grid gap-2">
+              <a href="${deepLink}" class="btn btn-primary btn-sm">
+                <i class="fas fa-external-link-alt me-2"></i>
+                Try Again
+              </a>
+              
+              <a href="${isIOS ? 'https://apps.apple.com/app/keplr-wallet/id1567851089' : 'https://play.google.com/store/apps/details?id=com.chainapsis.keplr'}" 
+                 class="btn btn-outline-secondary btn-sm" 
+                 target="_blank">
+                <i class="fas fa-download me-2"></i>
+                Install Keplr
+              </a>
+            </div>
+            
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
-          
-          <hr class="my-3">
-          
-          <p class="mb-2"><strong>Manual Steps:</strong></p>
-          <ol class="mb-0 small">
-            <li>Open Keplr mobile app</li>
-            <li>Copy your Cosmos address</li>
-            <li>Return here and paste it below</li>
-          </ol>
-          
-          <p class="mt-3 mb-0 small text-muted">
-            <i class="fas fa-info-circle me-1"></i>
-            Direct connection from mobile browsers is not yet supported by Keplr.
-          </p>
-          
-          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-      `
+        `
+      }, 1500)
     }
   } else {
     connectKeplr(config.value?.network)
