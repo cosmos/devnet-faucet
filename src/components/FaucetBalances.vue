@@ -2,7 +2,33 @@
   <div>
     <!-- Token Information -->
     <div class="mb-4" v-if="config && config.tokens">
-      <div class="row g-3">
+      <!-- Mobile compact view -->
+      <div class="mobile-token-list d-block d-md-none">
+        <div v-for="token in allTokens" :key="token.denom">
+          <div 
+            class="token-card-mobile" 
+            :class="[getTokenStatusClass(token), getHoverClass(token)]"
+          >
+            <div class="token-left">
+              <span class="token-symbol">{{ getTokenSymbol(token) }}</span>
+              <span class="token-type-badge" :class="getTokenTypeBadgeClass(token)">
+                {{ getTokenType(token) }}
+              </span>
+            </div>
+            <div class="token-right">
+              <div class="token-amount">{{ formatClaimableAmount(token) }}</div>
+              <div v-if="address && isValid" class="token-status-mobile">
+                <span v-if="getTokenStatus(token) === 'available'" class="status-dot available"></span>
+                <span v-else-if="getTokenStatus(token) === 'maxed'" class="status-dot maxed"></span>
+                <span v-else-if="getTokenStatus(token) === 'incompatible'" class="status-dot incompatible"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Desktop card view -->
+      <div class="row g-3 d-none d-md-flex">
         <div v-for="token in allTokens" :key="token.denom" class="col-md-6 col-lg-4">
           <div 
             class="token-card" 
@@ -569,6 +595,99 @@ onMounted(() => {
   z-index: 10;
 }
 
+/* Mobile compact list view */
+.mobile-token-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.token-card-mobile {
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.token-card-mobile.status-available {
+  border-color: #28a745;
+}
+
+.token-card-mobile.status-partial {
+  border-color: #ff9800;
+}
+
+.token-card-mobile.status-maxed {
+  border-color: #ffc107;
+}
+
+.token-card-mobile.status-incompatible {
+  border-color: #dc3545;
+}
+
+.token-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.token-left .token-symbol {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--cosmos-accent);
+}
+
+.token-left .token-type-badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.35rem;
+}
+
+.token-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.token-right .token-amount {
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.token-status-mobile {
+  display: flex;
+  align-items: center;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.available {
+  background-color: #28a745;
+}
+
+.status-dot.maxed {
+  background-color: #ffc107;
+}
+
+.status-dot.incompatible {
+  background-color: #dc3545;
+}
+
+/* Mobile card hover effect */
+.token-card-mobile.token-hover-eligible {
+  border-color: #00ff88;
+  background: rgba(0, 255, 136, 0.05);
+}
+
 /* Mobile responsive styles */
 @media (max-width: 768px) {
   .token-card {
@@ -615,22 +734,21 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
-  /* Stack token cards on mobile */
-  .col-md-6.col-lg-4 {
-    margin-bottom: 0.75rem;
-  }
-  
-  .token-card {
+  .help-tip {
     padding: 0.65rem;
+    font-size: 0.8rem;
   }
   
-  .token-header {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  .help-icon {
+    font-size: 1.1rem;
   }
   
-  .token-type-badge {
-    font-size: 0.65rem;
+  .help-content h6 {
+    font-size: 0.85rem;
+  }
+  
+  .help-content p {
+    font-size: 0.75rem;
   }
 }
 </style>
