@@ -36,14 +36,17 @@ import conf, {
   getEvmPublicKey,
   validateDerivedAddresses
 } from './config.js'
+import logRotation from './src/logRotation.js'
 
 
 const app = express()
 const chainConf = conf.blockchain
 
-// Import checker
+// Import checker and token allowance tracker
 import { FrequencyChecker } from './checker.js'
+import { TokenAllowanceTracker } from './tokenAllowance.js'
 const checker = new FrequencyChecker(conf)
+const allowanceTracker = new TokenAllowanceTracker(conf)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -279,26 +282,32 @@ async function setupTokenApprovals() {
         atomicMultiSendAddress
       );
       
-      if (!allowanceInfo.isApproved) {
+      // Calculate needed approval for 5 consecutive transfers
+      const transferAmount = BigInt(token.amount || "0");
+      const neededApproval = transferAmount * 5n;
+      const currentAllowance = BigInt(allowanceInfo.allowance || "0");
+      
+      if (currentAllowance < neededApproval) {
         console.log(`  ️  Token ${token.denom} (${allowanceInfo.symbol}) needs approval`);
+        console.log(`     Current allowance: ${currentAllowance}`);
+        console.log(`     Needed for 5 transfers: ${neededApproval}`);
         
-        // Approve max uint256
-        const maxApproval = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+        // Approve for 5 consecutive transfers
         const approved = await approveToken(
           token.erc20_contract,
           atomicMultiSendAddress,
-          maxApproval
+          neededApproval.toString()
         );
         
         if (approved) {
-          console.log(`   Success: Token ${token.denom} (${allowanceInfo.symbol}) approved`);
+          console.log(`   Success: Token ${token.denom} (${allowanceInfo.symbol}) approved for ${neededApproval}`);
         } else {
           console.log(`   Failed: Could not approve token ${token.denom}`);
           allApproved = false;
         }
       } else {
-        console.log(`   Success: Token ${token.denom} (${allowanceInfo.symbol}) already approved`);
-        console.log(`     Allowance: ${allowanceInfo.allowance}`);
+        console.log(`   Success: Token ${token.denom} (${allowanceInfo.symbol}) has sufficient allowance`);
+        console.log(`     Current: ${currentAllowance}, Needed: ${neededApproval}`);
       }
     }
   }
@@ -311,17 +320,17 @@ async function setupTokenApprovals() {
 let approvalMonitorInterval;
 
 function startApprovalMonitoring() {
-  console.log(' Starting token approval monitoring (checking every 5 minutes)...');
+  console.log(' Starting token approval monitoring (checking every 10 minutes)...');
   
   // Check immediately on start
-  checkAndReportApprovals();
+  checkAndTopUpApprovals();
   
-  // Then check every 5 minutes
+  // Then check every 10 minutes
   approvalMonitorInterval = setInterval(async () => {
     console.log('\n[APPROVAL CHECK] Running periodic approval check...');
-    await checkAndReportApprovals();
+    await checkAndTopUpApprovals();
     console.log('[APPROVAL CHECK] Periodic check complete');
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 10 * 60 * 1000); // 10 minutes
 }
 
 async function checkAndReportApprovals() {
@@ -337,6 +346,55 @@ async function checkAndReportApprovals() {
   }
 }
 
+async function checkAndTopUpApprovals() {
+  const atomicMultiSendAddress = chainConf.contracts.atomicMultiSend;
+  if (!atomicMultiSendAddress) return;
+  
+  const evmAddress = getEvmAddress();
+  let needsTopUp = false;
+  
+  for (const token of chainConf.tx.amounts) {
+    if (token.erc20_contract && 
+        token.erc20_contract !== "0x0000000000000000000000000000000000000000" &&
+        token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+      
+      const allowanceInfo = await checkAllowance(
+        token.erc20_contract,
+        evmAddress,
+        atomicMultiSendAddress
+      );
+      
+      // Calculate needed approval for 5 consecutive transfers
+      const transferAmount = BigInt(token.amount || "0");
+      const minimumNeeded = transferAmount * 2n; // Top up when below 2 transfers worth
+      const targetApproval = transferAmount * 5n; // Approve for 5 transfers
+      const currentAllowance = BigInt(allowanceInfo.allowance || "0");
+      
+      if (currentAllowance < minimumNeeded) {
+        needsTopUp = true;
+        console.log(`  ️  Token ${token.denom} needs approval top-up`);
+        console.log(`     Current: ${currentAllowance}, Minimum: ${minimumNeeded}`);
+        
+        const approved = await approveToken(
+          token.erc20_contract,
+          atomicMultiSendAddress,
+          targetApproval.toString()
+        );
+        
+        if (approved) {
+          console.log(`   Topped up ${token.denom} approval to ${targetApproval}`);
+        } else {
+          console.log(`   Failed to top up ${token.denom} approval`);
+        }
+      }
+    }
+  }
+  
+  if (!needsTopUp) {
+    console.log('  All token approvals sufficient');
+  }
+}
+
 function stopApprovalMonitoring() {
   if (approvalMonitorInterval) {
     clearInterval(approvalMonitorInterval);
@@ -348,12 +406,14 @@ function stopApprovalMonitoring() {
 process.on('SIGINT', () => {
   console.log('\n Shutting down faucet...');
   stopApprovalMonitoring();
+  logRotation.stopAll();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.log('\n Shutting down faucet...');
   stopApprovalMonitoring();
+  logRotation.stopAll();
   process.exit(0);
 });
 
@@ -771,6 +831,38 @@ app.get('/send/:address', async (req, res) => {
 
       if( await checker.checkAddress(address, 'dual') && await checker.checkIp(`dual${ip}`, 'dual') ) {
         console.log('Processing smart faucet request for', address, 'type:', addressType)
+        
+        // Check token allowances
+        const requestedTokens = new Map();
+        for (const token of chainConf.tx.amounts) {
+          requestedTokens.set(token.denom, token.amount);
+        }
+        
+        const allowanceCheck = await allowanceTracker.checkAllowance(address, requestedTokens);
+        if (!allowanceCheck.allowed) {
+          console.log(`Token allowance exceeded for ${address}`);
+          const remainingTime = await allowanceTracker.getRemainingResetTime(address);
+          const formattedTime = allowanceTracker.formatRemainingTime(remainingTime);
+          
+          // Build available amounts message
+          const availableMsg = [];
+          for (const [denom, amount] of allowanceCheck.available.entries()) {
+            if (amount > 0n) {
+              const token = chainConf.tx.amounts.find(t => t.denom === denom);
+              const decimals = token?.decimals || 0;
+              const formattedAmount = (Number(amount) / Math.pow(10, decimals)).toFixed(decimals);
+              availableMsg.push(`${formattedAmount} ${denom.toUpperCase()}`);
+            }
+          }
+          
+          res.send({ 
+            result: `Daily token allowance exceeded. ${availableMsg.length > 0 ? `Available: ${availableMsg.join(', ')}. ` : ''}Reset in ${formattedTime}.`,
+            error: 'allowance_exceeded',
+            remainingTime,
+            available: Object.fromEntries(allowanceCheck.available)
+          });
+          return;
+        }
 
         let txResult = null;
         try {
@@ -937,6 +1029,15 @@ app.get('/send/:address', async (req, res) => {
               testing_mode: TESTING_MODE
             }
           };
+          
+          // Update token allowances for successful transactions
+          if (tokensSent.length > 0) {
+            const distributedTokens = new Map();
+            for (const token of tokensSent) {
+              distributedTokens.set(token.denom, token.amount);
+            }
+            await allowanceTracker.updateAllowance(address, distributedTokens);
+          }
           
           res.send(response);
           
@@ -1213,6 +1314,9 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
         results.value = evmResult.value ? evmResult.value.toString() : '0';
         results.status = evmResult.status;
         results.explorer_url = `${chainConf.endpoints.evm_explorer}/tx/${evmResult.hash}`;
+        results.truncated_hash = evmResult.hash ? 
+          `${evmResult.hash.substring(0, 10)}...${evmResult.hash.substring(evmResult.hash.length - 8)}` : 
+          null;
         
         // Add transfer details
         for (const token of neededAmounts) {
@@ -1245,6 +1349,11 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
           results.gas_used = cosmosResult.gasUsed;
           results.gas_wanted = cosmosResult.gasWanted;
           results.rest_api_url = cosmosResult.restApiUrl;
+          // Add mintscan explorer URL for Cosmos transactions
+          results.explorer_url = `https://www.mintscan.io/cosmos-testnet/tx/${cosmosResult.transactionHash}`;
+          results.truncated_hash = cosmosResult.transactionHash ? 
+            `${cosmosResult.transactionHash.substring(0, 8)}...${cosmosResult.transactionHash.substring(cosmosResult.transactionHash.length - 8)}` : 
+            null;
           
           // Add transfer details
           for (const token of nativeTokens) {
@@ -1666,6 +1775,27 @@ async function initializeFaucet() {
   
   // Start approval monitoring
   startApprovalMonitoring();
+  
+  // Initialize log rotation
+  console.log('\n Initializing log rotation...');
+  // Register server log
+  logRotation.registerLogFile('server.log', {
+    maxSize: 5 * 1024 * 1024, // 5MB
+    maxFiles: 3,
+    compress: false
+  });
+  
+  // Register vite log if it exists
+  if (fs.existsSync('vite.log')) {
+    logRotation.registerLogFile('vite.log', {
+      maxSize: 5 * 1024 * 1024, // 5MB
+      maxFiles: 3,
+      compress: false
+    });
+  }
+  
+  // Clean up logs older than 3 days
+  logRotation.cleanupOldLogs('server.log', 3);
   
   console.log(' Faucet server ready!');
   console.log(` EVM Address: ${getEvmAddress()}`);

@@ -7,20 +7,63 @@
         <div v-for="token in allTokens" :key="token.denom">
           <div 
             class="token-card-mobile" 
-            :class="[getTokenStatusClass(token), getHoverClass(token)]"
+            :class="[getTokenStatusClass(token), getHoverClass(token), { expanded: expandedTokens[token.denom] }]"
+            @click="toggleTokenExpansion(token.denom)"
           >
-            <div class="token-left">
-              <span class="token-symbol">{{ getTokenSymbol(token) }}</span>
-              <span class="token-type-badge" :class="getTokenTypeBadgeClass(token)">
-                {{ getTokenType(token) }}
-              </span>
+            <div class="token-main">
+              <div class="token-left">
+                <span class="token-symbol">{{ getTokenSymbol(token) }}</span>
+                <span class="token-type-badge" :class="getTokenTypeBadgeClass(token)">
+                  {{ getTokenType(token) }}
+                </span>
+              </div>
+              <div class="token-right">
+                <div class="token-amount">{{ formatClaimableAmount(token) }}</div>
+                <div v-if="address && isValid" class="token-status-mobile">
+                  <span v-if="getTokenStatus(token) === 'available'" class="status-dot available"></span>
+                  <span v-else-if="getTokenStatus(token) === 'maxed'" class="status-dot maxed"></span>
+                  <span v-else-if="getTokenStatus(token) === 'incompatible'" class="status-dot incompatible"></span>
+                </div>
+              </div>
+              <i class="fas fa-chevron-down expand-icon" :class="{ rotated: expandedTokens[token.denom] }"></i>
             </div>
-            <div class="token-right">
-              <div class="token-amount">{{ formatClaimableAmount(token) }}</div>
-              <div v-if="address && isValid" class="token-status-mobile">
-                <span v-if="getTokenStatus(token) === 'available'" class="status-dot available"></span>
-                <span v-else-if="getTokenStatus(token) === 'maxed'" class="status-dot maxed"></span>
-                <span v-else-if="getTokenStatus(token) === 'incompatible'" class="status-dot incompatible"></span>
+            
+            <!-- Expanded Details -->
+            <div v-if="expandedTokens[token.denom]" class="token-expanded-details">
+              <div class="detail-row" v-if="token.contract && token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'">
+                <span class="detail-label">Contract:</span>
+                <span class="detail-value" @click.stop="copyToClipboard(token.contract)">
+                  {{ formatContractAddress(token.contract) }}
+                  <i class="fas fa-copy copy-icon-small"></i>
+                </span>
+              </div>
+              <div class="detail-row" v-else-if="token.denom && token.denom.startsWith('ibc/')">
+                <span class="detail-label">IBC Denom:</span>
+                <span class="detail-value" @click.stop="copyToClipboard(token.denom)">
+                  {{ formatIbcDenom(token.denom) }}
+                  <i class="fas fa-copy copy-icon-small"></i>
+                </span>
+              </div>
+              <div class="detail-row" v-if="tokenBalances[token.denom]">
+                <span class="detail-label">Your Balance:</span>
+                <span class="detail-value">
+                  {{ formatBalance(tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals) }} 
+                  {{ tokenBalances[token.denom].symbol || token.symbol }}
+                </span>
+              </div>
+              <div class="detail-row" v-if="address && isValid">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value">
+                  <span v-if="getTokenStatus(token) === 'available'" class="text-success">
+                    <i class="fas fa-check-circle me-1"></i>Will receive
+                  </span>
+                  <span v-else-if="getTokenStatus(token) === 'maxed'" class="text-warning">
+                    <i class="fas fa-exclamation-circle me-1"></i>Already maxed
+                  </span>
+                  <span v-else-if="getTokenStatus(token) === 'incompatible'" class="text-danger">
+                    <i class="fas fa-times-circle me-1"></i>Not for {{ addressType }}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -128,6 +171,7 @@ const { config } = useConfig()
 const tokenBalances = ref({})
 const loadingBalances = ref(false)
 const copiedAddress = ref('')
+const expandedTokens = ref({})
 
 const addressType = computed(() => {
   if (!props.address) return ''
@@ -338,6 +382,10 @@ const formatBalance = (amount, decimals = 0) => {
     console.error('Error formatting balance:', error)
     return '0'
   }
+}
+
+const toggleTokenExpansion = (denom) => {
+  expandedTokens.value[denom] = !expandedTokens.value[denom]
 }
 
 const copyToClipboard = async (text) => {
@@ -606,11 +654,70 @@ onMounted(() => {
   background: var(--bg-primary);
   border: 2px solid var(--border-color);
   border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.token-main {
   padding: 0.75rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.2s ease;
+  position: relative;
+}
+
+.expand-icon {
+  position: absolute;
+  right: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.expand-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.token-expanded-details {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.detail-value {
+  color: var(--text-primary);
+  text-align: right;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.copy-icon-small {
+  font-size: 0.65rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.detail-value:hover .copy-icon-small {
+  opacity: 1;
 }
 
 .token-card-mobile.status-available {
@@ -650,6 +757,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  margin-right: 1.5rem; /* Space for expand icon */
 }
 
 .token-right .token-amount {
