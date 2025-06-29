@@ -35,17 +35,6 @@
                   </span>
                 </button>
               </div>
-              <!-- Show full address when connected -->
-              <div v-if="cosmosWallet.connected && cosmosWallet.address" class="mt-1">
-                <small class="text-muted d-flex align-items-center gap-2">
-                  <span class="font-monospace">{{ cosmosWallet.address }}</span>
-                  <i 
-                    class="fas fa-copy copy-icon-small" 
-                    @click="copyToClipboard(cosmosWallet.address)"
-                    title="Copy address"
-                  ></i>
-                </small>
-              </div>
             </div>
             
             <!-- EVM Wallet (Reown AppKit) -->
@@ -71,17 +60,6 @@
                   </span>
                 </button>
               </div>
-              <!-- Show full address when connected -->
-              <div v-if="evmWallet.connected && evmWallet.address" class="mt-1">
-                <small class="text-muted d-flex align-items-center gap-2">
-                  <span class="font-monospace">{{ evmWallet.address }}</span>
-                  <i 
-                    class="fas fa-copy copy-icon-small" 
-                    @click="copyToClipboard(evmWallet.address)"
-                    title="Copy address"
-                  ></i>
-                </small>
-              </div>
             </div>
           </div>
         </div>
@@ -101,46 +79,59 @@
               }"
             >
             <!-- Connected Wallet Quick Select / Request Button -->
-            <div v-if="hasConnectedWallets" class="input-group-text p-0">
-              <div class="dropdown">
+            <div v-if="hasConnectedWallets" class="btn-group" role="group">
+              <!-- Main button for request action -->
+              <button 
+                class="btn btn-sm wallet-request-btn" 
+                :class="{ 'has-valid-address': isValidAddress }"
+                type="button"
+                @click="requestToken"
+                :disabled="!isValidAddress || isLoading"
+                :title="isValidAddress ? 'Request tokens' : 'Enter a valid address'"
+              >
+                <i v-if="isLoading" class="fas fa-spinner fa-spin me-1"></i>
+                <i v-else-if="!isValidAddress" class="fas fa-wallet me-1"></i>
+                <i v-else class="fas fa-faucet me-1"></i>
+                {{ isLoading ? 'Processing' : (isValidAddress ? 'Request' : 'Wallet') }}
+              </button>
+              <!-- Dropdown button for wallet selection -->
+              <div class="btn-group" role="group">
                 <button 
-                  class="btn btn-sm dropdown-toggle wallet-request-btn" 
-                  :class="{ 'has-valid-address': isValidAddress }"
+                  class="btn btn-sm dropdown-toggle dropdown-toggle-split wallet-dropdown-btn"
                   type="button" 
                   data-bs-toggle="dropdown" 
                   aria-expanded="false"
-                  :title="isValidAddress ? 'Request tokens or change wallet' : 'Select wallet address'"
-                  @click="handleWalletButtonClick"
+                  title="Switch wallet"
                 >
-                  <i v-if="!isValidAddress" class="fas fa-wallet me-1"></i>
-                  <i v-else class="fas fa-faucet me-1"></i>
-                  {{ isValidAddress ? 'Request' : 'Wallet' }}
-                  <i class="fas fa-chevron-down ms-1" style="font-size: 0.75em;"></i>
+                  <i class="fas fa-chevron-down"></i>
+                  <span class="visually-hidden">Toggle Dropdown</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li v-if="cosmosWallet.connected">
                     <a 
-                      class="dropdown-item" 
+                      class="dropdown-item wallet-option" 
                       href="#" 
                       @click.prevent="useCosmosAddress"
                       @mouseenter="hoveringWallet = cosmosWallet.address"
                       @mouseleave="hoveringWallet = ''"
+                      :title="`Use ${cosmosWallet.address} - Click to copy`"
                     >
                       <i class="fas fa-atom me-2"></i>
-                      <span class="text-truncate">{{ formatAddress(cosmosWallet.address) }}</span>
+                      <span class="wallet-address">{{ formatAddress(cosmosWallet.address) }}</span>
                       <small class="text-muted ms-1">(Cosmos)</small>
                     </a>
                   </li>
                   <li v-if="evmWallet.connected">
                     <a 
-                      class="dropdown-item" 
+                      class="dropdown-item wallet-option" 
                       href="#" 
                       @click.prevent="useEvmAddress"
                       @mouseenter="hoveringWallet = evmWallet.address"
                       @mouseleave="hoveringWallet = ''"
+                      :title="`Use ${evmWallet.address} - Click to copy`"
                     >
                       <i class="fab fa-ethereum me-2"></i>
-                      <span class="text-truncate">{{ formatAddress(evmWallet.address) }}</span>
+                      <span class="wallet-address">{{ formatAddress(evmWallet.address) }}</span>
                       <small class="text-muted ms-1">(EVM)</small>
                     </a>
                   </li>
@@ -252,15 +243,19 @@ const formatAddress = (addr) => {
   return addr.slice(0, 6) + '...' + addr.slice(-4)
 }
 
-const useCosmosAddress = () => {
+const useCosmosAddress = async () => {
   if (cosmosWallet.connected && cosmosWallet.address) {
     address.value = cosmosWallet.address
+    // Also copy to clipboard
+    await copyToClipboard(cosmosWallet.address)
   }
 }
 
-const useEvmAddress = () => {
+const useEvmAddress = async () => {
   if (evmWallet.connected && evmWallet.address) {
     address.value = evmWallet.address
+    // Also copy to clipboard
+    await copyToClipboard(evmWallet.address)
   }
 }
 
@@ -316,15 +311,6 @@ const handleEvmDisconnect = async () => {
   disconnectEvm()
 }
 
-const handleWalletButtonClick = (event) => {
-  // If valid address, also trigger request on button click
-  if (isValidAddress.value && !isLoading.value) {
-    event.stopPropagation()
-    event.preventDefault()
-    requestToken()
-  }
-  // Let dropdown still open for wallet switching
-}
 
 const requestToken = async () => {
   if (!isValidAddress.value) {
@@ -577,30 +563,66 @@ const copyToClipboard = async (text) => {
 }
 
 /* Wallet/Request dropdown button */
-.wallet-request-btn {
-  border: 2px solid var(--border-color) !important;
+.btn-group {
   background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 0.375rem;
+  padding: 0;
+}
+
+.wallet-request-btn {
+  background: transparent;
   color: var(--text-primary);
   padding: 0.5rem 1rem;
   transition: all 0.2s ease;
   text-decoration: none;
+  margin: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-.wallet-request-btn:hover {
+.wallet-dropdown-btn {
+  background: transparent;
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s ease;
+  border-radius: 0 !important;
+  margin: 0;
+  border: none !important;
+}
+
+.wallet-dropdown-btn::after {
+  display: none;
+}
+
+.wallet-dropdown-btn .fa-chevron-down {
+  font-size: 0.75rem;
+}
+
+.wallet-request-btn:hover:not(:disabled) {
   background: var(--bg-primary);
-  border-color: var(--cosmos-accent) !important;
+  color: var(--cosmos-accent);
+}
+
+.wallet-dropdown-btn:hover,
+.wallet-dropdown-btn[aria-expanded="true"] {
+  background: var(--bg-primary);
   color: var(--cosmos-accent);
 }
 
 .wallet-request-btn.has-valid-address {
-  border: 2px solid #00ff88 !important;
   color: var(--cosmos-accent);
   font-weight: 600;
 }
 
-.wallet-request-btn.has-valid-address:hover {
+.wallet-request-btn.has-valid-address:hover:not(:disabled) {
   background: rgba(0, 255, 136, 0.1);
-  transform: scale(1.02);
+}
+
+.wallet-request-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
 
@@ -662,18 +684,9 @@ const copyToClipboard = async (text) => {
 }
 
 /* Input group improvements */
-.input-group-text {
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
+.input-group > .btn-group {
+  border-radius: 0 0.375rem 0.375rem 0;
   border-left: none;
-  padding: 0;
-  overflow: visible;
-}
-
-.wallet-request-btn {
-  border-radius: 0 0.375rem 0.375rem 0 !important;
-  border-left: 2px solid var(--border-color);
-  min-width: 100px;
 }
 
 .dropdown-toggle::after {
@@ -681,21 +694,24 @@ const copyToClipboard = async (text) => {
 }
 
 .dropdown-menu {
-  min-width: 200px;
+  min-width: 250px;
   background: var(--bg-secondary);
   border: 2px solid var(--cosmos-accent);
   box-shadow: 0 6px 20px rgba(0, 210, 255, 0.2);
   margin-top: 4px;
+  position: absolute;
+  z-index: 1000;
 }
 
 .dropdown-item {
   color: var(--text-primary);
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .dropdown-item:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   color: var(--cosmos-accent);
 }
 
@@ -704,24 +720,13 @@ const copyToClipboard = async (text) => {
   text-align: center;
 }
 
-/* Enhanced dropdown styling when open */
-.dropdown.show .wallet-request-btn {
-  background: rgba(0, 210, 255, 0.1);
-  border-color: var(--cosmos-accent) !important;
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
-  color: var(--cosmos-accent);
-}
-
-.dropdown.show .wallet-request-btn.has-valid-address {
-  background: rgba(0, 255, 136, 0.15);
-  border-color: #00ff88 !important;
-  box-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
+.wallet-address {
+  font-family: monospace;
+  font-size: 0.9rem;
 }
 
 /* Hover effect for dropdown items */
 .dropdown-item:hover {
-  background: var(--bg-secondary);
-  color: var(--cosmos-accent);
   transform: translateX(4px);
 }
 
