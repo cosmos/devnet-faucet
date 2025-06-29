@@ -252,61 +252,45 @@ const isMobile = () => {
 
 const handleCosmosConnect = async () => {
   if (isMobile()) {
-    // Keplr mobile uses deep linking to connect
-    try {
-      // Check if we're in Keplr's in-app browser
-      if (window.keplr) {
-        // We're already in Keplr browser, just connect normally
-        await connectKeplr(config.value?.network)
-      } else {
-        // Use Keplr deep link to prompt connection
-        const currentUrl = encodeURIComponent(window.location.href)
-        const keplrDeepLink = `keplrwallet://wc?uri=${currentUrl}`
-        
-        // Try to open Keplr app
-        window.location.href = keplrDeepLink
-        
-        // Check periodically if Keplr becomes available after returning from app
-        let checkCount = 0
-        const maxChecks = 10 // Check for 10 seconds
-        
-        const checkInterval = setInterval(async () => {
-          checkCount++
-          
-          if (window.keplr) {
-            // Keplr is now available, connect
-            clearInterval(checkInterval)
-            await connectKeplr(config.value?.network)
-          } else if (checkCount >= maxChecks) {
-            // Stop checking after timeout
-            clearInterval(checkInterval)
-            message.value = `
-              <div class="alert alert-info alert-dismissible show fade" role="alert">
-                <h6 class="alert-heading">
-                  <i class="fas fa-mobile-alt me-2"></i>Keplr Mobile Connection
-                </h6>
-                <p class="mb-2">If Keplr didn't open automatically:</p>
-                <ol class="mb-2">
-                  <li>Open Keplr mobile app manually</li>
-                  <li>Go to Settings → Browser</li>
-                  <li>Enter this website URL</li>
-                  <li>Connect your wallet when prompted</li>
-                </ol>
-                <p class="mb-0"><small>Alternatively, you can copy your address from Keplr and paste it below.</small></p>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-              </div>
-            `
-          }
-        }, 1000)
-      }
-    } catch (error) {
-      console.error('Error connecting to Keplr mobile:', error)
+    // Check if we're in Keplr's in-app browser
+    if (window.keplr) {
+      // We're already in Keplr browser, just connect normally
+      await connectKeplr(config.value?.network)
+    } else {
+      // External mobile browser - Keplr requires WalletConnect or manual entry
       message.value = `
-        <div class="alert alert-warning alert-dismissible show fade" role="alert">
+        <div class="alert alert-info alert-dismissible show fade" role="alert">
           <h6 class="alert-heading">
-            <i class="fas fa-exclamation-triangle me-2"></i>Connection Failed
+            <i class="fas fa-mobile-alt me-2"></i>Keplr Mobile Options
           </h6>
-          <p class="mb-0">Unable to connect to Keplr. Please copy your Cosmos address from the Keplr app and paste it in the field below.</p>
+          <p class="mb-3">Choose how to connect your Keplr wallet:</p>
+          
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="window.open('https://faucet.basementnodes.ca', '_blank')">
+              <i class="fas fa-external-link-alt me-2"></i>
+              Open in Keplr Browser
+            </button>
+            
+            <button class="btn btn-outline-secondary btn-sm" onclick="navigator.clipboard.readText().then(text => { document.querySelector('input[placeholder*=cosmos]').value = text; })">
+              <i class="fas fa-paste me-2"></i>
+              Paste Address from Clipboard
+            </button>
+          </div>
+          
+          <hr class="my-3">
+          
+          <p class="mb-2"><strong>Manual Steps:</strong></p>
+          <ol class="mb-0 small">
+            <li>Open Keplr mobile app</li>
+            <li>Copy your Cosmos address</li>
+            <li>Return here and paste it below</li>
+          </ol>
+          
+          <p class="mt-3 mb-0 small text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Direct connection from mobile browsers is not yet supported by Keplr.
+          </p>
+          
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
       `
