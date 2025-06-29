@@ -47,7 +47,7 @@
               <div class="detail-row" v-if="tokenBalances[token.denom]">
                 <span class="detail-label">Your Balance:</span>
                 <span class="detail-value">
-                  {{ formatBalance(tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals) }} 
+                  {{ formatBalance(tokenBalances[token.denom].current_amount || tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals || token.decimals) }} 
                   {{ tokenBalances[token.denom].symbol || token.symbol }}
                 </span>
               </div>
@@ -116,7 +116,7 @@
                 </div>
                 <div v-if="tokenBalances[token.denom]" class="token-balance">
                   <small class="text-muted">
-                    Your Balance: {{ formatBalance(tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals) }} 
+                    Your Balance: {{ formatBalance(tokenBalances[token.denom].current_amount || tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals || token.decimals) }} 
                     {{ tokenBalances[token.denom].symbol || token.symbol }}
                   </small>
                 </div>
@@ -225,7 +225,8 @@ const getTokenStatus = (token) => {
   // Check if user already has max amount
   const balance = tokenBalances.value[token.denom]
   if (balance) {
-    const currentAmount = parseFloat(balance.amount) || 0
+    // Handle both 'amount' and 'current_amount' fields for compatibility
+    const currentAmount = parseFloat(balance.current_amount || balance.amount || 0)
     const targetAmount = parseFloat(token.target_balance || token.amount || 0)
     if (currentAmount >= targetAmount) return 'maxed'
   }
@@ -255,13 +256,31 @@ const getTokenStatusClass = (token) => {
   const status = getTokenStatus(token)
   const claimPercentage = getClaimPercentage(token)
   
-  return {
-    'status-available': status === 'available' && claimPercentage >= 50,
-    'status-partial': status === 'available' && claimPercentage < 50,
-    'status-maxed': status === 'maxed',
-    'status-incompatible': status === 'incompatible',
-    'status-neutral': status === 'neutral' || !props.address
+  // Color coding based on percentage of max that will be sent:
+  // Green: 75-100% of max amount
+  // Yellow: 25-74% of max amount  
+  // Orange: 1-24% of max amount
+  // Red: 0% (already maxed out)
+  // Gray: incompatible or no address
+  
+  if (status === 'incompatible' || status === 'neutral' || !props.address) {
+    return { 'status-neutral': true }
   }
+  
+  if (status === 'maxed' || claimPercentage === 0) {
+    return { 'status-maxed': true }
+  }
+  
+  if (claimPercentage >= 75) {
+    return { 'status-available': true }
+  }
+  
+  if (claimPercentage >= 25) {
+    return { 'status-partial': true }
+  }
+  
+  // Less than 25% - orange/warning color
+  return { 'status-minimal': true }
 }
 
 const isNativeToken = (token) => {
@@ -331,7 +350,8 @@ const getClaimableAmountRaw = (token) => {
   
   if (!balance) return target
   
-  const current = parseFloat(balance.amount) || 0
+  // Handle both 'amount' and 'current_amount' fields for compatibility
+  const current = parseFloat(balance.current_amount || balance.amount || 0)
   const remaining = target - current
   
   return Math.max(0, remaining)
@@ -339,9 +359,18 @@ const getClaimableAmountRaw = (token) => {
 
 const formatClaimableAmount = (token) => {
   const claimable = getClaimableAmountRaw(token)
-  const formatted = formatBalance(claimable, token.decimals || 0)
+  const target = parseFloat(token.target_balance || token.amount || 0)
+  const formattedClaimable = formatBalance(claimable, token.decimals || 0)
+  const formattedTarget = formatBalance(target, token.decimals || 0)
   const symbol = getTokenSymbol(token)
-  return `${formatted} ${symbol}`
+  
+  // If we're sending the full amount, just show that
+  if (claimable === target) {
+    return `${formattedClaimable} ${symbol}`
+  }
+  
+  // If we're sending partial or none, show as "actual/max"
+  return `${formattedClaimable}/${formattedTarget} ${symbol}`
 }
 
 const getHoverClass = (token) => {
@@ -494,11 +523,15 @@ onMounted(() => {
 }
 
 .token-card.status-partial {
+  border-color: #ffc107;
+}
+
+.token-card.status-minimal {
   border-color: #ff9800;
 }
 
 .token-card.status-maxed {
-  border-color: #ffc107;
+  border-color: #dc3545;
 }
 
 .token-card.status-incompatible {
@@ -725,11 +758,15 @@ onMounted(() => {
 }
 
 .token-card-mobile.status-partial {
+  border-color: #ffc107;
+}
+
+.token-card-mobile.status-minimal {
   border-color: #ff9800;
 }
 
 .token-card-mobile.status-maxed {
-  border-color: #ffc107;
+  border-color: #dc3545;
 }
 
 .token-card-mobile.status-incompatible {
