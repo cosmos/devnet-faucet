@@ -1,107 +1,71 @@
 <template>
   <div>
-    <div class="info-grid">
-      <!-- Cosmos Network -->
-      <div class="info-card">
-        <h5 class="info-title">
-          <i class="fas fa-atom"></i>
-          Cosmos Network
-        </h5>
-        <div class="info-item">
-          <span class="info-label">Chain ID:</span>
-          <code class="info-value">{{ networkConfig.cosmos?.chainId || 'Loading...' }}</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">RPC:</span>
-          <code class="info-value text-truncate">{{ networkConfig.cosmos?.rpc || 'Loading...' }}</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">gRPC:</span>
-          <code class="info-value text-truncate">{{ networkConfig.cosmos?.grpc || 'Loading...' }}</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">REST:</span>
-          <code class="info-value text-truncate">{{ networkConfig.cosmos?.rest || 'Loading...' }}</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Faucet:</span>
-          <code class="info-value address-value" @click="copyToClipboard(networkConfig.faucetAddresses?.cosmos)">
-            {{ networkConfig.faucetAddresses?.cosmos || 'Loading...' }}
-            <i class="fas fa-copy copy-icon"></i>
-          </code>
-        </div>
-      </div>
-
-      <!-- EVM Network -->
-      <div class="info-card">
-        <h5 class="info-title">
-          <i class="fab fa-ethereum"></i>
-          EVM Network
-        </h5>
-        <div class="info-item">
-          <span class="info-label">Chain ID:</span>
-          <code class="info-value">{{ networkConfig.evm?.chainId || 'Loading...' }} ({{ networkConfig.evm?.chainIdHex || '0x...' }})</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">RPC:</span>
-          <code class="info-value text-truncate">{{ networkConfig.evm?.rpc || 'Loading...' }}</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">WebSocket:</span>
-          <code class="info-value text-truncate">{{ networkConfig.evm?.websocket || 'Loading...' }}</code>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Faucet:</span>
-          <code class="info-value address-value" @click="copyToClipboard(networkConfig.faucetAddresses?.evm)">
-            {{ networkConfig.faucetAddresses?.evm || 'Loading...' }}
-            <i class="fas fa-copy copy-icon"></i>
-          </code>
-        </div>
-      </div>
-    </div>
-
-    <!-- Contract Addresses -->
-    <div v-if="networkConfig.contracts && Object.keys(networkConfig.contracts).length" class="info-card mt-3">
+    <!-- Network Details -->
+    <div class="info-card">
       <h5 class="info-title">
-        <i class="fas fa-file-contract"></i>
-        Smart Contracts
+        <i class="fas fa-network-wired"></i>
+        Network Details
       </h5>
       
-      <!-- System Contracts -->
-      <div class="contract-section">
-        <h6 class="section-title">System Contracts</h6>
-        <div v-if="networkConfig.contracts.atomicMultiSend" class="info-item">
-          <span class="info-label">AtomicMultiSend:</span>
-          <code class="info-value address-value" @click="copyToClipboard(networkConfig.contracts.atomicMultiSend)">
-            {{ formatAddress(networkConfig.contracts.atomicMultiSend) }}
-            <i class="fas fa-copy copy-icon"></i>
-          </code>
+      <div class="info-grid">
+        <!-- Cosmos Section -->
+        <div class="network-section">
+          <h6 class="section-title">
+            <i class="fas fa-atom me-2"></i>Cosmos
+          </h6>
+          <div class="info-item">
+            <span class="info-label">Chain ID:</span>
+            <code class="info-value">{{ networkConfig.cosmos?.chainId || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">RPC:</span>
+            <code class="info-value text-truncate">{{ networkConfig.cosmos?.rpc || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">gRPC:</span>
+            <code class="info-value text-truncate">{{ networkConfig.cosmos?.grpc || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">REST:</span>
+            <code class="info-value text-truncate">{{ networkConfig.cosmos?.rest || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Faucet:</span>
+            <code class="info-value address-value" @click="copyToClipboard(networkConfig.faucetAddresses?.cosmos)">
+              {{ networkConfig.faucetAddresses?.cosmos || 'Loading...' }}
+              <i class="fas fa-copy copy-icon"></i>
+            </code>
+          </div>
         </div>
-        <div v-if="networkConfig.contracts.native_token" class="info-item">
-          <span class="info-label">Native ATOM:</span>
-          <code class="info-value address-value" @click="copyToClipboard(networkConfig.contracts.native_token)">
-            {{ formatAddress(networkConfig.contracts.native_token) }}
-            <i class="fas fa-copy copy-icon"></i>
-          </code>
-        </div>
-        <div v-if="networkConfig.contracts.werc20_precompile" class="info-item">
-          <span class="info-label">ERC20 Precompile:</span>
-          <code class="info-value address-value" @click="copyToClipboard(networkConfig.contracts.werc20_precompile)">
-            {{ formatAddress(networkConfig.contracts.werc20_precompile) }}
-            <i class="fas fa-copy copy-icon"></i>
-          </code>
-        </div>
-      </div>
-      
-      <!-- ERC20 Token Contracts -->
-      <div v-if="networkConfig.contracts.erc20_tokens && Object.keys(networkConfig.contracts.erc20_tokens).length" class="contract-section">
-        <h6 class="section-title">ERC20 Tokens</h6>
-        <div class="info-item" v-for="(address, symbol) in networkConfig.contracts.erc20_tokens" :key="symbol">
-          <span class="info-label">{{ symbol }}:</span>
-          <code class="info-value address-value" @click="copyToClipboard(address)">
-            {{ formatAddress(address) }}
-            <i class="fas fa-copy copy-icon"></i>
-          </code>
+
+        <!-- EVM Section -->
+        <div class="network-section">
+          <h6 class="section-title">
+            <i class="fab fa-ethereum me-2"></i>EVM
+          </h6>
+          <div class="info-item">
+            <span class="info-label">Chain ID:</span>
+            <code class="info-value">{{ networkConfig.evm?.chainId || 'Loading...' }} ({{ networkConfig.evm?.chainIdHex || '0x...' }})</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">RPC:</span>
+            <code class="info-value text-truncate">{{ networkConfig.evm?.rpc || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">WebSocket:</span>
+            <code class="info-value text-truncate">{{ networkConfig.evm?.websocket || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Explorer:</span>
+            <code class="info-value text-truncate">{{ networkConfig.evm?.explorer || 'Loading...' }}</code>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Faucet:</span>
+            <code class="info-value address-value" @click="copyToClipboard(networkConfig.faucetAddresses?.evm)">
+              {{ networkConfig.faucetAddresses?.evm || 'Loading...' }}
+              <i class="fas fa-copy copy-icon"></i>
+            </code>
+          </div>
         </div>
       </div>
     </div>
@@ -314,19 +278,18 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-.contract-section {
-  margin-bottom: 1.5rem;
-}
-
-.contract-section:last-child {
-  margin-bottom: 0;
-}
 
 .section-title {
-  color: var(--cosmos-primary);
-  font-size: 0.95rem;
+  color: var(--cosmos-accent);
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.network-section {
+  padding: 0;
 }
 
 /* IBC Token Styles */
