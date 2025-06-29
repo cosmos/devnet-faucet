@@ -30,7 +30,7 @@
             <code class="info-value text-truncate">{{ networkConfig.cosmos?.rest || 'Loading...' }}</code>
           </div>
           <div class="info-item">
-            <span class="info-label">Faucet:</span>
+            <span class="info-label">Faucet Wallet:</span>
             <code class="info-value address-value" @click="copyToClipboard(networkConfig.faucetAddresses?.cosmos)">
               {{ networkConfig.faucetAddresses?.cosmos || 'Loading...' }}
               <i class="fas fa-copy copy-icon"></i>
@@ -60,7 +60,7 @@
             <code class="info-value text-truncate">{{ networkConfig.evm?.explorer || 'Loading...' }}</code>
           </div>
           <div class="info-item">
-            <span class="info-label">Faucet:</span>
+            <span class="info-label">Faucet Wallet:</span>
             <code class="info-value address-value" @click="copyToClipboard(networkConfig.faucetAddresses?.evm)">
               {{ networkConfig.faucetAddresses?.evm || 'Loading...' }}
               <i class="fas fa-copy copy-icon"></i>
@@ -276,7 +276,7 @@ onMounted(() => {
 .info-label {
   color: var(--text-secondary);
   font-size: 0.9rem;
-  min-width: 100px;
+  min-width: 120px;
   flex-shrink: 0;
 }
 
