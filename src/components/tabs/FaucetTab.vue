@@ -273,7 +273,7 @@ const handleCosmosConnect = async () => {
             <li>Open the Keplr app</li>
             <li>Select your wallet</li>
             <li>Copy your Cosmos address</li>
-            <li>Return here and paste it in the wallet address field below</li>
+            <li>Return here and paste it in the wallet address field above</li>
           </ol>
           
           <div class="d-grid gap-2 mb-3">
