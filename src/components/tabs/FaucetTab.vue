@@ -250,25 +250,67 @@ const isMobile = () => {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-const handleCosmosConnect = () => {
+const handleCosmosConnect = async () => {
   if (isMobile()) {
-    // On mobile, provide better UX guidance
-    message.value = `
-      <div class="alert alert-info alert-dismissible show fade" role="alert">
-        <h6 class="alert-heading">
-          <i class="fas fa-mobile-alt me-2"></i>Mobile Wallet Instructions
-        </h6>
-        <p class="mb-2"><strong>For Keplr Mobile:</strong></p>
-        <ol class="mb-0">
-          <li>Open your Keplr mobile app</li>
-          <li>Go to your wallet and copy your Cosmos address</li>
-          <li>Paste it in the address field below</li>
-          <li>Click "Request Tokens"</li>
-        </ol>
-        <p class="mt-2 mb-0"><small>Note: Direct wallet connection is not available on mobile browsers.</small></p>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
-    `
+    // Keplr mobile uses deep linking to connect
+    try {
+      // Check if we're in Keplr's in-app browser
+      if (window.keplr) {
+        // We're already in Keplr browser, just connect normally
+        await connectKeplr(config.value?.network)
+      } else {
+        // Use Keplr deep link to prompt connection
+        const currentUrl = encodeURIComponent(window.location.href)
+        const keplrDeepLink = `keplrwallet://wc?uri=${currentUrl}`
+        
+        // Try to open Keplr app
+        window.location.href = keplrDeepLink
+        
+        // Check periodically if Keplr becomes available after returning from app
+        let checkCount = 0
+        const maxChecks = 10 // Check for 10 seconds
+        
+        const checkInterval = setInterval(async () => {
+          checkCount++
+          
+          if (window.keplr) {
+            // Keplr is now available, connect
+            clearInterval(checkInterval)
+            await connectKeplr(config.value?.network)
+          } else if (checkCount >= maxChecks) {
+            // Stop checking after timeout
+            clearInterval(checkInterval)
+            message.value = `
+              <div class="alert alert-info alert-dismissible show fade" role="alert">
+                <h6 class="alert-heading">
+                  <i class="fas fa-mobile-alt me-2"></i>Keplr Mobile Connection
+                </h6>
+                <p class="mb-2">If Keplr didn't open automatically:</p>
+                <ol class="mb-2">
+                  <li>Open Keplr mobile app manually</li>
+                  <li>Go to Settings → Browser</li>
+                  <li>Enter this website URL</li>
+                  <li>Connect your wallet when prompted</li>
+                </ol>
+                <p class="mb-0"><small>Alternatively, you can copy your address from Keplr and paste it below.</small></p>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            `
+          }
+        }, 1000)
+      }
+    } catch (error) {
+      console.error('Error connecting to Keplr mobile:', error)
+      message.value = `
+        <div class="alert alert-warning alert-dismissible show fade" role="alert">
+          <h6 class="alert-heading">
+            <i class="fas fa-exclamation-triangle me-2"></i>Connection Failed
+          </h6>
+          <p class="mb-0">Unable to connect to Keplr. Please copy your Cosmos address from the Keplr app and paste it in the field below.</p>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      `
+    }
   } else {
     connectKeplr(config.value?.network)
   }

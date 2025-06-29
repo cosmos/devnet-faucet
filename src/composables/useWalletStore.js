@@ -22,11 +22,13 @@ export function useWalletStore() {
     
     if (!window.keplr) {
       if (isMobile) {
-        // For mobile, we'll use WalletConnect through Keplr
-        // First, check if we can use Keplr's WalletConnect integration
-        // Mobile Keplr connection will be handled by MobileWalletConnect component
-        console.log('Keplr not found on mobile, should use MobileWalletConnect component')
-        return
+        // On mobile, Keplr might be available after navigation from deep link
+        // Wait a moment and check again
+        await new Promise(resolve => setTimeout(resolve, 500))
+        if (!window.keplr) {
+          console.log('Keplr not available on mobile')
+          return
+        }
       } else {
         alert('Please install Keplr wallet extension')
         return
