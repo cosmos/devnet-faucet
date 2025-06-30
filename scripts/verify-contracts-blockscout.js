@@ -54,7 +54,8 @@ class BlockscoutVerifier {
 
     async checkVerificationStatus(address) {
         try {
-            const response = await fetch(`${this.explorerApiUrl}/smart-contracts/${address}`);
+            // Blockscout API requires lowercase addresses
+            const response = await fetch(`${this.explorerApiUrl}/smart-contracts/${address.toLowerCase()}`);
             const data = await response.json();
             return data.is_verified === true;
         } catch (error) {
@@ -100,8 +101,9 @@ class BlockscoutVerifier {
         }
 
         try {
+            // Blockscout API requires lowercase addresses
             const response = await fetch(
-                `${this.explorerApiUrl}/smart-contracts/${address}/verification/via/flattened-code`,
+                `${this.explorerApiUrl}/smart-contracts/${address.toLowerCase()}/verification/via/flattened-code`,
                 {
                     method: 'POST',
                     headers: {
@@ -162,7 +164,7 @@ class BlockscoutVerifier {
         const atomicMultiSendAddress = this.tokenLoader.getFaucetConfig().atomicMultiSend;
         if (atomicMultiSendAddress) {
             contracts.push({
-                address: atomicMultiSendAddress,
+                address: atomicMultiSendAddress.toLowerCase(),
                 name: 'AtomicMultiSend',
                 flattenedPath: path.join(__dirname, '../flattened/AtomicMultiSend_flat.sol'),
                 constructorArgs: '' // No constructor args
@@ -171,8 +173,8 @@ class BlockscoutVerifier {
         
         // Token contracts - only unverified ones
         const unverifiedTokens = [
-            { symbol: 'PEPE', address: '0xBCf75f81D7A74cf18a41C267443F0fF3E1A9A671' },
-            { symbol: 'USDT', address: '0xc8648a893357e9893669036Be58aFE71B8140eD6' }
+            { symbol: 'PEPE', address: '0xbcf75f81d7a74cf18a41c267443f0ff3e1a9a671' },
+            { symbol: 'USDT', address: '0xc8648a893357e9893669036be58afe71b8140ed6' }
         ];
         
         for (const token of unverifiedTokens) {
