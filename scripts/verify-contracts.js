@@ -51,6 +51,8 @@ class ContractVerifier {
         this.tokenLoader = new TokenConfigLoader(this.networkConfig);
         this.faucetAddress = null;
         this.needsRedeployment = [];
+        this.explorerApiUrl = 'https://evm-devnet-1.cloud.blockscout.com/api';
+        this.explorerUrl = 'https://evm-devnet-1.cloud.blockscout.com';
     }
 
     async initialize() {
@@ -58,6 +60,7 @@ class ContractVerifier {
         this.faucetAddress = getEvmAddress();
         console.log(' Contract Verification Started');
         console.log(` Faucet Address: ${this.faucetAddress}`);
+        console.log(` Explorer: ${this.explorerUrl}`);
     }
 
     async checkContract(address, expectedOwner = null) {
@@ -247,12 +250,69 @@ class ContractVerifier {
         }
     }
 
+    async checkExplorerVerification(address, contractName) {
+        try {
+            const response = await fetch(`${this.explorerApiUrl}?module=contract&action=getsourcecode&address=${address}`);
+            const data = await response.json();
+            
+            if (data.status === '1' && data.result && data.result[0]) {
+                const result = data.result[0];
+                const isVerified = result.SourceCode && result.SourceCode !== '';
+                
+                if (isVerified) {
+                    console.log(`   Explorer verified: Yes`);
+                    console.log(`     Contract Name: ${result.ContractName}`);
+                    console.log(`     Compiler: ${result.CompilerVersion}`);
+                    console.log(`     Optimization: ${result.OptimizationUsed === '1' ? 'Yes' : 'No'}`);
+                } else {
+                    console.log(`   Explorer verified: No`);
+                    console.log(`     View at: ${this.explorerUrl}/address/${address}`);
+                }
+                
+                return isVerified;
+            } else {
+                console.log(`   Explorer verified: Unable to check`);
+                return null;
+            }
+        } catch (error) {
+            console.log(`   Explorer verification check failed: ${error.message}`);
+            return null;
+        }
+    }
+
+    async verifyOnExplorer(address, contractName, sourceCode = null) {
+        console.log(`\n Verifying ${contractName} on block explorer...`);
+        console.log(`  Address: ${address}`);
+        
+        const isVerified = await this.checkExplorerVerification(address, contractName);
+        
+        if (!isVerified && sourceCode) {
+            console.log(`\n  To verify manually, visit:`);
+            console.log(`  ${this.explorerUrl}/address/${address}/verify-via-flattened-code`);
+        }
+        
+        return isVerified;
+    }
+
     async verify() {
         await this.initialize();
 
         // Verify all contracts
         const atomicMultiSendValid = await this.verifyAtomicMultiSend();
         const tokensValid = await this.verifyTokenContracts();
+
+        // Check explorer verification status
+        console.log('\n Checking Block Explorer Verification Status...');
+        
+        const atomicMultiSendAddress = this.tokenLoader.getFaucetConfig().atomicMultiSend;
+        if (atomicMultiSendAddress) {
+            await this.verifyOnExplorer(atomicMultiSendAddress, 'AtomicMultiSend');
+        }
+        
+        const tokens = this.tokenLoader.getErc20Tokens();
+        for (const token of tokens) {
+            await this.verifyOnExplorer(token.erc20_contract, `${token.symbol} Token`);
+        }
 
         if (!atomicMultiSendValid || !tokensValid) {
             console.log('\n  Some contracts need redeployment');
@@ -267,6 +327,8 @@ class ContractVerifier {
         }
 
         console.log('\n All contracts verified successfully!');
+        console.log('\n Explorer verified contracts:');
+        console.log(`  ${this.explorerUrl}/verified-contracts`);
         return true;
     }
 }

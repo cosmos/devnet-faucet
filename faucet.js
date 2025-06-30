@@ -780,7 +780,7 @@ app.get('/balance/:type', async (req, res) => {
           continue;
         }
 
-        if(token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" && token.erc20_contract !== "0x0000000000000000000000000000000000000000") {
+        if(token.erc20_contract && token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" && token.erc20_contract !== "0x0000000000000000000000000000000000000000") {
           try {
             const tokenContract = new Contract(token.erc20_contract, erc20ABI, ethProvider);
             const balance = await tokenContract.balanceOf(targetAddress);

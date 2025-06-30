@@ -7,12 +7,36 @@
         Network Details
       </h5>
       
-      <div class="info-grid">
-        <!-- Cosmos Section -->
-        <div class="network-section">
-          <h6 class="section-title">
+      <!-- Nested Tab Navigation -->
+      <ul class="nav nav-pills mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button 
+            class="nav-link"
+            :class="{ active: activeNetworkTab === 'cosmos' }"
+            @click="activeNetworkTab = 'cosmos'"
+            type="button"
+            role="tab"
+          >
             <i class="fas fa-atom me-2"></i>Cosmos
-          </h6>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button 
+            class="nav-link"
+            :class="{ active: activeNetworkTab === 'evm' }"
+            @click="activeNetworkTab = 'evm'"
+            type="button"
+            role="tab"
+          >
+            <i class="fab fa-ethereum me-2"></i>EVM
+          </button>
+        </li>
+      </ul>
+
+      <!-- Tab Content -->
+      <div class="tab-content">
+        <!-- Cosmos Section -->
+        <div v-if="activeNetworkTab === 'cosmos'" class="network-section">
           <div class="info-item">
             <span class="info-label">Chain ID:</span>
             <code class="info-value">{{ networkConfig.cosmos?.chainId || 'Loading...' }}</code>
@@ -36,13 +60,31 @@
               <i class="fas fa-copy copy-icon"></i>
             </code>
           </div>
+          
+          <!-- IBC Tokens (show only in Cosmos tab) -->
+          <div v-if="ibcTokens.length > 0" class="ibc-section mt-4">
+            <h6 class="section-subtitle">
+              <i class="fas fa-link"></i>
+              IBC Tokens
+              <button class="btn btn-sm btn-outline-primary ms-2" @click="refreshIBCBalances" :disabled="loadingIBC">
+                <i class="fas" :class="loadingIBC ? 'fa-spinner fa-spin' : 'fa-sync'"></i>
+              </button>
+            </h6>
+            <div class="ibc-token-item" v-for="token in ibcTokens" :key="token.denom">
+              <div class="ibc-token-header">
+                <span class="token-name">{{ token.symbol || token.name }}</span>
+                <span class="token-balance">{{ formatBalance(token.amount, token.decimals) }}</span>
+              </div>
+              <div class="ibc-denom" @click="copyToClipboard(token.denom)">
+                <code>{{ formatIBCDenom(token.denom) }}</code>
+                <i class="fas fa-copy copy-icon"></i>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- EVM Section -->
-        <div class="network-section">
-          <h6 class="section-title">
-            <i class="fab fa-ethereum me-2"></i>EVM
-          </h6>
+        <div v-if="activeNetworkTab === 'evm'" class="network-section">
           <div class="info-item">
             <span class="info-label">Chain ID:</span>
             <code class="info-value">{{ networkConfig.evm?.chainId || 'Loading...' }} ({{ networkConfig.evm?.chainIdHex || '0x...' }})</code>
@@ -69,27 +111,6 @@
         </div>
       </div>
     </div>
-
-    <!-- IBC Tokens -->
-    <div v-if="ibcTokens.length > 0" class="info-card mt-3">
-      <h5 class="info-title">
-        <i class="fas fa-link"></i>
-        IBC Tokens
-        <button class="btn btn-sm btn-outline-primary ms-2" @click="refreshIBCBalances" :disabled="loadingIBC">
-          <i class="fas" :class="loadingIBC ? 'fa-spinner fa-spin' : 'fa-sync'"></i>
-        </button>
-      </h5>
-      <div class="ibc-token-item" v-for="token in ibcTokens" :key="token.denom">
-        <div class="ibc-token-header">
-          <span class="token-name">{{ token.symbol || token.name }}</span>
-          <span class="token-balance">{{ formatBalance(token.amount, token.decimals) }}</span>
-        </div>
-        <div class="ibc-denom" @click="copyToClipboard(token.denom)">
-          <code>{{ formatIBCDenom(token.denom) }}</code>
-          <i class="fas fa-copy copy-icon"></i>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -101,6 +122,7 @@ const { networkConfig, config } = useConfig()
 const ibcTokens = ref([])
 const loadingIBC = ref(false)
 const copiedText = ref('')
+const activeNetworkTab = ref('cosmos')
 
 const formatAddress = (address) => {
   if (!address) return ''
@@ -197,17 +219,46 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+/* Tab Navigation Styles */
+.nav-pills {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0;
+}
+
+.nav-pills .nav-link {
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-pills .nav-link:hover {
+  color: var(--cosmos-accent);
+  background: var(--bg-secondary);
+}
+
+.nav-pills .nav-link.active {
+  color: var(--cosmos-accent);
+  background: var(--bg-secondary);
+  border-bottom-color: var(--cosmos-accent);
+}
+
+.tab-content {
+  padding-top: 1rem;
 }
 
 @media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+  .nav-pills {
+    margin-bottom: 1rem;
+  }
+  
+  .nav-pills .nav-link {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
   }
   
   .info-card {
@@ -230,7 +281,7 @@ onMounted(() => {
     width: 100%;
   }
   
-  /* Override text-truncate on mobile to allow wrapping */
+  /* Allow text wrapping on mobile */
   .text-truncate {
     white-space: normal;
     overflow: visible;
@@ -244,8 +295,8 @@ onMounted(() => {
     width: 100%;
   }
   
-  .section-title {
-    font-size: 0.95rem;
+  .section-subtitle {
+    font-size: 0.9rem;
   }
 }
 
@@ -284,8 +335,9 @@ onMounted(() => {
   color: var(--text-primary);
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.85rem;
-  word-break: break-all;
+  word-break: break-word;
   flex: 1;
+  min-width: 0;
 }
 
 .text-truncate {
@@ -293,6 +345,7 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  display: block;
 }
 
 .address-value {
@@ -318,13 +371,18 @@ onMounted(() => {
 }
 
 
-.section-title {
+.section-subtitle {
   color: var(--cosmos-accent);
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
+}
+
+.ibc-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
 }
 
 .network-section {

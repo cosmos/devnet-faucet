@@ -7,9 +7,9 @@
           <span class="brand-subtitle">DEVNET-1</span>
         </div>
         <nav class="nav-icons">
-          <a 
-            href="https://cosmos-docs.mintlify.app/docs" 
-            target="_blank" 
+          <a
+            href="https://cosmos-docs.mintlify.app/docs"
+            target="_blank"
             class="nav-link"
             title="Documentation"
           >
@@ -22,9 +22,9 @@
               <span class="nav-text">docs</span>
             </span>
           </a>
-          <a 
-            href="https://cosmos.network" 
-            target="_blank" 
+          <a
+            href="https://cosmos.network"
+            target="_blank"
             class="nav-link"
             title="Network"
           >
@@ -36,9 +36,9 @@
               <span class="nav-text">network</span>
             </span>
           </a>
-          <a 
-            href="https://discord.gg/cosmos" 
-            target="_blank" 
+          <a
+            href="https://discord.gg/interchain"
+            target="_blank"
             class="nav-link"
             title="Discord"
           >
@@ -49,9 +49,9 @@
               <span class="nav-text">discord</span>
             </span>
           </a>
-          <a 
-            href="https://github.com/cosmos/cosmos-sdk" 
-            target="_blank" 
+          <a
+            href="https://github.com/cosmos/evm"
+            target="_blank"
             class="nav-link"
             title="GitHub"
           >
@@ -174,37 +174,37 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   .header {
     padding: 1rem 0;
   }
-  
+
   .brand-container {
     margin-left: 0;
   }
-  
+
   .brand-logo {
     font-size: 2rem;
   }
-  
+
   .brand-subtitle {
     font-size: 0.6rem;
     bottom: -0.2rem;
     right: -0.3rem;
   }
-  
+
   .nav-icons {
     gap: 1rem;
     margin-right: 0;
     padding-bottom: 0.2rem;
   }
-  
+
   .icon-wrapper {
     width: 1.8rem;
     height: 1.8rem;
   }
-  
+
   .nav-icon {
     width: 18px;
     height: 18px;
   }
-  
+
   .nav-text {
     font-size: 0.8rem;
   }
@@ -214,16 +214,16 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   .brand-logo {
     font-size: 1.5rem;
   }
-  
+
   .nav-icons {
     gap: 0.75rem;
   }
-  
+
   .icon-wrapper {
     width: 1.5rem;
     height: 1.5rem;
   }
-  
+
   .nav-icon {
     width: 16px;
     height: 16px;
