@@ -14,14 +14,28 @@
             
             <div class="mb-2">
               <strong>Address:</strong> 
-              <code class="small">{{ tx.address }}</code>
+              <code 
+                class="small clickable-hash"
+                @click="copyToClipboard(tx.address, `addr-${index}`)"
+                :title="tx.address"
+              >
+                {{ truncateHash(tx.address) }}
+                <i v-if="copiedItem === `addr-${index}`" class="fas fa-check text-success ms-1"></i>
+              </code>
               <span class="badge bg-secondary ms-2">{{ tx.addressType }}</span>
             </div>
             
             <!-- Show transaction hash if available -->
             <div v-if="getActualTransactionHash(tx)" class="mb-2">
               <strong>Tx Hash:</strong> 
-              <code class="small">{{ getActualTransactionHash(tx) }}</code>
+              <code 
+                class="small clickable-hash"
+                @click="copyToClipboard(getActualTransactionHash(tx), `tx-${index}`)"
+                :title="getActualTransactionHash(tx)"
+              >
+                {{ truncateHash(getActualTransactionHash(tx)) }}
+                <i v-if="copiedItem === `tx-${index}`" class="fas fa-check text-success ms-1"></i>
+              </code>
             </div>
             
             <!-- Show error message if failed -->
@@ -102,9 +116,28 @@ const { networkConfig } = useConfig()
 const { recentTransactions, removeTransaction, clearAllTransactions } = useTransactions()
 
 const selectedTransaction = ref(null)
+const copiedItem = ref(null)
 
 const showTransactionDetails = (tx) => {
   selectedTransaction.value = tx
+}
+
+const truncateHash = (hash) => {
+  if (!hash) return ''
+  if (hash.length <= 10) return hash
+  return `${hash.slice(0, 6)}...${hash.slice(-4)}`
+}
+
+const copyToClipboard = async (text, itemId) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedItem.value = itemId
+    setTimeout(() => {
+      copiedItem.value = null
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
 }
 
 const getActualTransactionHash = (tx) => {
@@ -296,6 +329,20 @@ const formatDate = (date) => {
   min-width: 100px;
 }
 
+.clickable-hash {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.clickable-hash:hover {
+  background-color: rgba(93, 150, 240, 0.1);
+  color: var(--cosmos-accent);
+}
+
 /* Mobile responsive styles */
 @media (max-width: 768px) {
   .transaction-item {
@@ -331,8 +378,8 @@ const formatDate = (date) => {
   
   /* Make the address text wrap properly */
   .transaction-item code {
-    word-break: break-all;
-    display: inline-block;
+    word-break: keep-all; /* Changed from break-all since we're truncating */
+    display: inline-flex;
     max-width: 100%;
   }
 }

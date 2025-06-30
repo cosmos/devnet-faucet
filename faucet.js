@@ -73,8 +73,37 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.static('src'))
-app.use(express.static('public'))
+
+// Serve static files based on environment
+if (process.env.NODE_ENV === 'production') {
+  // In production, serve the built files from dist
+  const distPath = path.join(process.cwd(), 'dist');
+  console.log(`[STATIC] Serving production files from: ${distPath}`);
+  
+  // Check if dist directory exists
+  if (!fs.existsSync(distPath)) {
+    console.error(`[ERROR] dist directory does not exist at ${distPath}`);
+  } else {
+    const files = fs.readdirSync(distPath);
+    console.log(`[STATIC] Found ${files.length} files in dist:`, files);
+  }
+  
+  app.use(express.static(distPath, {
+    maxAge: '1h',
+    setHeaders: (res, path) => {
+      if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      } else if (path.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css');
+      }
+    }
+  }));
+} else {
+  // In development, serve from src and public
+  app.use(express.static('src'))
+  app.use(express.static('public'))
+}
+
 app.use('/.well-known', express.static('.well-known'))
 app.use(express.json())
 
@@ -1812,6 +1841,33 @@ const erc20ABI = [
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)"
 ];
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Catch-all route for Vue Router - must be last
+app.get('*', (req, res) => {
+  // For production, always serve index.html for non-file routes
+  if (process.env.NODE_ENV === 'production') {
+    // If it's a file request that wasn't caught by static middleware, it's a 404
+    if (req.path.includes('.')) {
+      res.status(404).send('Not found');
+    } else {
+      // For all other routes, serve the Vue app
+      res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+    }
+  } else {
+    // Development mode
+    if (!req.path.startsWith('/api') && !req.path.includes('.')) {
+      res.sendFile(path.join(process.cwd(), 'index.html'));
+    } else {
+      res.status(404).json({ error: 'Not found' });
+    }
+  }
+});
 
 // Start server
 const HOST = process.env.HOST || '0.0.0.0';

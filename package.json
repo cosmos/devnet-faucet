@@ -10,9 +10,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "predocker": "docker compose down --remove-orphans && docker-compose build faucet",
-    "docker": "docker compose run --rm --remove-orphans -e HOST=0.0.0.0 -p 8088:8088 faucet",
+    "docker": "./scripts/docker-run.sh",
     "docker:build": "docker-compose build faucet",
-    "test": "hardhat test",
+    "test": "forge test",
     "deploy": "node scripts/automated-deploy.js",
     "deploy:test": "node scripts/automated-deploy.js --test",
     "validate": "node scripts/validate-environment.js",
@@ -62,12 +62,9 @@
     "vue": "^3.5.17"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-ethers": "^3.0.9",
     "@vitejs/plugin-vue": "^6.0.0",
     "chai": "^4.5.0",
     "forge": "^2.3.0",
-    "hardhat": "^2.24.2",
-    "hardhat-gas-reporter": "^1.0.10",
     "vite": "^7.0.0"
   }
 }

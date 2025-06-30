@@ -15,11 +15,20 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock ./
 
-# Install dependencies (production only)
-RUN yarn install --frozen-lockfile --production
+# Install ALL dependencies (including dev) for building
+RUN yarn install --frozen-lockfile
 
-# Note: We don't copy everything here, only what's needed for runtime
-# The production stage below will copy specific files
+# Copy source files needed for build
+COPY . .
+
+# Build the Vite frontend with environment variables
+ARG VITE_REOWN_PROJECT_ID
+ENV VITE_REOWN_PROJECT_ID=${VITE_REOWN_PROJECT_ID}
+RUN yarn build
+
+# Now install only production dependencies
+RUN rm -rf node_modules && \
+    yarn install --frozen-lockfile --production
 
 # Production stage
 FROM node:20-alpine
@@ -40,6 +49,7 @@ WORKDIR /app
 
 # Copy from builder
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --chown=nodejs:nodejs package.json yarn.lock ./
 COPY --chown=nodejs:nodejs faucet.js config.js checker.js tokenAllowance.js ./
 COPY --chown=nodejs:nodejs src ./src
@@ -48,8 +58,8 @@ COPY --chown=nodejs:nodejs views ./views
 COPY --chown=nodejs:nodejs tokens.json ./
 # Copy the deployments directory with ABI files
 COPY --chown=nodejs:nodejs deployments ./deployments
-# Copy the built frontend dist directory
-COPY --chown=nodejs:nodejs dist ./dist
+# Copy public assets
+COPY --chown=nodejs:nodejs public ./public
 
 # Create .faucet directory for rate limiting database
 RUN mkdir -p .faucet && chown -R nodejs:nodejs .faucet

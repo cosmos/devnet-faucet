@@ -2,6 +2,14 @@
   <div id="app">
     <Header />
     <div class="container">
+      <!-- Wallet conflict warning -->
+      <div v-if="showWalletWarning" class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Multiple Wallet Extensions Detected</strong>
+        <p class="mb-2 mt-2">You have multiple wallet extensions installed which may cause connection issues.</p>
+        <p class="mb-0">For best results, disable all wallet extensions except the one you want to use (e.g., MetaMask).</p>
+        <button type="button" class="btn-close" @click="showWalletWarning = false" aria-label="Close"></button>
+      </div>
       <Tabs />
     </div>
     <TransactionModal />

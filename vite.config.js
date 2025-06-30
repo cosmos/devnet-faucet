@@ -10,12 +10,22 @@ export default defineConfig({
       '@': resolve(__dirname, './src')
     }
   },
+  optimizeDeps: {
+    include: ['@reown/appkit', '@reown/appkit-adapter-wagmi', '@wagmi/vue'],
+    exclude: []
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
+      },
+      output: {
+        inlineDynamicImports: true,
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
   },
