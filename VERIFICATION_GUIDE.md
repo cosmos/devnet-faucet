@@ -5,9 +5,13 @@ This guide provides instructions for verifying the faucet contracts on Blockscou
 ## Contracts to Verify
 
 1. **AtomicMultiSend**: `0x6365EAcBfb289E3B0767fD6fb1bD5d1b85E15368`
-2. **WBTC**: `0x55Cc56b92b7fa0de7CDa22d263532F2910b9b17B` (Already verified)
+2. **WBTC**: `0x55Cc56b92b7fa0de7CDa22d263532F2910b9b17B` (Already verified - internally by Blockscout)
 3. **PEPE**: `0xBCf75f81D7A74cf18a41C267443F0fF3E1A9A671`
 4. **USDT**: `0xc8648a893357e9893669036Be58aFE71B8140eD6`
+
+## Note on API Verification
+
+The Blockscout API for this network appears to have restrictions on external contract verification submissions. The WBTC contract was verified internally by the Blockscout team. For the remaining contracts, manual verification through the web interface is recommended.
 
 ## Flattened Contracts
 
