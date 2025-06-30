@@ -73,6 +73,41 @@ class DeploymentManager {
         }
     }
 
+    async verifyContractsOnBlockscout(contractAddress) {
+        console.log('\n Starting Blockscout verification...');
+        
+        try {
+            const { getEvmAddress } = await import('../config.js');
+            const deployerAddress = getEvmAddress();
+            
+            // Prepare deployment results for verifier
+            const deploymentResults = {
+                atomicMultiSend: contractAddress,
+                tokens: this.tokenDeployments,
+                deployerAddress: deployerAddress
+            };
+            
+            // Import and run the automated verifier
+            const { default: AutomatedVerifier } = await import('./verify-contracts-automated.js');
+            const verifier = new AutomatedVerifier();
+            const verificationResults = await verifier.verifyDeployedContracts(deploymentResults);
+            
+            // Store verification results
+            this.verificationResults = verificationResults;
+            
+            if (verificationResults.failed.length === 0) {
+                console.log(' All contracts verified successfully on Blockscout');
+            } else {
+                console.warn(` Some contracts failed verification: ${verificationResults.failed.join(', ')}`);
+            }
+            
+        } catch (error) {
+            console.error(` Blockscout verification failed: ${error.message}`);
+            // Don't fail deployment if verification fails
+            this.verificationResults = { verified: [], failed: [], error: error.message };
+        }
+    }
+
     async saveComprehensiveDeploymentRecord() {
         console.log(' Saving comprehensive deployment record...');
         
@@ -88,7 +123,8 @@ class DeploymentManager {
                     AtomicMultiSend: this.deploymentData?.contractAddress,
                     tokens: this.tokenDeployments || {}
                 },
-                deploymentData: this.deploymentData
+                deploymentData: this.deploymentData,
+                blockscoutVerification: this.verificationResults || { verified: [], failed: [] }
             };
             
             // Save to deployments directory
@@ -461,12 +497,23 @@ class DeploymentManager {
             await this.updateConfiguration(contractAddress);
             await this.setTokenApprovals();
             await this.verifyDeployment();
+            await this.verifyContractsOnBlockscout(contractAddress);
             await this.saveComprehensiveDeploymentRecord();
             
             const duration = (Date.now() - startTime) / 1000;
             console.log('\n Deployment completed successfully!');
             console.log(`  Total time: ${duration.toFixed(2)}s`);
             console.log(` Contract address: ${contractAddress}`);
+            
+            if (this.verificationResults) {
+                console.log('\n Blockscout Verification:');
+                if (this.verificationResults.verified.length > 0) {
+                    console.log(`  Verified: ${this.verificationResults.verified.join(', ')}`);
+                }
+                if (this.verificationResults.failed.length > 0) {
+                    console.log(`  Failed: ${this.verificationResults.failed.join(', ')}`);
+                }
+            }
             
             if (this.runTests) {
                 console.log('\n All tests passed!');
