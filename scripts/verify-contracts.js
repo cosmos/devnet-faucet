@@ -56,8 +56,8 @@ class ContractVerifier {
     async initialize() {
         await initializeSecureKeys();
         this.faucetAddress = getEvmAddress();
-        console.log('🔍 Contract Verification Started');
-        console.log(`📍 Faucet Address: ${this.faucetAddress}`);
+        console.log(' Contract Verification Started');
+        console.log(` Faucet Address: ${this.faucetAddress}`);
     }
 
     async checkContract(address, expectedOwner = null) {
@@ -89,12 +89,12 @@ class ContractVerifier {
     }
 
     async verifyAtomicMultiSend() {
-        console.log('\n📋 Verifying AtomicMultiSend Contract...');
+        console.log('\n Verifying AtomicMultiSend Contract...');
         
         const atomicMultiSendAddress = this.tokenLoader.getFaucetConfig().atomicMultiSend;
         
         if (!atomicMultiSendAddress) {
-            console.log('❌ No AtomicMultiSend address configured');
+            console.log(' No AtomicMultiSend address configured');
             this.needsRedeployment.push({ type: 'atomicMultiSend', reason: 'Not configured' });
             return false;
         }
@@ -103,23 +103,23 @@ class ContractVerifier {
         const status = await this.checkContract(atomicMultiSendAddress, this.faucetAddress);
 
         if (!status.exists) {
-            console.log('❌ Contract does not exist on chain');
+            console.log(' Contract does not exist on chain');
             this.needsRedeployment.push({ type: 'atomicMultiSend', reason: 'Not deployed' });
             return false;
         }
 
         if (status.isOwned === false) {
-            console.log(`❌ Contract not owned by faucet (owner: ${status.actualOwner})`);
+            console.log(` Contract not owned by faucet (owner: ${status.actualOwner})`);
             this.needsRedeployment.push({ type: 'atomicMultiSend', reason: 'Not owned by faucet' });
             return false;
         }
 
-        console.log('✅ AtomicMultiSend verified and owned by faucet');
+        console.log(' AtomicMultiSend verified and owned by faucet');
         return true;
     }
 
     async verifyTokenContracts() {
-        console.log('\n🪙 Verifying Token Contracts...');
+        console.log('\n Verifying Token Contracts...');
         
         const tokens = this.tokenLoader.getErc20Tokens();
         let allValid = true;
@@ -131,7 +131,7 @@ class ContractVerifier {
             const status = await this.checkContract(token.erc20_contract, this.faucetAddress);
 
             if (!status.exists) {
-                console.log(`  ❌ Contract does not exist`);
+                console.log(`   Contract does not exist`);
                 this.needsRedeployment.push({ 
                     type: 'token', 
                     symbol: token.symbol, 
@@ -151,7 +151,7 @@ class ContractVerifier {
                 ]);
 
                 if (symbol !== token.symbol) {
-                    console.log(`  ❌ Symbol mismatch (expected: ${token.symbol}, actual: ${symbol})`);
+                    console.log(`   Symbol mismatch (expected: ${token.symbol}, actual: ${symbol})`);
                     this.needsRedeployment.push({ 
                         type: 'token', 
                         symbol: token.symbol, 
@@ -162,7 +162,7 @@ class ContractVerifier {
                 }
 
                 if (Number(decimals) !== Number(token.decimals)) {
-                    console.log(`  ❌ Decimals mismatch (expected: ${token.decimals}, actual: ${decimals})`);
+                    console.log(`   Decimals mismatch (expected: ${token.decimals}, actual: ${decimals})`);
                     this.needsRedeployment.push({ 
                         type: 'token', 
                         symbol: token.symbol, 
@@ -174,7 +174,7 @@ class ContractVerifier {
 
                 // Check ownership
                 if (status.isOwned === false) {
-                    console.log(`  ❌ Not owned by faucet (owner: ${status.actualOwner})`);
+                    console.log(`   Not owned by faucet (owner: ${status.actualOwner})`);
                     this.needsRedeployment.push({ 
                         type: 'token', 
                         symbol: token.symbol, 
@@ -184,13 +184,13 @@ class ContractVerifier {
                     continue;
                 }
 
-                console.log(`  ✅ ${token.symbol} verified`);
+                console.log(`   ${token.symbol} verified`);
                 console.log(`     Symbol: ${symbol}`);
                 console.log(`     Decimals: ${decimals}`);
                 console.log(`     Total Supply: ${ethers.formatUnits(totalSupply, decimals)}`);
 
             } catch (error) {
-                console.log(`  ❌ Error verifying token: ${error.message}`);
+                console.log(`   Error verifying token: ${error.message}`);
                 this.needsRedeployment.push({ 
                     type: 'token', 
                     symbol: token.symbol, 
@@ -208,7 +208,7 @@ class ContractVerifier {
             return true;
         }
 
-        console.log('\n🔄 Redeployment Required');
+        console.log('\n Redeployment Required');
         console.log('The following contracts need redeployment:');
         
         for (const item of this.needsRedeployment) {
@@ -219,7 +219,7 @@ class ContractVerifier {
             }
         }
 
-        console.log('\n🚀 Starting redeployment...');
+        console.log('\n Starting redeployment...');
 
         try {
             // Run the deployment script
@@ -229,20 +229,20 @@ class ContractVerifier {
                 console.error('Deployment stderr:', stderr);
             }
 
-            console.log('\n✅ Redeployment completed successfully');
+            console.log('\n Redeployment completed successfully');
             
             // Clear the redeployment list
             this.needsRedeployment = [];
             
             // Re-verify to ensure everything is correct
-            console.log('\n🔍 Re-verifying contracts after deployment...');
+            console.log('\n Re-verifying contracts after deployment...');
             const atomicMultiSendValid = await this.verifyAtomicMultiSend();
             const tokensValid = await this.verifyTokenContracts();
 
             return atomicMultiSendValid && tokensValid;
 
         } catch (error) {
-            console.error('\n❌ Redeployment failed:', error.message);
+            console.error('\n Redeployment failed:', error.message);
             throw error;
         }
     }
@@ -255,7 +255,7 @@ class ContractVerifier {
         const tokensValid = await this.verifyTokenContracts();
 
         if (!atomicMultiSendValid || !tokensValid) {
-            console.log('\n⚠️  Some contracts need redeployment');
+            console.log('\n  Some contracts need redeployment');
             
             // Optionally auto-redeploy or prompt user
             if (process.env.AUTO_REDEPLOY === 'true') {
@@ -266,7 +266,7 @@ class ContractVerifier {
             }
         }
 
-        console.log('\n✅ All contracts verified successfully!');
+        console.log('\n All contracts verified successfully!');
         return true;
     }
 }
@@ -281,15 +281,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     verifier.verify()
         .then(success => {
             if (success) {
-                console.log('\n✅ Contract verification complete');
+                console.log('\n Contract verification complete');
                 process.exit(0);
             } else {
-                console.log('\n❌ Contract verification failed');
+                console.log('\n Contract verification failed');
                 process.exit(1);
             }
         })
         .catch(error => {
-            console.error('\n❌ Verification error:', error.message);
+            console.error('\n Verification error:', error.message);
             process.exit(1);
         });
 }

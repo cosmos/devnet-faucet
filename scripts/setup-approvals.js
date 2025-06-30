@@ -143,7 +143,7 @@ async function checkAllApprovals(wallet, atomicMultiSendAddress, specificToken =
       const requiredAllowance = faucetAmount * 100n; // 100 faucet requests worth
       
       if (info.allowance < requiredAllowance) {
-        log(`  ⚠️  Allowance may be insufficient for continuous operation`, 'yellow');
+        log(`    Allowance may be insufficient for continuous operation`, 'yellow');
         log(`      Recommended: ${formatAmount(requiredAllowance, info.decimals, info.symbol)}`, 'dim');
       } else {
         log(`  ✓ Allowance sufficient for ~${info.allowance / faucetAmount} faucet requests`, 'green');
@@ -151,13 +151,13 @@ async function checkAllApprovals(wallet, atomicMultiSendAddress, specificToken =
     } catch (error) {
       log(`\n${token.name} (${token.symbol})`, 'cyan');
       log(`  Contract: ${token.erc20_contract}`, 'dim');
-      log(`  ❌ Error: ${error.message}`, 'red');
+      log(`   Error: ${error.message}`, 'red');
       results.push({ ...token, error: error.message });
     }
   }
 
   if (specificToken && results.length === 0) {
-    log(`\n❌ Token "${specificToken}" not found in configuration`, 'red');
+    log(`\n Token "${specificToken}" not found in configuration`, 'red');
   }
 
   return results;
@@ -244,7 +244,7 @@ async function approveTokens(wallet, atomicMultiSendAddress, specificToken = nul
         allowance: formatAmount(newAllowance, info.decimals, info.symbol)
       });
     } catch (error) {
-      log(`  ❌ Error: ${error.message}`, 'red');
+      log(`   Error: ${error.message}`, 'red');
       results.push({
         token: token.symbol,
         address: token.erc20_contract,
@@ -255,7 +255,7 @@ async function approveTokens(wallet, atomicMultiSendAddress, specificToken = nul
   }
 
   if (specificToken && results.length === 0) {
-    log(`\n❌ Token "${specificToken}" not found in configuration`, 'red');
+    log(`\n Token "${specificToken}" not found in configuration`, 'red');
   }
 
   return results;
@@ -315,11 +315,11 @@ async function checkBalances(wallet) {
       if (faucetRequests > 0) {
         log(`  Sufficient for ~${faucetRequests} faucet requests`, 'dim');
       } else {
-        log(`  ⚠️  Insufficient balance for faucet operations`, 'yellow');
+        log(`    Insufficient balance for faucet operations`, 'yellow');
       }
     } catch (error) {
       log(`\n${token.name} (${token.symbol})`, 'cyan');
-      log(`  ❌ Error: ${error.message}`, 'red');
+      log(`   Error: ${error.message}`, 'red');
     }
   }
 }
@@ -433,7 +433,7 @@ async function main() {
         break;
 
       default:
-        log(`\n❌ Unknown command: ${command}`, 'red');
+        log(`\n Unknown command: ${command}`, 'red');
         log('Use "help" to see available commands\n');
         process.exit(1);
     }
@@ -441,7 +441,7 @@ async function main() {
     log('\n✓ Operation completed successfully!', 'green');
     
   } catch (error) {
-    log(`\n❌ Fatal error: ${error.message}`, 'red');
+    log(`\n Fatal error: ${error.message}`, 'red');
     if (error.stack) {
       log(error.stack, 'dim');
     }
