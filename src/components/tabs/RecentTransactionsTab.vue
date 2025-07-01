@@ -2,8 +2,8 @@
   <div>
     <div v-if="recentTransactions.length > 0">
       <div v-for="(tx, index) in recentTransactions" :key="index" class="transaction-item">
-        <div class="d-flex justify-content-between align-items-start flex-wrap">
-          <div class="flex-grow-1 transaction-details">
+        <div class="d-flex align-items-start">
+          <div class="transaction-details">
             <div class="d-flex align-items-center mb-2 flex-wrap">
               <i :class="getTransactionIcon(tx)" class="me-2"></i>
               <span class="badge" :class="getTransactionBadgeClass(tx)">
@@ -63,7 +63,7 @@
           </div>
           
           <div class="transaction-actions">
-            <div class="d-flex flex-column flex-md-column gap-1">
+            <div class="d-flex flex-column gap-1">
               <button class="btn btn-outline-primary btn-sm" @click="showTransactionDetails(tx)">
                 <i class="fas fa-eye me-1"></i>Details
               </button>
@@ -290,10 +290,11 @@ const formatDate = (date) => {
 }
 
 .transaction-item .btn-sm {
-  font-size: 0.8125rem;
-  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
   text-align: center;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .text-success {
@@ -322,11 +323,12 @@ const formatDate = (date) => {
 
 .transaction-details {
   min-width: 0; /* Allow text to wrap properly */
+  flex: 1;
 }
 
 .transaction-actions {
-  margin-left: auto;
-  min-width: 100px;
+  margin-left: 1rem;
+  flex-shrink: 0;
 }
 
 .clickable-hash {
@@ -343,11 +345,13 @@ const formatDate = (date) => {
   color: var(--cosmos-accent);
 }
 
+
 /* Mobile responsive styles */
 @media (max-width: 768px) {
   .transaction-item {
     padding: 0.75rem;
   }
+  
   
   .transaction-details {
     width: 100%;
@@ -362,14 +366,13 @@ const formatDate = (date) => {
   .transaction-actions .d-flex {
     flex-direction: row !important;
     flex-wrap: wrap;
-    gap: 0.5rem !important;
   }
   
   .transaction-actions .btn {
-    flex: 1 1 calc(50% - 0.25rem);
+    flex: 1 1 calc(50% - 0.125rem);
     min-width: 0;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.375rem;
   }
   
   .transaction-actions .btn i {
