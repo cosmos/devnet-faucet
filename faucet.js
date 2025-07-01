@@ -100,27 +100,48 @@ app.use(cors(corsOptions));
 // Serve static files based on environment
 if (process.env.NODE_ENV === 'production') {
   // In production, serve the built files from dist
-  const distPath = path.join(process.cwd(), 'dist');
+  const distPath = path.join(__dirname, 'dist');
   console.log(`[STATIC] Serving production files from: ${distPath}`);
 
   // Check if dist directory exists
   if (!fs.existsSync(distPath)) {
     console.error(`[ERROR] dist directory does not exist at ${distPath}`);
+    console.error(`[ERROR] Current working directory: ${process.cwd()}`);
+    console.error(`[ERROR] __dirname: ${__dirname}`);
   } else {
     const files = fs.readdirSync(distPath);
     console.log(`[STATIC] Found ${files.length} files in dist:`, files);
+    
+    // Also check for assets subdirectory
+    const assetsPath = path.join(distPath, 'assets');
+    if (fs.existsSync(assetsPath)) {
+      const assetFiles = fs.readdirSync(assetsPath);
+      console.log(`[STATIC] Found ${assetFiles.length} files in dist/assets:`, assetFiles);
+    }
   }
 
+  // Serve static files with proper error handling
   app.use(express.static(distPath, {
     maxAge: '1h',
-    setHeaders: (res, path) => {
-      if (path.endsWith('.js')) {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js')) {
         res.setHeader('Content-Type', 'application/javascript');
-      } else if (path.endsWith('.css')) {
+      } else if (filePath.endsWith('.css')) {
         res.setHeader('Content-Type', 'text/css');
       }
-    }
+    },
+    fallthrough: false,
+    index: false
   }));
+  
+  // Add error handling middleware for static files
+  app.use((err, req, res, next) => {
+    if (err && err.status === 404) {
+      console.error(`[STATIC] File not found: ${req.path}`);
+      console.error(`[STATIC] Looking in: ${distPath}`);
+    }
+    next(err);
+  });
 } else {
   // In development, serve from src and public
   app.use(express.static('src'))
@@ -625,36 +646,48 @@ app.set('view engine', 'ejs');
 app.set('views', './views');
 
 app.get('/', async (req, res) => {
-  res.render('index', {
-    project: conf.project,
-    config: {
+  if (process.env.NODE_ENV === 'production') {
+    // In production, serve the built index.html
+    const indexPath = path.join(__dirname, 'dist', 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      console.error(`[ERROR] index.html not found at ${indexPath}`);
+      res.status(500).send('Application build not found');
+    }
+  } else {
+    // In development, render the template
+    res.render('index', {
       project: conf.project,
-      blockchain: {
-        name: chainConf.name,
-        endpoints: chainConf.endpoints,
-        ids: chainConf.ids,
-        sender: {
-          option: {
-            prefix: chainConf.sender.option.prefix
+      config: {
+        project: conf.project,
+        blockchain: {
+          name: chainConf.name,
+          endpoints: chainConf.endpoints,
+          ids: chainConf.ids,
+          sender: {
+            option: {
+              prefix: chainConf.sender.option.prefix
+            }
+          },
+          limit: chainConf.limit,
+          tx: {
+            amounts: chainConf.tx.amounts.map(token => ({
+              denom: token.denom,
+              amount: token.amount,
+              target_balance: token.target_balance,
+              decimals: token.decimals,
+              display_denom: token.display_denom || token.denom,
+              description: token.description,
+              type: token.type || 'token'
+            }))
           }
-        },
-        limit: chainConf.limit,
-        tx: {
-          amounts: chainConf.tx.amounts.map(token => ({
-            denom: token.denom,
-            amount: token.amount,
-            target_balance: token.target_balance,
-            decimals: token.decimals,
-            display_denom: token.display_denom || token.denom,
-            description: token.description,
-            type: token.type || 'token'
-          }))
         }
-      }
-    },
-    evmAddress: getEvmAddress(),
-    testingMode: TESTING_MODE
-  });
+      },
+      evmAddress: getEvmAddress(),
+      testingMode: TESTING_MODE
+    });
+  }
 });
 
 // Config endpoint for web app
