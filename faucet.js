@@ -58,6 +58,7 @@ const corsOptions = {
       'https://faucet.cosmos-evm.com',
       'https://cosmos-evm.com',
       'https://faucet.basementnodes.ca',
+      'https://devnet-faucet.fly.dev',
       'http://localhost:3000',
       'http://localhost:8088'
     ];
@@ -95,14 +96,20 @@ const corsOptions = {
   credentials: true
 };
 
-app.use(cors(corsOptions));
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }));
-
-// Serve static files in production mode - MUST come before route definitions
+// Serve static files in production mode - MUST come BEFORE CORS and other middleware
 if (process.env.NODE_ENV === 'production') {
-  console.log('[STATIC] Serving static files from dist/');
-  app.use(express.static(path.join(__dirname, 'dist'), {
+  const staticPath = path.join(__dirname, 'dist');
+  console.log('[STATIC] Serving static files from:', staticPath);
+  
+  // Add debug middleware to log static file requests
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/assets/')) {
+      console.log('[STATIC] Asset request:', req.path);
+    }
+    next();
+  });
+  
+  app.use(express.static(staticPath, {
     maxAge: '1h',
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.js')) {
@@ -113,6 +120,10 @@ if (process.env.NODE_ENV === 'production') {
     }
   }));
 }
+
+app.use(cors(corsOptions));
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }));
 
 // Testing mode flag
 const TESTING_MODE = process.env.TESTING_MODE === 'true';
@@ -1857,7 +1868,15 @@ const erc20ABI = [
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Error path:', req.path);
+  console.error('Error method:', req.method);
+  
+  // Don't send JSON for asset requests
+  if (req.path.includes('.css') || req.path.includes('.js') || req.path.includes('.png') || req.path.includes('.jpg')) {
+    res.status(500).send('Internal server error');
+  } else {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Catch-all route for Vue Router - must be last
