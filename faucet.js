@@ -99,6 +99,21 @@ app.use(cors(corsOptions));
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files in production mode - MUST come before route definitions
+if (process.env.NODE_ENV === 'production') {
+  console.log('[STATIC] Serving static files from dist/');
+  app.use(express.static(path.join(__dirname, 'dist'), {
+    maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js')) {
+        res.set('Content-Type', 'application/javascript');
+      } else if (filePath.endsWith('.css')) {
+        res.set('Content-Type', 'text/css');
+      }
+    }
+  }));
+}
+
 // Testing mode flag
 const TESTING_MODE = process.env.TESTING_MODE === 'true';
 
@@ -590,17 +605,10 @@ async function getAccountInfo(address) {
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
-app.get('/', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    // In production, serve the built index.html
-    const indexPath = path.join(__dirname, 'dist', 'index.html');
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      console.error(`[ERROR] index.html not found at ${indexPath}`);
-      res.status(500).send('Application build not found');
-    }
-  } else {
+// Root route - only handle in development mode
+// In production, static middleware will serve index.html
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/', async (req, res) => {
     // In development, render the template
     res.render('index', {
       project: conf.project,
@@ -632,8 +640,8 @@ app.get('/', async (req, res) => {
       evmAddress: getEvmAddress(),
       testingMode: TESTING_MODE
     });
-  }
-});
+  });
+}
 
 // Config endpoint for web app
 app.get('/config.json', (req, res) => {
@@ -1844,20 +1852,7 @@ const erc20ABI = [
   "function symbol() view returns (string)"
 ];
 
-// Serve static files in production mode
-if (process.env.NODE_ENV === 'production') {
-  console.log('[STATIC] Serving static files from dist/');
-  app.use(express.static(path.join(__dirname, 'dist'), {
-    maxAge: '1h',
-    setHeaders: (res, path) => {
-      if (path.endsWith('.js')) {
-        res.set('Content-Type', 'application/javascript');
-      } else if (path.endsWith('.css')) {
-        res.set('Content-Type', 'text/css');
-      }
-    }
-  }));
-}
+// Static files are now served at the beginning of the middleware chain
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -1871,18 +1866,21 @@ app.get('*', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
     // If it's a file request that wasn't caught by static middleware, it's a 404
     if (req.path.includes('.')) {
+      console.log(`[404] File not found: ${req.path}`);
       res.status(404).send('Not found');
     } else {
       // For all other routes, serve the Vue app
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+      const indexPath = path.join(__dirname, 'dist', 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        console.error(`[ERROR] Catch-all: index.html not found at ${indexPath}`);
+        res.status(500).send('Application build not found. Please check deployment.');
+      }
     }
   } else {
     // Development mode
-    if (!req.path.startsWith('/api') && !req.path.includes('.')) {
-      res.sendFile(path.join(process.cwd(), 'index.html'));
-    } else {
-      res.status(404).json({ error: 'Not found' });
-    }
+    res.status(404).json({ error: 'Not found' });
   }
 });
 
