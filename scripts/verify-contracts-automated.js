@@ -218,14 +218,47 @@ class AutomatedVerifier {
         return '';
     }
 
+    async verifyPreinstalledContracts(preinstalledContracts) {
+        console.log('\n Verifying Preinstalled Contracts');
+        console.log(' ==============================');
+        
+        const results = [];
+        
+        for (const [name, contractInfo] of Object.entries(preinstalledContracts)) {
+            const address = contractInfo.address;
+            const isVerified = await this.checkIfVerified(address);
+            
+            if (!isVerified) {
+                console.log(`\n Attempting to verify ${name} at ${address}`);
+                // These are preinstalled contracts, we can't verify them
+                // They are deployed by the chain itself
+                console.log(`  ${name} is a preinstalled system contract`);
+                console.log(`  Cannot verify via API (deployed by chain)`);
+                results.push({ name, address, status: 'preinstalled' });
+            } else {
+                console.log(` ${name}: ${address} [VERIFIED]`);
+                results.push({ name, address, status: 'verified' });
+            }
+        }
+        
+        return results;
+    }
+
     async verifyDeployedContracts(deploymentResults) {
         await this.initialize();
         
         const results = {
             verified: [],
             failed: [],
-            alreadyVerified: []
+            alreadyVerified: [],
+            preinstalled: []
         };
+        
+        // Verify preinstalled contracts if provided
+        if (deploymentResults.preinstalledContracts) {
+            const preinstalledResults = await this.verifyPreinstalledContracts(deploymentResults.preinstalledContracts);
+            results.preinstalled = preinstalledResults;
+        }
         
         // Verify AtomicMultiSend if deployed
         if (deploymentResults.atomicMultiSend) {
@@ -273,6 +306,10 @@ class AutomatedVerifier {
         }
         if (results.failed.length > 0) {
             console.log(` Failed: ${results.failed.join(', ')}`);
+        }
+        if (results.preinstalled.length > 0) {
+            const preinstalledNames = results.preinstalled.map(p => p.name).join(', ');
+            console.log(` Preinstalled: ${preinstalledNames}`);
         }
         
         console.log(`\n View verified contracts at:`);

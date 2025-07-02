@@ -213,9 +213,9 @@ const getTransactionExplorerUrl = (tx) => {
       const explorerBase = networkConfig.value.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com'
       return `${explorerBase}/tx/${actualHash}`
     } else if (result.network_type === 'cosmos' || tx.addressType === 'cosmos') {
-      // Cosmos transaction - use REST API endpoint
-      const restBase = networkConfig.value.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build'
-      return `${restBase}/cosmos/tx/v1beta1/txs/${actualHash}`
+      // Cosmos transaction - use explorer from config
+      const explorerBase = networkConfig.value.cosmos?.explorer || 'https://devnet-explorer.fly.dev/Cosmos%20Evm%20Devnet'
+      return `${explorerBase}/tx/${actualHash}`
     }
   }
   
@@ -234,7 +234,7 @@ const getTransactionExplorerLabel = (tx) => {
     if (result.network_type === 'evm' || tx.addressType === 'evm') {
       return 'View on Blockscout'
     } else if (result.network_type === 'cosmos' || tx.addressType === 'cosmos') {
-      return 'View REST API'
+      return 'View on Explorer'
     }
   }
   

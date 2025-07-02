@@ -276,8 +276,8 @@ const explorerUrl = computed(() => {
       const explorerBase = networkConfig.value.evm?.explorer || 'https://evm-devnet-1.cloud.blockscout.com'
       return `${explorerBase}/tx/${actualHash}`
     } else if (isCosmosTransaction.value) {
-      const restBase = networkConfig.value.cosmos?.rest || 'https://devnet-1-lcd.ib.skip.build'
-      return `${restBase}/cosmos/tx/v1beta1/txs/${actualHash}`
+      const explorerBase = networkConfig.value.cosmos?.explorer || 'https://devnet-explorer.fly.dev/Cosmos%20Evm%20Devnet'
+      return `${explorerBase}/tx/${actualHash}`
     }
   }
   

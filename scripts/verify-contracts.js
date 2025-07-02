@@ -19,6 +19,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import TokenConfigLoader from '../src/TokenConfigLoader.js';
 import config, { getEvmAddress, initializeSecureKeys } from '../config.js';
+import { PREINSTALLED_CONTRACTS } from '../src/preinstalled-contracts.js';
 
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -294,8 +295,23 @@ class ContractVerifier {
         return isVerified;
     }
 
+    async checkPreinstalledContracts() {
+        console.log('\n Checking Preinstalled System Contracts...');
+        
+        for (const [name, contractInfo] of Object.entries(PREINSTALLED_CONTRACTS)) {
+            console.log(`\n ${name}:`);
+            console.log(`  Address: ${contractInfo.address}`);
+            console.log(`  Description: ${contractInfo.description}`);
+            console.log(`  Type: ${contractInfo.type}`);
+            const isVerified = await this.checkExplorerVerification(contractInfo.address, name);
+        }
+    }
+
     async verify() {
         await this.initialize();
+
+        // Check preinstalled contracts first
+        await this.checkPreinstalledContracts();
 
         // Verify all contracts
         const atomicMultiSendValid = await this.verifyAtomicMultiSend();

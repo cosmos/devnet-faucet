@@ -32,6 +32,7 @@ const config = {
             evm_endpoint: "https://devnet-1-evmrpc.ib.skip.build",
             evm_websocket: "wss://devnet-1-evmws.ib.skip.build",
             evm_explorer: "https://evm-devnet-1.cloud.blockscout.com",
+            cosmos_explorer: "https://devnet-explorer.fly.dev/Cosmos%20Evm%20Devnet",
         },
         // Contract addresses - loaded from tokens.json
         contracts: {

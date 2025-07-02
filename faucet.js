@@ -96,60 +96,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Serve static files based on environment
-if (process.env.NODE_ENV === 'production') {
-  // In production, serve the built files from dist
-  const distPath = path.join(__dirname, 'dist');
-  console.log(`[STATIC] Serving production files from: ${distPath}`);
-
-  // Check if dist directory exists
-  if (!fs.existsSync(distPath)) {
-    console.error(`[ERROR] dist directory does not exist at ${distPath}`);
-    console.error(`[ERROR] Current working directory: ${process.cwd()}`);
-    console.error(`[ERROR] __dirname: ${__dirname}`);
-  } else {
-    const files = fs.readdirSync(distPath);
-    console.log(`[STATIC] Found ${files.length} files in dist:`, files);
-    
-    // Also check for assets subdirectory
-    const assetsPath = path.join(distPath, 'assets');
-    if (fs.existsSync(assetsPath)) {
-      const assetFiles = fs.readdirSync(assetsPath);
-      console.log(`[STATIC] Found ${assetFiles.length} files in dist/assets:`, assetFiles);
-    }
-  }
-
-  // Serve static files with proper error handling
-  app.use(express.static(distPath, {
-    maxAge: '1h',
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript');
-      } else if (filePath.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css');
-      }
-    },
-    fallthrough: false,
-    index: false
-  }));
-  
-  // Add error handling middleware for static files
-  app.use((err, req, res, next) => {
-    if (err && err.status === 404) {
-      console.error(`[STATIC] File not found: ${req.path}`);
-      console.error(`[STATIC] Looking in: ${distPath}`);
-    }
-    next(err);
-  });
-} else {
-  // In development, serve from src and public
-  app.use(express.static('src'))
-  app.use(express.static('public'))
-}
-
-app.use('/.well-known', express.static('.well-known'))
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }));
 
 // Testing mode flag
 const TESTING_MODE = process.env.TESTING_MODE === 'true';
@@ -160,9 +108,6 @@ if (TESTING_MODE) {
   console.log('- Rate limits still apply');
   console.log('- Set TESTING_MODE=false to disable\n');
 }
-
-// Middleware to parse JSON and URL-encoded bodies
-app.use(express.urlencoded({ extended: true }));
 
 // Global ERC20 ABIs
 const ERC20_BASE_ABI = [
@@ -740,7 +685,8 @@ app.get('/config.json', (req, res) => {
         rpc: chainConf.endpoints.rpc_endpoint,
         grpc: chainConf.endpoints.grpc_endpoint,
         rest: chainConf.endpoints.rest_endpoint,
-        prefix: chainConf.sender.option.prefix
+        prefix: chainConf.sender.option.prefix,
+        explorer: chainConf.endpoints.cosmos_explorer
       },
       contracts: {
         atomicMultiSend: chainConf.contracts?.atomicMultiSend || null,
@@ -1434,8 +1380,8 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
           results.gas_used = cosmosResult.gasUsed;
           results.gas_wanted = cosmosResult.gasWanted;
           results.rest_api_url = cosmosResult.restApiUrl;
-          // Add mintscan explorer URL for Cosmos transactions
-          results.explorer_url = `https://www.mintscan.io/cosmos-testnet/tx/${cosmosResult.transactionHash}`;
+          // Add explorer URL for Cosmos transactions from config
+          results.explorer_url = `${config.blockchain.endpoints.cosmos_explorer}/tx/${cosmosResult.transactionHash}`;
           results.truncated_hash = cosmosResult.transactionHash ?
             `${cosmosResult.transactionHash.substring(0, 8)}...${cosmosResult.transactionHash.substring(cosmosResult.transactionHash.length - 8)}` :
             null;
@@ -1898,6 +1844,21 @@ const erc20ABI = [
   "function symbol() view returns (string)"
 ];
 
+// Serve static files in production mode
+if (process.env.NODE_ENV === 'production') {
+  console.log('[STATIC] Serving static files from dist/');
+  app.use(express.static(path.join(__dirname, 'dist'), {
+    maxAge: '1h',
+    setHeaders: (res, path) => {
+      if (path.endsWith('.js')) {
+        res.set('Content-Type', 'application/javascript');
+      } else if (path.endsWith('.css')) {
+        res.set('Content-Type', 'text/css');
+      }
+    }
+  }));
+}
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
@@ -1913,7 +1874,7 @@ app.get('*', (req, res) => {
       res.status(404).send('Not found');
     } else {
       // For all other routes, serve the Vue app
-      res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     }
   } else {
     // Development mode

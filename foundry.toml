@@ -8,8 +8,14 @@ remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "forge-std/=lib/forge-std/src/",
 ]
-evm_version = "istanbul"
+evm_version = "prague"
 via_ir = true
 optimizer = true
+
+[rpc_endpoints]
+evm_devnet = "https://evm-devnet-1.cloud.devnet.cashmerelabs.io/"
+
+[etherscan]
+evm_devnet = { key = "dummy", url = "https://evm-devnet-1.cloud.blockscout.com/api/" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

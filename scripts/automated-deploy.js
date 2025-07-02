@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import 'dotenv/config'; 
 import configModule from '../config.js';
+import { PREINSTALLED_CONTRACTS } from '../src/preinstalled-contracts.js';
 
 const execAsync = promisify(exec);
 const config = configModule.default || configModule;
@@ -84,7 +85,8 @@ class DeploymentManager {
             const deploymentResults = {
                 atomicMultiSend: contractAddress,
                 tokens: this.tokenDeployments,
-                deployerAddress: deployerAddress
+                deployerAddress: deployerAddress,
+                preinstalledContracts: PREINSTALLED_CONTRACTS
             };
             
             // Import and run the automated verifier
@@ -121,7 +123,8 @@ class DeploymentManager {
                 deployer: this.deploymentData?.deployer,
                 contracts: {
                     AtomicMultiSend: this.deploymentData?.contractAddress,
-                    tokens: this.tokenDeployments || {}
+                    tokens: this.tokenDeployments || {},
+                    preinstalled: PREINSTALLED_CONTRACTS
                 },
                 deploymentData: this.deploymentData,
                 blockscoutVerification: this.verificationResults || { verified: [], failed: [] }
@@ -142,6 +145,7 @@ class DeploymentManager {
             const addresses = {
                 AtomicMultiSend: deploymentRecord.contracts.AtomicMultiSend,
                 ...deploymentRecord.contracts.tokens,
+                preinstalled: PREINSTALLED_CONTRACTS,
                 lastUpdated: deploymentRecord.timestamp,
                 network: deploymentRecord.network,
                 chainId: deploymentRecord.chainId
