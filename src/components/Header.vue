@@ -5,6 +5,7 @@
         <div class="brand-container">
           <h1 class="brand-logo">cosmos-evm</h1>
           <span class="brand-subtitle">DEVNET-1</span>
+          <span class="version-badge">v{{ version }}</span>
         </div>
         <nav class="nav-icons">
           <a
@@ -71,9 +72,11 @@
 <script setup>
 import { computed } from 'vue'
 import { useConfig } from '../composables/useConfig'
+import packageJson from '../../package.json'
 
 const { config } = useConfig()
 const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Faucet')
+const version = packageJson.version
 </script>
 
 <style scoped>
@@ -109,6 +112,19 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
   color: #00ff88;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.version-badge {
+  position: absolute;
+  top: -0.5rem;
+  right: -1rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .nav-icons {
@@ -187,6 +203,13 @@ const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Fa
     font-size: 0.6rem;
     bottom: -0.2rem;
     right: -0.3rem;
+  }
+
+  .version-badge {
+    font-size: 0.65rem;
+    top: -0.3rem;
+    right: -0.3rem;
+    padding: 0.05rem 0.3rem;
   }
 
   .nav-icons {
