@@ -18,7 +18,8 @@
     "verify:latest": "node scripts/verify-contracts-automated.js deployments/latest-deployment.json",
     "validate": "node scripts/validate-environment.js",
     "extract-abi": "node scripts/extract-abi.js",
-    "approval": "node scripts/setup-approvals.js"
+    "approval": "node scripts/setup-approvals.js",
+    "version:bump": "node scripts/bump-version.js"
   },
   "repository": {
     "type": "git",

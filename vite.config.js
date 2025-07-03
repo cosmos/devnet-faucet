@@ -10,6 +10,9 @@ export default defineConfig({
       '@': resolve(__dirname, './src')
     }
   },
+  json: {
+    stringify: true
+  },
   optimizeDeps: {
     include: ['@reown/appkit', '@reown/appkit-adapter-wagmi', '@wagmi/vue'],
     exclude: []

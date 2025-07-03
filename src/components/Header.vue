@@ -5,7 +5,6 @@
         <div class="brand-container">
           <h1 class="brand-logo">cosmos-evm</h1>
           <span class="brand-subtitle">DEVNET-1</span>
-          <span class="version-badge">v{{ version }}</span>
         </div>
         <nav class="nav-icons">
           <a
@@ -65,6 +64,7 @@
           </a>
         </nav>
       </div>
+      <div class="version-badge">v{{ version }}</div>
     </div>
   </div>
 </template>
@@ -72,16 +72,20 @@
 <script setup>
 import { computed } from 'vue'
 import { useConfig } from '../composables/useConfig'
-import packageJson from '../../package.json'
 
 const { config } = useConfig()
 const projectName = computed(() => config.value?.project?.name || 'Cosmos EVM Faucet')
-const version = packageJson.version
+// Version will be updated with each deployment
+const version = '1.1.0'
 </script>
 
 <style scoped>
 .header {
   padding: 1.5rem 0;
+}
+
+.header .container {
+  position: relative;
 }
 
 .brand-container {
@@ -116,15 +120,16 @@ const version = packageJson.version
 
 .version-badge {
   position: absolute;
-  top: -0.5rem;
-  right: -1rem;
+  bottom: 0;
+  right: 0;
   font-family: monospace;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.4rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
 }
 
 .nav-icons {
@@ -206,10 +211,9 @@ const version = packageJson.version
   }
 
   .version-badge {
-    font-size: 0.65rem;
-    top: -0.3rem;
-    right: -0.3rem;
-    padding: 0.05rem 0.3rem;
+    font-size: 0.6rem;
+    padding: 0.1rem 0.3rem;
+    bottom: -0.5rem;
   }
 
   .nav-icons {
