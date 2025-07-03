@@ -613,46 +613,7 @@ async function getAccountInfo(address) {
   }
 }
 
-app.set('view engine', 'ejs');
-app.set('views', './views');
-
-// Root route - only handle in development mode
-// In production, static middleware will serve index.html
-if (process.env.NODE_ENV !== 'production') {
-  app.get('/', async (req, res) => {
-    // In development, render the template
-    res.render('index', {
-      project: conf.project,
-      config: {
-        project: conf.project,
-        blockchain: {
-          name: chainConf.name,
-          endpoints: chainConf.endpoints,
-          ids: chainConf.ids,
-          sender: {
-            option: {
-              prefix: chainConf.sender.option.prefix
-            }
-          },
-          limit: chainConf.limit,
-          tx: {
-            amounts: chainConf.tx.amounts.map(token => ({
-              denom: token.denom,
-              amount: token.amount,
-              target_balance: token.target_balance,
-              decimals: token.decimals,
-              display_denom: token.display_denom || token.denom,
-              description: token.description,
-              type: token.type || 'token'
-            }))
-          }
-        }
-      },
-      evmAddress: getEvmAddress(),
-      testingMode: TESTING_MODE
-    });
-  });
-}
+// Root route is now handled by static file serving in both dev and production
 
 // Config endpoint for web app
 app.get('/config.json', (req, res) => {
@@ -827,24 +788,34 @@ app.get('/balance/:type', async (req, res) => {
 
         if (response.ok) {
           const data = await response.json();
-          // Handle empty balances array
+          
+          // Create a map for quick lookup of cosmos balances
+          const cosmosBalanceMap = {};
           if (data.balances && Array.isArray(data.balances)) {
-            balances = data.balances.map(balance => ({
-              denom: balance.denom === 'uatom' ? 'ATOM' : balance.denom.toUpperCase(),
-              amount: balance.amount,
-              type: 'cosmos',
-              decimals: balance.denom === 'uatom' ? 6 : 0
-            }));
+            data.balances.forEach(balance => {
+              cosmosBalanceMap[balance.denom] = balance.amount;
+            });
           }
-          // If no balances, return empty ATOM balance
-          if (balances.length === 0) {
-            balances = [{
-              denom: 'ATOM',
-              amount: '0',
+          
+          // Return balances with target amounts for proper status calculation
+          for (const token of chainConf.tx.amounts) {
+            // Skip ERC20 tokens for Cosmos addresses
+            if (token.erc20_contract &&
+                token.erc20_contract !== "0x0000000000000000000000000000000000000000" &&
+                token.erc20_contract !== "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE") {
+              continue;
+            }
+            
+            const currentAmount = cosmosBalanceMap[token.denom] || "0";
+            balances.push({
+              denom: token.denom.toLowerCase(),
+              current_amount: currentAmount,
+              target_amount: token.target_balance,
               type: 'cosmos',
-              decimals: 6
-            }];
+              decimals: token.decimals || (token.denom === 'uatom' ? 6 : 0)
+            });
           }
+          
           console.log(`[COSMOS] Balances for ${targetAddress}:`, balances);
         } else {
           console.error(`Cosmos balance API returned ${response.status}: ${response.statusText}`);
@@ -970,11 +941,11 @@ app.get('/send/:address', async (req, res) => {
 
           // Step 3: Check if any tokens are needed
           if (neededAmounts.length === 0) {
-            console.log(`\nSuccess: No tokens needed - wallet already has sufficient balance`);
-            console.log(`Current balances meet all target amounts`);
+            console.log(`\nNo tokens needed for ${addressType} address`);
+            console.log(`Current balances meet all target amounts for eligible tokens`);
 
-            // Build detailed token status
-            const tokenStatus = chainConf.tx.amounts
+            // Build detailed token status for eligible tokens only
+            const eligibleTokens = chainConf.tx.amounts
               .filter(token => {
                 // Filter tokens based on address type (same logic as above)
                 if (addressType === 'cosmos') {
@@ -982,8 +953,14 @@ app.get('/send/:address', async (req, res) => {
                     !token.erc20_contract ||
                     token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
                 }
-                return true; // EVM addresses can receive all tokens
-              })
+                // For EVM, filter out IBC tokens without contracts
+                if (addressType === 'evm') {
+                  return token.erc20_contract && token.erc20_contract !== null;
+                }
+                return true;
+              });
+
+            const tokenStatus = eligibleTokens
               .map(token => {
                 const balance = currentBalances.find(b => b.denom === token.denom);
                 const displaySymbol = (addressType === 'evm' && token.denom === 'uatom') ? 'WATOM' : token.symbol;
@@ -997,17 +974,46 @@ app.get('/send/:address', async (req, res) => {
                 };
               });
 
+            // Count ineligible tokens for the address type
+            const ineligibleTokens = chainConf.tx.amounts.filter(token => {
+              if (addressType === 'cosmos') {
+                // ERC20 tokens are ineligible for Cosmos addresses
+                return token.erc20_contract && 
+                       token.erc20_contract !== '0x0000000000000000000000000000000000000000' &&
+                       token.erc20_contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+              } else if (addressType === 'evm') {
+                // IBC tokens without contracts are ineligible for EVM addresses
+                return !token.erc20_contract || token.erc20_contract === null;
+              }
+              return false;
+            });
+
+            let message = "Wallet already has sufficient balance for all eligible tokens.";
+            if (addressType === 'cosmos' && ineligibleTokens.length > 0) {
+              const erc20Names = ineligibleTokens.map(t => t.symbol).join(', ');
+              message = `Wallet already has sufficient balance for all eligible native tokens. Note: ERC20 tokens (${erc20Names}) are only available to EVM addresses.`;
+            }
+
             const response = {
               result: {
                 code: 0,
                 status: 'no_tokens_sent',
-                message: "Wallet already has sufficient balance for all eligible tokens.",
+                message: message,
+                address_type: addressType,
+                eligible_token_count: eligibleTokens.length,
+                ineligible_token_count: ineligibleTokens.length,
                 token_status: tokenStatus,
                 current_balances: currentBalances,
                 tokens_sent: [],
                 tokens_not_sent: tokenStatus,
-                target_balances: chainConf.tx.amounts.map(token => ({
+                ineligible_tokens: ineligibleTokens.map(t => ({
+                  symbol: t.symbol,
+                  name: t.name,
+                  reason: addressType === 'cosmos' ? 'ERC20 tokens require EVM address' : 'IBC token not available on EVM'
+                })),
+                target_balances: eligibleTokens.map(token => ({
                   denom: token.denom,
+                  symbol: token.symbol,
                   target: token.target_balance,
                   decimals: token.decimals
                 }))
@@ -1031,6 +1037,10 @@ app.get('/send/:address', async (req, res) => {
               return token.denom === 'uatom' ||
                 !token.erc20_contract ||
                 token.erc20_contract === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+            }
+            // For EVM, filter out IBC tokens without contracts
+            if (addressType === 'evm') {
+              return token.erc20_contract && token.erc20_contract !== null;
             }
             return true;
           });

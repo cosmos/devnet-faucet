@@ -398,16 +398,42 @@ const requestToken = async () => {
         tokenList = tokenNames
       }
       
-      message.value = `
-        <div class="alert alert-warning alert-dismissible show fade" role="alert">
-            <h6 class="alert-heading">
-              <i class="fas fa-info-circle me-2"></i>
-              No Tokens Sent
-            </h6>
-            <p class="mb-0"><strong>This wallet already holds the maximum amount of ${tokenList} the faucet allows.</strong></p>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-      `
+      // Check if there's a custom message from the backend
+      const customMessage = data.result?.message
+      const hasIneligibleTokens = data.result?.ineligible_tokens && data.result.ineligible_tokens.length > 0
+      
+      let messageContent = ''
+      if (customMessage && customMessage.includes('ERC20 tokens')) {
+        // For Cosmos addresses that can't receive ERC20 tokens
+        messageContent = `
+          <div class="alert alert-warning alert-dismissible show fade" role="alert">
+              <h6 class="alert-heading">
+                <i class="fas fa-info-circle me-2"></i>
+                No Tokens Sent
+              </h6>
+              <p class="mb-2"><strong>This wallet already holds the maximum amount of ${tokenList} the faucet allows.</strong></p>
+              <p class="mb-0 small text-muted">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Note: ERC20 tokens are only available to EVM (0x...) addresses. Connect an EVM wallet to receive WBTC, PEPE, and USDT.
+              </p>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `
+      } else {
+        // Standard message for other cases
+        messageContent = `
+          <div class="alert alert-warning alert-dismissible show fade" role="alert">
+              <h6 class="alert-heading">
+                <i class="fas fa-info-circle me-2"></i>
+                No Tokens Sent
+              </h6>
+              <p class="mb-0"><strong>This wallet already holds the maximum amount of ${tokenList} the faucet allows.</strong></p>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        `
+      }
+      
+      message.value = messageContent
     } else {
       const hasSentTokens = data.result?.tokens_sent && data.result.tokens_sent.length > 0
       const hasNotSentTokens = data.result?.tokens_not_sent && data.result.tokens_not_sent.length > 0
@@ -437,7 +463,12 @@ const requestToken = async () => {
                 <i class="fas fa-info-circle me-2"></i>
                 Some Tokens Not Sent
               </h6>
-              <p class="mb-0"><strong>This wallet already holds the maximum amount of ${notSentTokensList} the faucet allows.</strong></p>
+              <p class="mb-2"><strong>This wallet already holds the maximum amount of ${notSentTokensList} the faucet allows.</strong></p>
+              ${addressType.value === 'Cosmos' && data.result?.ineligible_tokens?.length > 0 ? 
+                `<p class="mb-0 small text-muted">
+                  <i class="fas fa-exclamation-triangle me-1"></i>
+                  Note: ERC20 tokens are only available to EVM (0x...) addresses.
+                </p>` : ''}
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
         `

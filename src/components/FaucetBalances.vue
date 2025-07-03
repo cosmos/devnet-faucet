@@ -162,6 +162,23 @@
         </p>
       </div>
     </div>
+    
+    <!-- Help Tip for Cosmos addresses -->
+    <div class="help-tip mt-4" v-if="addressType === 'cosmos' && address && isValid">
+      <div class="help-icon">
+        <i class="fas fa-info-circle"></i>
+      </div>
+      <div class="help-content">
+        <h6 class="mb-2">Available Tokens for Cosmos Addresses</h6>
+        <p class="mb-2">
+          Cosmos addresses can receive native tokens (ATOM, IBC OSMO, IBC USDC) through the faucet.
+        </p>
+        <p class="mb-0">
+          <strong>Note:</strong> ERC20 tokens (WBTC, PEPE, USDT) are only available to EVM (0x...) addresses. 
+          Connect an EVM wallet to receive these tokens.
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -235,7 +252,10 @@ const getTokenStatus = (token) => {
   
   // Check if user already has max amount
   const balance = tokenBalances.value[token.denom]
-  const targetAmount = parseFloat(token.target_balance || token.amount || 0)
+  // Use balance's target_amount if available, otherwise fall back to token config
+  const targetAmount = balance?.target_amount 
+    ? parseFloat(balance.target_amount) 
+    : parseFloat(token.target_balance || token.amount || 0)
   
   // Always check current balance, even if not in tokenBalances
   if (balance) {
@@ -364,14 +384,21 @@ const getClaimPercentage = (token) => {
   if (loadingBalances.value || !props.address || !props.isValid) return 100
   
   const claimable = getClaimableAmountRaw(token)
-  const target = parseFloat(token.target_balance || token.amount || 0)
+  const balance = tokenBalances.value[token.denom]
+  // Use balance's target_amount if available, otherwise fall back to token config
+  const target = balance?.target_amount 
+    ? parseFloat(balance.target_amount)
+    : parseFloat(token.target_balance || token.amount || 0)
   if (!target) return 0
   return (claimable / target) * 100
 }
 
 const getClaimableAmountRaw = (token) => {
-  const target = parseFloat(token.target_balance || token.amount || 0)
   const balance = tokenBalances.value[token.denom]
+  // Use balance's target_amount if available, otherwise fall back to token config
+  const target = balance?.target_amount 
+    ? parseFloat(balance.target_amount)
+    : parseFloat(token.target_balance || token.amount || 0)
   
   if (!balance) return target
   
@@ -426,7 +453,7 @@ const getIncompatibleReason = (token) => {
   if (addressType.value === 'cosmos' && token.contract && 
       token.contract !== '0x0000000000000000000000000000000000000000' && 
       token.contract !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
-    return 'ERC20 tokens not available for Cosmos wallets'
+    return 'ERC20 tokens require EVM address'
   }
   
   if (addressType.value === 'evm' && token.denom && token.denom.startsWith('ibc/')) {
