@@ -54,7 +54,6 @@ COPY --chown=nodejs:nodejs package.json yarn.lock ./
 COPY --chown=nodejs:nodejs faucet.js config.js checker.js tokenAllowance.js ./
 COPY --chown=nodejs:nodejs src ./src
 COPY --chown=nodejs:nodejs scripts ./scripts
-COPY --chown=nodejs:nodejs views ./views
 COPY --chown=nodejs:nodejs tokens.json ./
 # Copy the deployments directory with ABI files
 COPY --chown=nodejs:nodejs deployments ./deployments

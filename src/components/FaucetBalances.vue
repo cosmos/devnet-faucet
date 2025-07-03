@@ -52,11 +52,11 @@
                   <i class="fas fa-copy copy-icon-small"></i>
                 </span>
               </div>
-              <div class="detail-row" v-if="tokenBalances[token.denom]">
+              <div class="detail-row" v-if="tokenBalances[token.denom.toLowerCase()]">
                 <span class="detail-label">Your Balance:</span>
                 <span class="detail-value">
-                  {{ formatBalance(tokenBalances[token.denom].current_amount || tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals || token.decimals) }} 
-                  {{ tokenBalances[token.denom].symbol || token.symbol }}
+                  {{ formatBalance(tokenBalances[token.denom.toLowerCase()].current_amount || tokenBalances[token.denom.toLowerCase()].amount, tokenBalances[token.denom.toLowerCase()].decimals || token.decimals) }} 
+                  {{ tokenBalances[token.denom.toLowerCase()].symbol || token.symbol }}
                 </span>
               </div>
               <div class="detail-row" v-if="address && isValid">
@@ -122,10 +122,10 @@
                 <div class="token-amount">
                   <strong>Claim: {{ formatClaimableAmount(token) }}</strong>
                 </div>
-                <div v-if="tokenBalances[token.denom]" class="token-balance">
+                <div v-if="tokenBalances[token.denom.toLowerCase()]" class="token-balance">
                   <small class="text-muted">
-                    Your Balance: {{ formatBalance(tokenBalances[token.denom].current_amount || tokenBalances[token.denom].amount, tokenBalances[token.denom].decimals || token.decimals) }} 
-                    {{ tokenBalances[token.denom].symbol || token.symbol }}
+                    Your Balance: {{ formatBalance(tokenBalances[token.denom.toLowerCase()].current_amount || tokenBalances[token.denom.toLowerCase()].amount, tokenBalances[token.denom.toLowerCase()].decimals || token.decimals) }} 
+                    {{ tokenBalances[token.denom.toLowerCase()].symbol || token.symbol }}
                   </small>
                 </div>
               </div>
@@ -251,7 +251,8 @@ const getTokenStatus = (token) => {
   if (loadingBalances.value) return 'neutral'
   
   // Check if user already has max amount
-  const balance = tokenBalances.value[token.denom]
+  // Normalize denom to lowercase for consistent lookup
+  const balance = tokenBalances.value[token.denom.toLowerCase()]
   // Use balance's target_amount if available, otherwise fall back to token config
   const targetAmount = balance?.target_amount 
     ? parseFloat(balance.target_amount) 
@@ -384,7 +385,7 @@ const getClaimPercentage = (token) => {
   if (loadingBalances.value || !props.address || !props.isValid) return 100
   
   const claimable = getClaimableAmountRaw(token)
-  const balance = tokenBalances.value[token.denom]
+  const balance = tokenBalances.value[token.denom.toLowerCase()]
   // Use balance's target_amount if available, otherwise fall back to token config
   const target = balance?.target_amount 
     ? parseFloat(balance.target_amount)
@@ -394,7 +395,7 @@ const getClaimPercentage = (token) => {
 }
 
 const getClaimableAmountRaw = (token) => {
-  const balance = tokenBalances.value[token.denom]
+  const balance = tokenBalances.value[token.denom.toLowerCase()]
   // Use balance's target_amount if available, otherwise fall back to token config
   const target = balance?.target_amount 
     ? parseFloat(balance.target_amount)

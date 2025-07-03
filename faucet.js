@@ -1410,7 +1410,7 @@ async function sendSmartFaucetTx(recipientAddress, addressType, neededAmounts) {
           results.gas_wanted = cosmosResult.gasWanted;
           results.rest_api_url = cosmosResult.restApiUrl;
           // Add explorer URL for Cosmos transactions from config
-          results.explorer_url = `${config.blockchain.endpoints.cosmos_explorer}/tx/${cosmosResult.transactionHash}`;
+          results.explorer_url = `${conf.blockchain.endpoints.cosmos_explorer}/tx/${cosmosResult.transactionHash}`;
           results.truncated_hash = cosmosResult.transactionHash ?
             `${cosmosResult.transactionHash.substring(0, 8)}...${cosmosResult.transactionHash.substring(cosmosResult.transactionHash.length - 8)}` :
             null;
@@ -1659,11 +1659,12 @@ async function sendCosmosTx(recipientAddress, nativeTokens) {
     console.log('Chain ID:', chainConf.ids.cosmosChainId);
 
     // Build amount array for native tokens
+    // Sort by denom alphabetically as required by Cosmos
     const amounts = nativeTokens.map(token => ({
       denom: token.denom,
       amount: token.amount
-    }));
-    console.log('Amounts to send:', amounts);
+    })).sort((a, b) => a.denom.localeCompare(b.denom));
+    console.log('Amounts to send (sorted):', amounts);
 
     // Create the transaction
     const { txBody, authInfo, signDoc } = await createCosmosTransaction(
