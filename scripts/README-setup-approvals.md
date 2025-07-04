@@ -90,10 +90,10 @@ node scripts/setup-approvals.js help
 ### Color-Coded Output
 
 The script uses color coding for better readability:
-- 🟢 Green: Sufficient balances/allowances
-- 🟡 Yellow: Warnings or low balances
-- 🔴 Red: Errors or zero balances
-- 🔵 Cyan: Token names and headers
+-  Green: Sufficient balances/allowances
+-  Yellow: Warnings or low balances
+-  Red: Errors or zero balances
+-  Cyan: Token names and headers
 
 ### Comprehensive Information
 

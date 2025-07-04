@@ -31,7 +31,7 @@ tests/
 *.spec.js
 
 # Build artifacts
-dist/
+# dist/ is needed for the frontend
 build/
 out/
 cache/

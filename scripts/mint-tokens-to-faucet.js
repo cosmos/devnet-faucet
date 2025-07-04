@@ -18,7 +18,7 @@ const MINTABLE_ERC20_ABI = [
 ];
 
 async function mintTokensToFaucet() {
-    console.log('🚀 Starting token minting process...\n');
+    console.log(' Starting token minting process...\n');
     
     try {
         // Initialize secure keys
@@ -31,9 +31,9 @@ async function mintTokensToFaucet() {
         const provider = new ethers.JsonRpcProvider(conf.blockchain.endpoints.evm_endpoint);
         const wallet = new ethers.Wallet(privateKey, provider);
         
-        console.log(`📍 Faucet Address: ${faucetAddress}`);
-        console.log(`💼 Minter Address: ${wallet.address}`);
-        console.log(`🌐 Network: ${conf.blockchain.name}\n`);
+        console.log(` Faucet Address: ${faucetAddress}`);
+        console.log(` Minter Address: ${wallet.address}`);
+        console.log(` Network: ${conf.blockchain.name}\n`);
         
         // Load token configuration
         const networkConfig = {
@@ -47,7 +47,7 @@ async function mintTokensToFaucet() {
         // Process each ERC20 token using the loader's methods
         const erc20Tokens = tokenLoader.getErc20Tokens();
         for (const token of erc20Tokens) {
-            console.log(`\n🪙 Processing ${token.symbol}...`);
+            console.log(`\n Processing ${token.symbol}...`);
             console.log(`  Address: ${token.erc20_contract}`);
             
             try {
@@ -65,7 +65,7 @@ async function mintTokensToFaucet() {
                 const hasMinterRole = await tokenContract.hasRole(minterRole, wallet.address);
                 
                 if (!hasMinterRole) {
-                    console.log(`  ❌ ${wallet.address} does not have MINTER_ROLE for ${token.symbol}`);
+                    console.log(`   ${wallet.address} does not have MINTER_ROLE for ${token.symbol}`);
                     console.log(`     The token contract may need to grant this role first.`);
                     continue;
                 }
@@ -81,7 +81,7 @@ async function mintTokensToFaucet() {
                 console.log(`  Transaction sent: ${tx.hash}`);
                 
                 const receipt = await tx.wait();
-                console.log(`  ✅ Minted successfully in block ${receipt.blockNumber}`);
+                console.log(`   Minted successfully in block ${receipt.blockNumber}`);
                 
                 // Verify new balance
                 const newBalance = await tokenContract.balanceOf(faucetAddress);
@@ -89,14 +89,14 @@ async function mintTokensToFaucet() {
                 console.log(`  New Balance: ${formattedNewBalance} ${token.symbol}`);
                 
             } catch (error) {
-                console.error(`  ❌ Error minting ${token.symbol}:`, error.message);
+                console.error(`   Error minting ${token.symbol}:`, error.message);
             }
         }
         
-        console.log('\n✅ Token minting process complete!');
+        console.log('\n Token minting process complete!');
         
     } catch (error) {
-        console.error('❌ Fatal error:', error);
+        console.error(' Fatal error:', error);
         process.exit(1);
     }
 }

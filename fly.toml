@@ -6,10 +6,14 @@ primary_region = "iad"
 
 [build]
   dockerfile = "Dockerfile"
+  [build.args]
+    VITE_REOWN_PROJECT_ID = "cd7b72f30c30b85d21857eba00143387"
 
 [env]
   NODE_ENV = "production"
   PORT = "8088"
+  # Network endpoints are configured here
+  # Sensitive data like MNEMONIC should be set via fly secrets
 
 [experimental]
   auto_rollback = true
